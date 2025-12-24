@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm test:*)",
+      "Bash(npm run build:*)",
+      "Bash(node dist/index.js:*)",
+      "Bash(TT_DATA_DIR=/tmp/tt-test node dist/index.js:*)",
+      "Bash(TT_DATA_DIR=/tmp/tt-test2 node dist/index.js:*)",
+      "Bash(cat:*)",
+      "WebSearch",
+      "Bash(tree-sitter:*)",
+      "Bash(for file in *.txt)",
+      "Bash(do sed -i 's/^---$/\\\\n---/' \"$file\")",
+      "Bash(done)"
+    ]
+  }
+}

@@ -1,0 +1,293 @@
+import { ParseError } from '../types/errors';
+import { LogEntry, ParseResult } from '../types/session';
+import { tokenizeFile, TokenizedLine, TokenType, Token } from './tokenizer';
+import { parseDuration } from './duration';
+import { parseISO, isValid, differenceInHours, isBefore } from 'date-fns';
+
+/**
+ * Parser for converting tokenized log lines into LogEntry objects
+ */
+export class LogParser {
+  private currentDate: Date;
+  private entries: LogEntry[] = [];
+  private errors: ParseError[] = [];
+  private warnings: string[] = [];
+  private lastTimestamp?: Date;
+
+  constructor(initialDate: Date = new Date()) {
+    // Start with today's date at midnight in local timezone
+    this.currentDate = new Date(
+      initialDate.getFullYear(),
+      initialDate.getMonth(),
+      initialDate.getDate(),
+      0,
+      0,
+      0,
+      0
+    );
+  }
+
+  /**
+   * Parse a timestamp token into a Date object
+   */
+  private parseTimestamp(timestampValue: string, lineNumber: number): Date {
+    // Check if it includes a date (YYYY-MM-DD HH:MM)
+    if (timestampValue.includes('-')) {
+      const parsed = parseISO(timestampValue.replace(' ', 'T'));
+      if (!isValid(parsed)) {
+        throw new ParseError(`Invalid timestamp: "${timestampValue}"`, lineNumber);
+      }
+      // Update current date context
+      this.currentDate = new Date(
+        parsed.getFullYear(),
+        parsed.getMonth(),
+        parsed.getDate(),
+        0,
+        0,
+        0,
+        0
+      );
+      return parsed;
+    }
+
+    // Parse time only (HH:MM or HH:MM:SS)
+    const timeMatch = timestampValue.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+    if (!timeMatch) {
+      throw new ParseError(`Invalid time format: "${timestampValue}"`, lineNumber);
+    }
+
+    const hours = parseInt(timeMatch[1], 10);
+    const minutes = parseInt(timeMatch[2], 10);
+    const seconds = timeMatch[3] ? parseInt(timeMatch[3], 10) : 0;
+
+    // Validate time values
+    if (hours > 23 || minutes > 59 || seconds > 59) {
+      throw new ParseError(`Invalid time values: "${timestampValue}"`, lineNumber);
+    }
+
+    // Create timestamp using current date context
+    const timestamp = new Date(this.currentDate);
+    timestamp.setHours(hours, minutes, seconds, 0);
+
+    // Check for time underflow (time went backward)
+    if (this.lastTimestamp && isBefore(timestamp, this.lastTimestamp)) {
+      // Assume next day
+      const nextDay = this.currentDate.getDate() + 1;
+      this.currentDate = new Date(
+        this.currentDate.getFullYear(),
+        this.currentDate.getMonth(),
+        nextDay,
+        0,
+        0,
+        0,
+        0
+      );
+      timestamp.setDate(nextDay);
+
+      this.warnings.push(
+        `Line ${lineNumber}: Time went backward (${timestampValue}), assuming next day`
+      );
+    }
+
+    // Check for large gaps (> 8 hours)
+    if (this.lastTimestamp) {
+      const hoursDiff = differenceInHours(timestamp, this.lastTimestamp);
+      if (hoursDiff > 8) {
+        this.warnings.push(
+          `Line ${lineNumber}: Large time gap detected (${hoursDiff} hours)`
+        );
+      }
+    }
+
+    this.lastTimestamp = timestamp;
+    return timestamp;
+  }
+
+  /**
+   * Find a token of specific type in the token list
+   */
+  private findToken(tokens: Token[], type: TokenType): Token | undefined {
+    return tokens.find((t) => t.type === type);
+  }
+
+  /**
+   * Find all tokens of specific type
+   */
+  private findAllTokens(tokens: Token[], type: TokenType): Token[] {
+    return tokens.filter((t) => t.type === type);
+  }
+
+  /**
+   * Parse a single tokenized line into a LogEntry
+   */
+  private parseTokenizedLine(tokenizedLine: TokenizedLine): LogEntry {
+    const { tokens, indentLevel, lineNumber } = tokenizedLine;
+
+    // Extract timestamp (required)
+    const timestampToken = this.findToken(tokens, TokenType.TIMESTAMP);
+    if (!timestampToken) {
+      throw new ParseError('Missing timestamp', lineNumber);
+    }
+
+    const timestamp = this.parseTimestamp(timestampToken.value, lineNumber);
+
+    // Check for resume marker
+    const resumeToken = this.findToken(tokens, TokenType.RESUME_MARKER);
+    if (resumeToken) {
+      // Resume marker - find the referenced task
+      const description = this.resolveResumeMarker(resumeToken.value, lineNumber);
+
+      return {
+        timestamp,
+        description,
+        tags: [],
+        indentLevel,
+        lineNumber,
+        // Other fields from the resume marker line (remark, etc.)
+        remark: this.findToken(tokens, TokenType.REMARK)?.value,
+      };
+    }
+
+    // Extract description (required if not resume marker, unless tags-only)
+    const descToken = this.findToken(tokens, TokenType.DESCRIPTION);
+    const tagTokens = this.findAllTokens(tokens, TokenType.TAG);
+
+    // If no description, must have at least one tag
+    if (!descToken && tagTokens.length === 0) {
+      throw new ParseError('Missing description or tags', lineNumber);
+    }
+
+    // Extract project
+    const projectToken = this.findToken(tokens, TokenType.PROJECT);
+    const project = projectToken?.value;
+
+    // Extract tags
+    const tags = tagTokens.map((t) => t.value);
+
+    // If no description, use first tag as description
+    const description = descToken?.value || (tags.length > 0 ? tags[0] : '');
+
+    // Extract and parse estimate
+    const estimateToken = this.findToken(tokens, TokenType.ESTIMATE);
+    let estimateMinutes: number | undefined;
+    if (estimateToken) {
+      try {
+        estimateMinutes = parseDuration(estimateToken.value);
+      } catch (error) {
+        if (error instanceof ParseError) {
+          throw new ParseError(`Invalid estimate: ${error.message}`, lineNumber);
+        }
+        throw error;
+      }
+    }
+
+    // Extract and parse explicit duration
+    const durationToken = this.findToken(tokens, TokenType.EXPLICIT_DURATION);
+    let explicitDurationMinutes: number | undefined;
+    if (durationToken) {
+      try {
+        explicitDurationMinutes = parseDuration(durationToken.value);
+      } catch (error) {
+        if (error instanceof ParseError) {
+          throw new ParseError(`Invalid duration: ${error.message}`, lineNumber);
+        }
+        throw error;
+      }
+    }
+
+    // Extract remark
+    const remarkToken = this.findToken(tokens, TokenType.REMARK);
+    const remark = remarkToken?.value;
+
+    return {
+      timestamp,
+      description,
+      project,
+      tags,
+      estimateMinutes,
+      explicitDurationMinutes,
+      remark,
+      indentLevel,
+      lineNumber,
+    };
+  }
+
+  /**
+   * Resolve a resume marker to a description
+   */
+  private resolveResumeMarker(markerValue: string, lineNumber: number): string {
+    if (markerValue === 'prev') {
+      // Find most recent entry at indent level 0 that's not a break/lunch
+      const workEntries = [...this.entries]
+        .reverse()
+        .filter((e) => e.indentLevel === 0);
+
+      // Skip entries that are tags-only (description came from a tag)
+      const prevEntry = workEntries.find((e) => {
+        const isTagsOnly = e.tags.includes(e.description);
+        return !isTagsOnly;
+      });
+
+      if (!prevEntry) {
+        throw new ParseError('No previous task to resume', lineNumber);
+      }
+
+      return prevEntry.description;
+    }
+
+    // Marker is a number - find entry by index (1-based)
+    const index = parseInt(markerValue, 10);
+    const targetEntry = this.entries.filter((e) => e.indentLevel === 0)[index - 1];
+
+    if (!targetEntry) {
+      throw new ParseError(`Task @${markerValue} not found`, lineNumber);
+    }
+
+    return targetEntry.description;
+  }
+
+  /**
+   * Parse a log file content
+   */
+  parse(content: string): ParseResult {
+    const tokenizeResult = tokenizeFile(content);
+
+    // Add tokenization errors to our errors list
+    this.errors.push(...tokenizeResult.errors);
+
+    // Process tokenized lines
+    for (const tokenizedLine of tokenizeResult.lines) {
+      // Skip null entries (empty/comment lines or error lines)
+      if (!tokenizedLine) {
+        continue;
+      }
+
+      try {
+        const entry = this.parseTokenizedLine(tokenizedLine);
+        this.entries.push(entry);
+      } catch (error) {
+        if (error instanceof ParseError) {
+          this.errors.push(error);
+        } else {
+          this.errors.push(
+            new ParseError(`Unexpected error: ${error}`, tokenizedLine.lineNumber)
+          );
+        }
+      }
+    }
+
+    return {
+      entries: this.entries,
+      errors: this.errors,
+      warnings: this.warnings,
+    };
+  }
+
+  /**
+   * Static helper to parse log content
+   */
+  static parse(content: string, initialDate?: Date): ParseResult {
+    const parser = new LogParser(initialDate);
+    return parser.parse(content);
+  }
+}
