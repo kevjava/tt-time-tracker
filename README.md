@@ -130,11 +130,17 @@ TIMESTAMP DESCRIPTION [@PROJECT] [+TAG...] [~ESTIMATE] [(DURATION)] [# REMARK]
 - `@prev` - Resume most recent task
 - `@5` - Resume task number 5
 
-**End Marker:**
+**State Markers:**
 
-- `@end` - Mark the end of the day's work
-- Sets the end time for the previous task
-- Example: `17:30 @end # done for the day`
+- `@end` - Mark task as completed
+  - Sets the end time for the previous task
+  - Example: `17:30 @end # done for the day`
+- `@pause` - Mark task as paused (will resume later)
+  - Sets the end time and marks task as 'paused'
+  - Example: `11:00 @pause # waiting for design review`
+- `@abandon` - Mark task as abandoned (won't finish)
+  - Sets the end time and marks task as 'abandoned'
+  - Example: `10:30 @abandon # approach won't work`
 
 ### Example Log File
 

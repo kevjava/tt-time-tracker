@@ -10,15 +10,17 @@ import { LogEntry } from '../../types/session';
 import { logger } from '../../utils/logger';
 
 /**
- * Log entry with calculated end time
+ * Log entry with calculated end time and state
  */
 interface ProcessedLogEntry extends LogEntry {
   endTime?: Date;
+  state?: 'completed' | 'paused' | 'abandoned';
 }
 
 /**
- * Calculate end times for log entries
+ * Calculate end times and states for log entries
  * Each entry's end_time is the next entry's start_time (unless explicit duration)
+ * State markers (@end, @pause, @abandon) set both end time and state
  */
 function calculateEndTimes(entries: LogEntry[]): ProcessedLogEntry[] {
   const result: ProcessedLogEntry[] = [];
@@ -27,16 +29,24 @@ function calculateEndTimes(entries: LogEntry[]): ProcessedLogEntry[] {
     const entry = entries[i];
     const nextEntry = entries[i + 1];
 
-    // Skip @end markers - they don't get inserted into database
-    if (entry.description === '__END__') {
+    // Skip state markers - they don't get inserted into database
+    if (entry.description === '__END__' || entry.description === '__PAUSE__' || entry.description === '__ABANDON__') {
       continue;
     }
 
-    // If next entry is @end marker, use its timestamp as end time
-    if (nextEntry?.description === '__END__') {
+    // Check if next entry is a state marker
+    const isNextEnd = nextEntry?.description === '__END__';
+    const isNextPause = nextEntry?.description === '__PAUSE__';
+    const isNextAbandon = nextEntry?.description === '__ABANDON__';
+    const isNextStateMarker = isNextEnd || isNextPause || isNextAbandon;
+
+    // If next entry is a state marker, use its timestamp as end time and set state
+    if (isNextStateMarker) {
+      const state = isNextEnd ? 'completed' : isNextPause ? 'paused' : 'abandoned';
       result.push({
         ...entry,
         endTime: nextEntry.timestamp,
+        state,
       });
     }
     // If entry has explicit duration, calculate end_time from start_time + duration
@@ -142,7 +152,7 @@ function insertEntries(db: TimeTrackerDB, entries: LogEntry[]): { sessions: numb
       estimateMinutes: entry.estimateMinutes,
       explicitDurationMinutes: entry.explicitDurationMinutes,
       remark: entry.remark,
-      state: entry.endTime ? 'completed' : 'working',
+      state: entry.state || (entry.endTime ? 'completed' : 'working'),
       parentSessionId,
     });
 
