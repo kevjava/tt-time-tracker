@@ -148,6 +148,20 @@ export class LogParser {
       };
     }
 
+    // Check for end marker
+    const endToken = this.findToken(tokens, TokenType.END_MARKER);
+    if (endToken) {
+      // End marker - special entry that marks end of log
+      return {
+        timestamp,
+        description: '__END__',
+        tags: [],
+        indentLevel: 0, // Always at root level
+        lineNumber,
+        remark: this.findToken(tokens, TokenType.REMARK)?.value,
+      };
+    }
+
     // Extract description (required if not resume marker, unless tags-only)
     const descToken = this.findToken(tokens, TokenType.DESCRIPTION);
     const tagTokens = this.findAllTokens(tokens, TokenType.TAG);

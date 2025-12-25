@@ -42,6 +42,7 @@ Create a log file with your time entries:
 12:10 +lunch
 12:48 @prev # back to fixing tests
 15:30 deploy to staging @projectX +deploy +ops
+17:00 @end
 ```
 
 Import it:
@@ -129,6 +130,12 @@ TIMESTAMP DESCRIPTION [@PROJECT] [+TAG...] [~ESTIMATE] [(DURATION)] [# REMARK]
 - `@prev` - Resume most recent task
 - `@5` - Resume task number 5
 
+**End Marker:**
+
+- `@end` - Mark the end of the day's work
+- Sets the end time for the previous task
+- Example: `17:30 @end # done for the day`
+
 ### Example Log File
 
 ```ttlog
@@ -141,6 +148,7 @@ TIMESTAMP DESCRIPTION [@PROJECT] [+TAG...] [~ESTIMATE] [(DURATION)] [# REMARK]
 13:00 @prev # back to feature A
 15:00 deploy to prod @projectX +deploy +ops (30m)
 16:00 write documentation @projectX +docs
+17:30 @end # done for the day
 ```
 
 ## Commands

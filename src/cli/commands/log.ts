@@ -27,8 +27,20 @@ function calculateEndTimes(entries: LogEntry[]): ProcessedLogEntry[] {
     const entry = entries[i];
     const nextEntry = entries[i + 1];
 
+    // Skip @end markers - they don't get inserted into database
+    if (entry.description === '__END__') {
+      continue;
+    }
+
+    // If next entry is @end marker, use its timestamp as end time
+    if (nextEntry?.description === '__END__') {
+      result.push({
+        ...entry,
+        endTime: nextEntry.timestamp,
+      });
+    }
     // If entry has explicit duration, calculate end_time from start_time + duration
-    if (entry.explicitDurationMinutes) {
+    else if (entry.explicitDurationMinutes) {
       const endTime = new Date(entry.timestamp);
       endTime.setMinutes(endTime.getMinutes() + entry.explicitDurationMinutes);
 

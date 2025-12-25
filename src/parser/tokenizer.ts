@@ -12,6 +12,7 @@ export enum TokenType {
   EXPLICIT_DURATION = 'EXPLICIT_DURATION',
   REMARK = 'REMARK',
   RESUME_MARKER = 'RESUME_MARKER',
+  END_MARKER = 'END_MARKER',
 }
 
 /**
@@ -96,8 +97,10 @@ export function tokenizeLine(line: string, lineNumber: number): TokenizedLine | 
   position += timestampMatch[0].length;
   remaining = remaining.slice(timestampMatch[0].length).trim();
 
-  // 2. Check for resume marker (@prev or @N)
+  // 2. Check for resume marker (@prev or @N) or end marker (@end)
   const resumeMatch = remaining.match(/^@(prev|\d+)(?:\s|$)/);
+  const endMatch = remaining.match(/^@end(?:\s|$)/);
+
   if (resumeMatch) {
     tokens.push({
       type: TokenType.RESUME_MARKER,
@@ -107,6 +110,15 @@ export function tokenizeLine(line: string, lineNumber: number): TokenizedLine | 
 
     position += resumeMatch[0].length;
     remaining = remaining.slice(resumeMatch[0].length).trim();
+  } else if (endMatch) {
+    tokens.push({
+      type: TokenType.END_MARKER,
+      value: 'end',
+      position,
+    });
+
+    position += endMatch[0].length;
+    remaining = remaining.slice(endMatch[0].length).trim();
   } else {
     // 3. Extract description (everything before special markers)
     // Build description by consuming tokens until we hit a special marker or end of line
