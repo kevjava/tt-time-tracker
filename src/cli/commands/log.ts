@@ -7,6 +7,7 @@ import { TimeTrackerDB } from '../../db/database';
 import { ensureDataDir, getDatabasePath } from '../../utils/config';
 import { openInEditor } from '../editor';
 import { LogEntry } from '../../types/session';
+import { logger } from '../../utils/logger';
 
 /**
  * Log entry with calculated end time
@@ -193,9 +194,12 @@ export async function logCommand(file?: string): Promise<void> {
         process.exit(1);
       }
 
+      logger.debug(`Reading log file: ${file}`);
       filePath = file;
       content = readFileSync(file, 'utf-8');
+      logger.debug(`Read ${content.split('\n').length} lines from file`);
     } else {
+      logger.debug('Reading from stdin...');
       // Read from stdin
       const chunks: Buffer[] = [];
 
@@ -208,9 +212,11 @@ export async function logCommand(file?: string): Promise<void> {
       // Save to temp file for editor
       filePath = join(tmpdir(), `tt-log-${Date.now()}.log`);
       writeFileSync(filePath, content, 'utf-8');
+      logger.debug(`Saved stdin to temp file: ${filePath}`);
     }
 
     // Parse loop: keep trying until valid or user aborts
+    logger.debug('Starting parse...');
     let parseResult = LogParser.parse(content);
 
     while (parseResult.errors.length > 0) {
@@ -238,10 +244,14 @@ export async function logCommand(file?: string): Promise<void> {
 
     // Insert into database
     ensureDataDir();
-    const db = new TimeTrackerDB(getDatabasePath());
+    const dbPath = getDatabasePath();
+    logger.debug(`Using database: ${dbPath}`);
+    const db = new TimeTrackerDB(dbPath);
 
     try {
+      logger.debug(`Inserting ${parseResult.entries.length} entries into database...`);
       const { sessions, interruptions } = insertEntries(db, parseResult.entries);
+      logger.debug(`Inserted ${sessions} sessions and ${interruptions} interruptions`);
 
       console.log(
         chalk.green.bold('✓') +
