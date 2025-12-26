@@ -11,7 +11,13 @@
       "Bash(tree-sitter:*)",
       "Bash(for file in *.txt)",
       "Bash(do sed -i 's/^---$/\\\\n---/' \"$file\")",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(tree:*)",
+      "Bash(sqlite3:*)",
+      "Bash(TT_DATA_DIR=/tmp/tt-interrupt-test node dist/index.js:*)",
+      "Bash(TT_DATA_DIR=/tmp/tt-int-test node dist/index.js:*)",
+      "Bash(TT_DATA_DIR=/tmp/tt-resume-test node dist/index.js:*)",
+      "Bash(TT_DATA_DIR=/tmp/tt-resume-no-task node dist/index.js:*)"
     ]
   }
 }

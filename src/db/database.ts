@@ -207,6 +207,27 @@ export class TimeTrackerDB {
   }
 
   /**
+   * Get all active sessions (end_time is NULL)
+   */
+  getAllActiveSessions(): (Session & { tags: string[] })[] {
+    try {
+      const stmt = this.db.prepare(`
+        SELECT * FROM sessions
+        WHERE end_time IS NULL
+        ORDER BY start_time ASC
+      `);
+
+      const rows = stmt.all() as any[];
+      return rows.map((row) => {
+        const tags = this.getSessionTags(row.id);
+        return this.rowToSession(row, tags);
+      });
+    } catch (error) {
+      throw new DatabaseError(`Failed to get all active sessions: ${error}`);
+    }
+  }
+
+  /**
    * Get sessions within a time range
    */
   getSessionsByTimeRange(

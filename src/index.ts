@@ -5,6 +5,9 @@ import { logCommand } from './cli/commands/log';
 import { startCommand } from './cli/commands/start';
 import { stopCommand } from './cli/commands/stop';
 import { reportCommand } from './cli/commands/report';
+import { statusCommand } from './cli/commands/status';
+import { interruptCommand } from './cli/commands/interrupt';
+import { resumeCommand } from './cli/commands/resume';
 
 const program = new Command();
 
@@ -12,6 +15,12 @@ program
   .name('tt')
   .description('Unix-philosophy CLI time tracker')
   .version('1.0.0');
+
+// Status command (default)
+program
+  .command('status', { isDefault: true })
+  .description('Show status of all running timers and interruptions')
+  .action(() => statusCommand({ isDefault: process.argv.length === 2 }));
 
 // Log command
 program
@@ -46,5 +55,22 @@ program
   .description('Stop current active task')
   .option('-r, --remark <remark>', 'Add remark to task')
   .action(stopCommand);
+
+// Interrupt command
+program
+  .command('interrupt')
+  .description('Interrupt current task with a new task')
+  .argument('<description>', 'Interruption description')
+  .option('-p, --project <project>', 'Project name')
+  .option('-t, --tags <tags>', 'Comma-separated tags')
+  .option('-e, --estimate <duration>', 'Estimated duration (e.g., 2h, 30m)')
+  .action(interruptCommand);
+
+// Resume command
+program
+  .command('resume')
+  .description('Complete current interruption and resume parent task')
+  .option('-r, --remark <remark>', 'Add remark to interruption')
+  .action(resumeCommand);
 
 program.parse();
