@@ -228,6 +228,27 @@ export class TimeTrackerDB {
   }
 
   /**
+   * Get child sessions (interruptions) for a parent session
+   */
+  getChildSessions(parentSessionId: number): (Session & { tags: string[] })[] {
+    try {
+      const stmt = this.db.prepare(`
+        SELECT * FROM sessions
+        WHERE parent_session_id = ?
+        ORDER BY start_time ASC
+      `);
+
+      const rows = stmt.all(parentSessionId) as any[];
+      return rows.map((row) => {
+        const tags = this.getSessionTags(row.id);
+        return this.rowToSession(row, tags);
+      });
+    } catch (error) {
+      throw new DatabaseError(`Failed to get child sessions: ${error}`);
+    }
+  }
+
+  /**
    * Get sessions within a time range
    */
   getSessionsByTimeRange(

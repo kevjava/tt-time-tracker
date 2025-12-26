@@ -182,7 +182,7 @@ export function listCommand(options: ListOptions): void {
           continue;
         }
 
-        printSession(session, 0);
+        printSession(session, 0, db);
       }
 
       console.log();
@@ -198,7 +198,7 @@ export function listCommand(options: ListOptions): void {
 /**
  * Print a session and its children
  */
-function printSession(session: Session & { tags: string[] }, indentLevel: number): void {
+function printSession(session: Session & { tags: string[] }, indentLevel: number, db: TimeTrackerDB): void {
   const indent = '  '.repeat(indentLevel);
   const dateWidth = 16;
   const timeWidth = 14;
@@ -233,6 +233,9 @@ function printSession(session: Session & { tags: string[] }, indentLevel: number
 
   console.log(row);
 
-  // Note: Child sessions (interruptions) would need to be fetched separately
-  // For now, we're only showing top-level sessions
+  // Fetch and display child sessions (interruptions)
+  const children = db.getChildSessions(session.id!);
+  for (const child of children) {
+    printSession(child, indentLevel + 1, db);
+  }
 }
