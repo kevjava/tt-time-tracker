@@ -155,6 +155,7 @@ export function listCommand(options: ListOptions): void {
       console.log(chalk.bold(`\nSessions: ${label}\n`));
 
       // Calculate column widths
+      const idWidth = 6;
       const dateWidth = 16;
       const timeWidth = 14;
       const descWidth = 40;
@@ -164,6 +165,7 @@ export function listCommand(options: ListOptions): void {
 
       // Print header
       const header =
+        pad(chalk.bold('ID'), idWidth) +
         pad(chalk.bold('Date'), dateWidth) +
         pad(chalk.bold('Time'), timeWidth) +
         pad(chalk.bold('Description'), descWidth) +
@@ -173,7 +175,7 @@ export function listCommand(options: ListOptions): void {
         chalk.bold('State');
 
       console.log(header);
-      console.log(chalk.gray('─'.repeat(130)));
+      console.log(chalk.gray('─'.repeat(136)));
 
       // Print sessions
       for (const session of sessions) {
@@ -200,6 +202,7 @@ export function listCommand(options: ListOptions): void {
  */
 function printSession(session: Session & { tags: string[] }, indentLevel: number, db: TimeTrackerDB): void {
   const indent = '  '.repeat(indentLevel);
+  const idWidth = 6;
   const dateWidth = 16;
   const timeWidth = 14;
   const descWidth = 40;
@@ -207,6 +210,7 @@ function printSession(session: Session & { tags: string[] }, indentLevel: number
   const tagsWidth = 20;
   const durationWidth = 12;
 
+  const id = session.id?.toString() || '';
   const date = format(session.startTime, 'EEE, MMM d');
   const timeRange = session.endTime
     ? `${format(session.startTime, 'HH:mm')}-${format(session.endTime, 'HH:mm')}`
@@ -223,6 +227,7 @@ function printSession(session: Session & { tags: string[] }, indentLevel: number
   const state = formatState(session.state);
 
   const row =
+    pad(id, idWidth) +
     pad(date, dateWidth) +
     pad(timeRange, timeWidth) +
     pad(indent + description, descWidth) +

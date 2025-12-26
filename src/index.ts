@@ -9,6 +9,7 @@ import { statusCommand } from './cli/commands/status';
 import { interruptCommand } from './cli/commands/interrupt';
 import { resumeCommand } from './cli/commands/resume';
 import { listCommand } from './cli/commands/list';
+import { deleteCommand } from './cli/commands/delete';
 import { logger } from './utils/logger';
 
 const program = new Command();
@@ -96,5 +97,13 @@ program
   .description('Complete current interruption and resume parent task')
   .option('-r, --remark <remark>', 'Add remark to interruption')
   .action(resumeCommand);
+
+// Delete command
+program
+  .command('delete')
+  .description('Delete a session by ID')
+  .argument('<session-id>', 'Session ID to delete')
+  .option('-f, --force', 'Skip confirmation prompt')
+  .action(deleteCommand);
 
 program.parse();
