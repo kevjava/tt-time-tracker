@@ -45,7 +45,13 @@ export function resumeCommand(options: ResumeOptions = {}): void {
       }
 
       // Stop current interruption
-      const endTime = new Date();
+      let endTime = new Date();
+
+      // Ensure end_time is after start_time (database constraint)
+      if (endTime <= activeSession.startTime) {
+        endTime = new Date(activeSession.startTime.getTime() + 1);
+      }
+
       db.updateSession(activeSession.id!, {
         endTime,
         state: 'completed',

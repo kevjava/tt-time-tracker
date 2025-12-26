@@ -23,7 +23,12 @@ export function stopCommand(options: StopOptions): void {
         process.exit(1);
       }
 
-      const endTime = new Date();
+      let endTime = new Date();
+
+      // Ensure end_time is after start_time (database constraint)
+      if (endTime <= activeSession.startTime) {
+        endTime = new Date(activeSession.startTime.getTime() + 1);
+      }
 
       // Update session
       db.updateSession(activeSession.id!, {
