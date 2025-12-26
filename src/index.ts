@@ -10,6 +10,7 @@ import { interruptCommand } from './cli/commands/interrupt';
 import { resumeCommand } from './cli/commands/resume';
 import { listCommand } from './cli/commands/list';
 import { deleteCommand } from './cli/commands/delete';
+import { editCommand } from './cli/commands/edit';
 import { logger } from './utils/logger';
 
 const program = new Command();
@@ -40,6 +41,7 @@ program
   .command('log')
   .description('Parse and insert time entries from file or stdin')
   .argument('[file]', 'Log file to parse (reads from stdin if not provided)')
+  .option('--overwrite', 'Allow overwriting overlapping sessions after confirmation')
   .action(logCommand);
 
 // Report command
@@ -105,5 +107,20 @@ program
   .argument('<session-id>', 'Session ID to delete')
   .option('-f, --force', 'Skip confirmation prompt')
   .action(deleteCommand);
+
+// Edit command
+program
+  .command('edit')
+  .description('Edit a session by ID')
+  .argument('<session-id>', 'Session ID to edit')
+  .option('-d, --description <description>', 'Update description')
+  .option('-p, --project <project>', 'Update project')
+  .option('-t, --tags <tags>', 'Update tags (comma-separated)')
+  .option('-e, --estimate <duration>', 'Update estimate (e.g., 2h, 30m)')
+  .option('-r, --remark <remark>', 'Update remark')
+  .option('--start-time <time>', 'Update start time (ISO 8601 format)')
+  .option('--end-time <time>', 'Update end time (ISO 8601 format, empty string to clear)')
+  .option('--state <state>', 'Update state (working, paused, completed, abandoned)')
+  .action(editCommand);
 
 program.parse();

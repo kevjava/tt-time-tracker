@@ -90,6 +90,35 @@ export class TimeTrackerDB {
   }
 
   /**
+   * Update tags for a session (replaces all existing tags)
+   */
+  updateSessionTags(sessionId: number, tags: string[]): void {
+    try {
+      const updateTags = this.db.transaction((sessionId: number, tags: string[]) => {
+        // Delete existing tags
+        const deleteStmt = this.db.prepare('DELETE FROM session_tags WHERE session_id = ?');
+        deleteStmt.run(sessionId);
+
+        // Insert new tags
+        if (tags.length > 0) {
+          const insertStmt = this.db.prepare(`
+            INSERT INTO session_tags (session_id, tag)
+            VALUES (?, ?)
+          `);
+
+          for (const tag of tags) {
+            insertStmt.run(sessionId, tag);
+          }
+        }
+      });
+
+      updateTags(sessionId, tags);
+    } catch (error) {
+      throw new DatabaseError(`Failed to update tags: ${error}`);
+    }
+  }
+
+  /**
    * Update a session
    */
   updateSession(id: number, updates: Partial<Omit<Session, 'id' | 'createdAt'>>): void {
@@ -245,6 +274,59 @@ export class TimeTrackerDB {
       });
     } catch (error) {
       throw new DatabaseError(`Failed to get child sessions: ${error}`);
+    }
+  }
+
+  /**
+   * Find sessions that overlap with a given time range
+   * Returns root sessions (those without parents) that overlap
+   */
+  getOverlappingSessions(startTime: Date, endTime: Date | null): (Session & { tags: string[] })[] {
+    try {
+      let query: string;
+      let params: any[];
+
+      if (endTime === null) {
+        // New session is open-ended starting at startTime
+        // It overlaps with existing sessions that:
+        // 1. Start at or after startTime (they're in the future)
+        // 2. Are open-ended and start at or before startTime (they extend into this time)
+        // 3. End after startTime (they're still running when this starts)
+        query = `
+          SELECT * FROM sessions
+          WHERE parent_session_id IS NULL
+            AND (
+              start_time >= ?
+              OR end_time IS NULL
+              OR end_time > ?
+            )
+          ORDER BY start_time ASC
+        `;
+        params = [startTime.toISOString(), startTime.toISOString()];
+      } else {
+        // Closed session: overlaps if ranges intersect
+        // Two ranges [a1,a2] and [b1,b2] overlap if: a1 < b2 AND b1 < a2
+        // For sessions: new_start < existing_end AND existing_start < new_end
+        query = `
+          SELECT * FROM sessions
+          WHERE parent_session_id IS NULL
+            AND (
+              (start_time < ? AND (end_time IS NULL OR end_time > ?))
+            )
+          ORDER BY start_time ASC
+        `;
+        params = [endTime.toISOString(), startTime.toISOString()];
+      }
+
+      const stmt = this.db.prepare(query);
+      const rows = stmt.all(...params) as any[];
+
+      return rows.map((row) => {
+        const tags = this.getSessionTags(row.id);
+        return this.rowToSession(row, tags);
+      });
+    } catch (error) {
+      throw new DatabaseError(`Failed to get overlapping sessions: ${error}`);
     }
   }
 

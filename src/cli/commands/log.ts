@@ -1,12 +1,14 @@
 import { readFileSync, existsSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import { createInterface } from 'readline';
 import chalk from 'chalk';
+import { format } from 'date-fns';
 import { LogParser } from '../../parser/grammar';
 import { TimeTrackerDB } from '../../db/database';
 import { ensureDataDir, getDatabasePath } from '../../utils/config';
 import { openInEditor } from '../editor';
-import { LogEntry } from '../../types/session';
+import { LogEntry, Session } from '../../types/session';
 import { logger } from '../../utils/logger';
 
 /**
@@ -202,9 +204,122 @@ function displayWarnings(warnings: string[]): void {
 }
 
 /**
+ * Check if two time ranges overlap
+ */
+function timeRangesOverlap(
+  start1: Date,
+  end1: Date | undefined,
+  start2: Date,
+  end2: Date | undefined
+): boolean {
+  // If either is open-ended, check if one starts during the other
+  if (!end1) {
+    // start1 is open-ended: overlaps if start2 >= start1
+    return start2 >= start1;
+  }
+  if (!end2) {
+    // start2 is open-ended: overlaps if start1 >= start2
+    return start1 >= start2;
+  }
+
+  // Both are closed: ranges overlap if start1 < end2 AND start2 < end1
+  return start1 < end2 && start2 < end1;
+}
+
+/**
+ * Validate that entries don't have overlapping time ranges (except parent-child)
+ * Returns array of error messages
+ */
+function validateNoSelfOverlaps(entries: ProcessedLogEntry[], parentMap: Map<number, number>): string[] {
+  const errors: string[] = [];
+
+  // Only check top-level entries (not children)
+  const topLevelEntries = entries
+    .map((entry, idx) => ({ entry, idx }))
+    .filter(({ idx }) => !parentMap.has(idx));
+
+  for (let i = 0; i < topLevelEntries.length; i++) {
+    for (let j = i + 1; j < topLevelEntries.length; j++) {
+      const { entry: entry1 } = topLevelEntries[i];
+      const { entry: entry2 } = topLevelEntries[j];
+
+      if (timeRangesOverlap(entry1.timestamp, entry1.endTime, entry2.timestamp, entry2.endTime)) {
+        errors.push(
+          `Sessions overlap: "${entry1.description}" (line ${entry1.lineNumber}) and "${entry2.description}" (line ${entry2.lineNumber})`
+        );
+      }
+    }
+  }
+
+  return errors;
+}
+
+/**
+ * Find all existing sessions that overlap with the imported entries
+ */
+function findOverlappingExistingSessions(
+  db: TimeTrackerDB,
+  entries: ProcessedLogEntry[],
+  parentMap: Map<number, number>
+): Set<number> {
+  const overlappingIds = new Set<number>();
+
+  // Only check top-level entries
+  const topLevelEntries = entries.filter((_, idx) => !parentMap.has(idx));
+
+  for (const entry of topLevelEntries) {
+    const overlapping = db.getOverlappingSessions(entry.timestamp, entry.endTime || null);
+    for (const session of overlapping) {
+      overlappingIds.add(session.id!);
+    }
+  }
+
+  return overlappingIds;
+}
+
+/**
+ * Prompt user for confirmation
+ */
+function promptConfirmation(message: string): Promise<boolean> {
+  const rl = createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  return new Promise((resolve) => {
+    rl.question(message, (answer) => {
+      rl.close();
+      resolve(answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes');
+    });
+  });
+}
+
+/**
+ * Recursively collect all descendants for display
+ */
+function getAllDescendantIds(db: TimeTrackerDB, sessionId: number): number[] {
+  const descendants: number[] = [];
+
+  function collectChildren(parentId: number): void {
+    const children = db.getChildSessions(parentId);
+    for (const child of children) {
+      descendants.push(child.id!);
+      collectChildren(child.id!);
+    }
+  }
+
+  collectChildren(sessionId);
+  return descendants;
+}
+
+interface LogCommandOptions {
+  overwrite?: boolean;
+}
+
+/**
  * tt log command implementation
  */
-export async function logCommand(file?: string): Promise<void> {
+export async function logCommand(file?: string, options: LogCommandOptions = {}): Promise<void> {
   try {
     let content: string;
     let filePath: string;
@@ -264,6 +379,22 @@ export async function logCommand(file?: string): Promise<void> {
       displayWarnings(parseResult.warnings);
     }
 
+    // Calculate end times and parent relationships
+    const entriesWithEndTimes = calculateEndTimes(parseResult.entries);
+    const parentMap = buildParentMap(parseResult.entries);
+
+    // Validate no self-overlaps in the import file
+    logger.debug('Validating no self-overlaps...');
+    const selfOverlapErrors = validateNoSelfOverlaps(entriesWithEndTimes, parentMap);
+    if (selfOverlapErrors.length > 0) {
+      console.error(chalk.red.bold('\n✗ Found overlapping sessions in import file:\n'));
+      for (const error of selfOverlapErrors) {
+        console.error(chalk.red(`  ${error}`));
+      }
+      console.error();
+      process.exit(1);
+    }
+
     // Insert into database
     ensureDataDir();
     const dbPath = getDatabasePath();
@@ -271,6 +402,69 @@ export async function logCommand(file?: string): Promise<void> {
     const db = new TimeTrackerDB(dbPath);
 
     try {
+      // Check for overlaps with existing sessions
+      logger.debug('Checking for overlaps with existing sessions...');
+      const overlappingIds = findOverlappingExistingSessions(db, entriesWithEndTimes, parentMap);
+
+      if (overlappingIds.size > 0) {
+        logger.debug(`Found ${overlappingIds.size} overlapping session(s)`);
+
+        // Display overlapping sessions
+        console.log(chalk.yellow.bold(`\n⚠ Found ${overlappingIds.size} overlapping session(s):\n`));
+
+        const overlappingSessions: Array<Session & { tags: string[]; descendants: number[] }> = [];
+        for (const id of overlappingIds) {
+          const session = db.getSessionById(id);
+          if (session) {
+            const descendants = getAllDescendantIds(db, id);
+            overlappingSessions.push({ ...session, descendants });
+
+            console.log(
+              `  ${chalk.yellow(`#${id}`)} ${session.description} - ${format(session.startTime, 'MMM d, HH:mm')}${session.endTime ? `-${format(session.endTime, 'HH:mm')}` : ''}`
+            );
+            if (descendants.length > 0) {
+              console.log(chalk.gray(`      (includes ${descendants.length} interruption(s))`));
+            }
+          }
+        }
+        console.log();
+
+        if (!options.overwrite) {
+          console.error(
+            chalk.red(
+              'Cannot import: sessions would overlap with existing sessions.\n' +
+                'Use --overwrite flag to replace overlapping sessions.'
+            )
+          );
+          process.exit(1);
+        }
+
+        // Ask for confirmation to delete and replace
+        const totalToDelete =
+          overlappingIds.size +
+          overlappingSessions.reduce((sum, s) => sum + s.descendants.length, 0);
+
+        const confirmed = await promptConfirmation(
+          chalk.yellow(
+            `This will delete ${totalToDelete} session(s) and replace them with the imported data.\n` +
+              'Are you sure you want to continue? (y/N): '
+          )
+        );
+
+        if (!confirmed) {
+          console.log(chalk.gray('Import cancelled.'));
+          process.exit(0);
+        }
+
+        // Delete overlapping sessions (cascade will handle descendants)
+        logger.debug(`Deleting ${overlappingIds.size} overlapping session(s)...`);
+        for (const id of overlappingIds) {
+          db.deleteSession(id);
+        }
+        console.log(chalk.green(`✓ Deleted ${totalToDelete} session(s)\n`));
+      }
+
+      // Insert the new entries
       logger.debug(`Inserting ${parseResult.entries.length} entries into database...`);
       const { sessions, interruptions } = insertEntries(db, parseResult.entries);
       logger.debug(`Inserted ${sessions} sessions and ${interruptions} interruptions`);
