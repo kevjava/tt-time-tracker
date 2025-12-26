@@ -42,6 +42,7 @@ Create a log file with your time entries:
 12:10 +lunch
 12:48 @prev # back to fixing tests
 15:30 deploy to staging @projectX +deploy +ops
+17:00 @end
 ```
 
 Import it:
@@ -129,6 +130,18 @@ TIMESTAMP DESCRIPTION [@PROJECT] [+TAG...] [~ESTIMATE] [(DURATION)] [# REMARK]
 - `@prev` - Resume most recent task
 - `@5` - Resume task number 5
 
+**State Markers:**
+
+- `@end` - Mark task as completed
+  - Sets the end time for the previous task
+  - Example: `17:30 @end # done for the day`
+- `@pause` - Mark task as paused (will resume later)
+  - Sets the end time and marks task as 'paused'
+  - Example: `11:00 @pause # waiting for design review`
+- `@abandon` - Mark task as abandoned (won't finish)
+  - Sets the end time and marks task as 'abandoned'
+  - Example: `10:30 @abandon # approach won't work`
+
 ### Example Log File
 
 ```ttlog
@@ -141,6 +154,7 @@ TIMESTAMP DESCRIPTION [@PROJECT] [+TAG...] [~ESTIMATE] [(DURATION)] [# REMARK]
 13:00 @prev # back to feature A
 15:00 deploy to prod @projectX +deploy +ops (30m)
 16:00 write documentation @projectX +docs
+17:30 @end # done for the day
 ```
 
 ## Commands

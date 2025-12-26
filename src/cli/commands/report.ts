@@ -6,6 +6,7 @@ import { generateWeeklyReport } from '../../reports/weekly';
 import { formatTerminalReport } from '../../reports/formatters/terminal';
 import { formatJsonReport } from '../../reports/formatters/json';
 import { formatCsvReport } from '../../reports/formatters/csv';
+import { logger } from '../../utils/logger';
 
 interface ReportOptions {
   week?: string;
@@ -26,6 +27,7 @@ export function reportCommand(options: ReportOptions): void {
       // Parse week specification
       const weekSpec = options.week || 'current';
       const { start, end, label } = getWeekBounds(weekSpec);
+      logger.debug(`Generating report for: ${label} (${start.toDateString()} - ${end.toDateString()})`);
 
       // Build filter options
       const filterOptions: any = {};
@@ -37,6 +39,7 @@ export function reportCommand(options: ReportOptions): void {
       if (options.tag) {
         filterOptions.tags = options.tag.split(',').map((t) => t.trim());
       }
+      logger.debug(`Filter options: ${JSON.stringify(filterOptions)}`);
 
       // Get sessions
       const sessions = db.getSessionsByTimeRange(start, end, filterOptions);
@@ -51,6 +54,7 @@ export function reportCommand(options: ReportOptions): void {
 
       // Format output
       const format = options.format || 'terminal';
+      logger.debug(`Output format: ${format}`);
 
       let output: string;
 

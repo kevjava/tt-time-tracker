@@ -12,6 +12,9 @@ export enum TokenType {
   EXPLICIT_DURATION = 'EXPLICIT_DURATION',
   REMARK = 'REMARK',
   RESUME_MARKER = 'RESUME_MARKER',
+  END_MARKER = 'END_MARKER',
+  PAUSE_MARKER = 'PAUSE_MARKER',
+  ABANDON_MARKER = 'ABANDON_MARKER',
 }
 
 /**
@@ -96,8 +99,12 @@ export function tokenizeLine(line: string, lineNumber: number): TokenizedLine | 
   position += timestampMatch[0].length;
   remaining = remaining.slice(timestampMatch[0].length).trim();
 
-  // 2. Check for resume marker (@prev or @N)
+  // 2. Check for resume marker (@prev or @N) or state markers (@end, @pause, @abandon)
   const resumeMatch = remaining.match(/^@(prev|\d+)(?:\s|$)/);
+  const endMatch = remaining.match(/^@end(?:\s|$)/);
+  const pauseMatch = remaining.match(/^@pause(?:\s|$)/);
+  const abandonMatch = remaining.match(/^@abandon(?:\s|$)/);
+
   if (resumeMatch) {
     tokens.push({
       type: TokenType.RESUME_MARKER,
@@ -107,6 +114,33 @@ export function tokenizeLine(line: string, lineNumber: number): TokenizedLine | 
 
     position += resumeMatch[0].length;
     remaining = remaining.slice(resumeMatch[0].length).trim();
+  } else if (endMatch) {
+    tokens.push({
+      type: TokenType.END_MARKER,
+      value: 'end',
+      position,
+    });
+
+    position += endMatch[0].length;
+    remaining = remaining.slice(endMatch[0].length).trim();
+  } else if (pauseMatch) {
+    tokens.push({
+      type: TokenType.PAUSE_MARKER,
+      value: 'pause',
+      position,
+    });
+
+    position += pauseMatch[0].length;
+    remaining = remaining.slice(pauseMatch[0].length).trim();
+  } else if (abandonMatch) {
+    tokens.push({
+      type: TokenType.ABANDON_MARKER,
+      value: 'abandon',
+      position,
+    });
+
+    position += abandonMatch[0].length;
+    remaining = remaining.slice(abandonMatch[0].length).trim();
   } else {
     // 3. Extract description (everything before special markers)
     // Build description by consuming tokens until we hit a special marker or end of line

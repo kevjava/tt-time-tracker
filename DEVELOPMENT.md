@@ -24,7 +24,7 @@ This document provides comprehensive information for developers working on TT Ti
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/tt-time-tracker.git
+git clone https://github.com/kevjava/tt-time-tracker.git
 cd tt-time-tracker
 
 # Install dependencies
@@ -73,6 +73,35 @@ export EDITOR=true                  # Non-interactive editor for tests
 export TT_DATA_DIR=~/.local/share/tt
 export EDITOR=vim
 ```
+
+### Git Hooks
+
+The project uses [Husky](https://typicode.github.io/husky/) to manage Git hooks and ensure code quality.
+
+**Pre-commit Hook:**
+- Automatically runs `npm test` before each commit
+- Rejects commits if any tests fail
+- Ensures the main branch always has passing tests
+
+**Testing the hook:**
+```bash
+# Make a change and try to commit
+git add .
+git commit -m "Your commit message"
+
+# If tests fail, the commit will be rejected
+# Fix the tests and try again
+```
+
+**Bypassing the hook (not recommended):**
+```bash
+# Only use in emergencies
+git commit --no-verify -m "Emergency fix"
+```
+
+**Hook location:**
+- `.husky/pre-commit` - Pre-commit hook script
+- The `prepare` script in `package.json` initializes Husky automatically on `npm install`
 
 ## Project Architecture
 
