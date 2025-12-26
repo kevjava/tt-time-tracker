@@ -1,4 +1,5 @@
 import chalk from 'chalk';
+import { format as formatDate } from 'date-fns';
 import { TimeTrackerDB } from '../../db/database';
 import { ensureDataDir, getDatabasePath } from '../../utils/config';
 import { getWeekBounds } from '../../utils/date';
@@ -10,6 +11,8 @@ import { logger } from '../../utils/logger';
 
 interface ReportOptions {
   week?: string;
+  from?: string;
+  to?: string;
   project?: string;
   tag?: string;
   format?: string;
@@ -24,9 +27,48 @@ export function reportCommand(options: ReportOptions): void {
     const db = new TimeTrackerDB(getDatabasePath());
 
     try {
-      // Parse week specification
-      const weekSpec = options.week || 'current';
-      const { start, end, label } = getWeekBounds(weekSpec);
+      // Determine time range: custom dates take precedence over week
+      let start: Date;
+      let end: Date;
+      let label: string;
+
+      if (options.from || options.to) {
+        // Parse and validate start date
+        if (options.from) {
+          start = new Date(options.from);
+          if (isNaN(start.getTime())) {
+            console.error(chalk.red(`Error: Invalid --from date: ${options.from}. Use YYYY-MM-DD format.`));
+            process.exit(1);
+          }
+        } else {
+          start = new Date(0);  // Beginning of time if only --to is provided
+        }
+
+        // Parse and validate end date
+        if (options.to) {
+          end = new Date(options.to);
+          if (isNaN(end.getTime())) {
+            console.error(chalk.red(`Error: Invalid --to date: ${options.to}. Use YYYY-MM-DD format.`));
+            process.exit(1);
+          }
+          end.setHours(23, 59, 59, 999);  // Include entire end day
+        } else {
+          end = new Date();  // Current moment if only --from is provided
+        }
+
+        // Generate label for custom range
+        label = `${formatDate(start, 'MMM d')} - ${formatDate(end, 'MMM d, yyyy')}`;
+        logger.debug(`Using custom date range: ${label}`);
+      } else {
+        // Week-based range (existing logic)
+        const weekSpec = options.week || 'current';
+        const bounds = getWeekBounds(weekSpec);
+        start = bounds.start;
+        end = bounds.end;
+        label = bounds.label;
+        logger.debug(`Using week-based range: ${label}`);
+      }
+
       logger.debug(`Generating report for: ${label} (${start.toDateString()} - ${end.toDateString()})`);
 
       // Build filter options

@@ -47,8 +47,10 @@ program
 // Report command
 program
   .command('report')
-  .description('Generate weekly time report')
+  .description('Generate time report for a date range')
   .option('--week <week>', 'Week to report: "current" (default), "last", or ISO week (2024-W51)', 'current')
+  .option('--from <date>', 'Start date (YYYY-MM-DD)')
+  .option('--to <date>', 'End date (YYYY-MM-DD)')
   .option('--project <project>', 'Filter by project')
   .option('--tag <tags>', 'Filter by tags (comma-separated)')
   .option('--format <format>', 'Output format: "terminal" (default), "json", "csv"', 'terminal')
