@@ -194,6 +194,86 @@ describe('LogParser', () => {
     });
   });
 
+  describe('state markers', () => {
+    it('should parse @end marker', () => {
+      const content = `09:00 coding @projectX +code
+10:00 code review
+15:30 @end`;
+      const result = LogParser.parse(content, new Date('2024-12-24'));
+
+      expect(result.errors).toHaveLength(0);
+      expect(result.entries).toHaveLength(3);
+      expect(result.entries[2].description).toBe('__END__');
+      expect(result.entries[2].indentLevel).toBe(0);
+      expect(result.entries[2].tags).toEqual([]);
+      expect(result.entries[2].timestamp.getHours()).toBe(15);
+      expect(result.entries[2].timestamp.getMinutes()).toBe(30);
+    });
+
+    it('should allow @end with remark', () => {
+      const content = `09:00 coding
+15:30 @end # done for the day`;
+      const result = LogParser.parse(content, new Date('2024-12-24'));
+
+      expect(result.errors).toHaveLength(0);
+      expect(result.entries[1].description).toBe('__END__');
+      expect(result.entries[1].remark).toBe('done for the day');
+    });
+
+    it('should parse @pause marker', () => {
+      const content = `09:00 fix authentication bug +code
+11:00 @pause # waiting for design review`;
+      const result = LogParser.parse(content, new Date('2024-12-24'));
+
+      expect(result.errors).toHaveLength(0);
+      expect(result.entries).toHaveLength(2);
+      expect(result.entries[1].description).toBe('__PAUSE__');
+      expect(result.entries[1].indentLevel).toBe(0);
+      expect(result.entries[1].tags).toEqual([]);
+      expect(result.entries[1].remark).toBe('waiting for design review');
+    });
+
+    it('should parse @abandon marker', () => {
+      const content = `09:00 attempt refactoring +code
+10:30 @abandon # approach won't work`;
+      const result = LogParser.parse(content, new Date('2024-12-24'));
+
+      expect(result.errors).toHaveLength(0);
+      expect(result.entries).toHaveLength(2);
+      expect(result.entries[1].description).toBe('__ABANDON__');
+      expect(result.entries[1].indentLevel).toBe(0);
+      expect(result.entries[1].tags).toEqual([]);
+      expect(result.entries[1].remark).toBe('approach won\'t work');
+    });
+
+    it('should handle @end as only entry', () => {
+      const content = '15:30 @end';
+      const result = LogParser.parse(content, new Date('2024-12-24'));
+
+      expect(result.errors).toHaveLength(0);
+      expect(result.entries).toHaveLength(1);
+      expect(result.entries[0].description).toBe('__END__');
+    });
+
+    it('should handle multiple state markers in log', () => {
+      const content = `2024-12-24 09:00 morning work
+12:00 @end
+
+2024-12-25 14:00 afternoon work
+15:00 @pause
+
+2024-12-26 09:00 failed experiment
+10:00 @abandon`;
+      const result = LogParser.parse(content, new Date('2024-12-24'));
+
+      expect(result.errors).toHaveLength(0);
+      expect(result.entries).toHaveLength(6);
+      expect(result.entries[1].description).toBe('__END__');
+      expect(result.entries[3].description).toBe('__PAUSE__');
+      expect(result.entries[5].description).toBe('__ABANDON__');
+    });
+  });
+
   describe('indentation (interruptions)', () => {
     it('should track indentation level', () => {
       const content = `09:00 main task

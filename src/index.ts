@@ -8,12 +8,14 @@ import { reportCommand } from './cli/commands/report';
 import { statusCommand } from './cli/commands/status';
 import { interruptCommand } from './cli/commands/interrupt';
 import { resumeCommand } from './cli/commands/resume';
+import { logger } from './utils/logger';
 
 const program = new Command();
 
 program
   .name('tt')
   .description('Unix-philosophy CLI time tracker')
+  .option('-v, --verbose', 'Output debug messages.')
   .version('1.0.0');
 
 // Status command (default)
@@ -21,6 +23,15 @@ program
   .command('status', { isDefault: true })
   .description('Show status of all running timers and interruptions')
   .action(() => statusCommand({ isDefault: process.argv.length === 2 }));
+
+// Hook to enable verbose logging before any command runs
+program.hook('preAction', (thisCommand) => {
+  const opts = thisCommand.optsWithGlobals();
+  if (opts.verbose) {
+    logger.setVerbose(true);
+    logger.debug('Verbose mode enabled');
+  }
+});
 
 // Log command
 program

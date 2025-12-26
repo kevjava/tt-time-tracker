@@ -7,17 +7,20 @@ import { TimeTrackerDB } from '../../db/database';
 import { ensureDataDir, getDatabasePath } from '../../utils/config';
 import { openInEditor } from '../editor';
 import { LogEntry } from '../../types/session';
+import { logger } from '../../utils/logger';
 
 /**
- * Log entry with calculated end time
+ * Log entry with calculated end time and state
  */
 interface ProcessedLogEntry extends LogEntry {
   endTime?: Date;
+  state?: 'completed' | 'paused' | 'abandoned';
 }
 
 /**
- * Calculate end times for log entries
+ * Calculate end times and states for log entries
  * Each entry's end_time is the next entry's start_time (unless explicit duration)
+ * State markers (@end, @pause, @abandon) set both end time and state
  */
 function calculateEndTimes(entries: LogEntry[]): ProcessedLogEntry[] {
   const result: ProcessedLogEntry[] = [];
@@ -26,8 +29,28 @@ function calculateEndTimes(entries: LogEntry[]): ProcessedLogEntry[] {
     const entry = entries[i];
     const nextEntry = entries[i + 1];
 
+    // Skip state markers - they don't get inserted into database
+    if (entry.description === '__END__' || entry.description === '__PAUSE__' || entry.description === '__ABANDON__') {
+      continue;
+    }
+
+    // Check if next entry is a state marker
+    const isNextEnd = nextEntry?.description === '__END__';
+    const isNextPause = nextEntry?.description === '__PAUSE__';
+    const isNextAbandon = nextEntry?.description === '__ABANDON__';
+    const isNextStateMarker = isNextEnd || isNextPause || isNextAbandon;
+
+    // If next entry is a state marker, use its timestamp as end time and set state
+    if (isNextStateMarker) {
+      const state = isNextEnd ? 'completed' : isNextPause ? 'paused' : 'abandoned';
+      result.push({
+        ...entry,
+        endTime: nextEntry.timestamp,
+        state,
+      });
+    }
     // If entry has explicit duration, calculate end_time from start_time + duration
-    if (entry.explicitDurationMinutes) {
+    else if (entry.explicitDurationMinutes) {
       const endTime = new Date(entry.timestamp);
       endTime.setMinutes(endTime.getMinutes() + entry.explicitDurationMinutes);
 
@@ -129,7 +152,7 @@ function insertEntries(db: TimeTrackerDB, entries: LogEntry[]): { sessions: numb
       estimateMinutes: entry.estimateMinutes,
       explicitDurationMinutes: entry.explicitDurationMinutes,
       remark: entry.remark,
-      state: entry.endTime ? 'completed' : 'working',
+      state: entry.state || (entry.endTime ? 'completed' : 'working'),
       parentSessionId,
     });
 
@@ -193,9 +216,12 @@ export async function logCommand(file?: string): Promise<void> {
         process.exit(1);
       }
 
+      logger.debug(`Reading log file: ${file}`);
       filePath = file;
       content = readFileSync(file, 'utf-8');
+      logger.debug(`Read ${content.split('\n').length} lines from file`);
     } else {
+      logger.debug('Reading from stdin...');
       // Read from stdin
       const chunks: Buffer[] = [];
 
@@ -208,9 +234,11 @@ export async function logCommand(file?: string): Promise<void> {
       // Save to temp file for editor
       filePath = join(tmpdir(), `tt-log-${Date.now()}.log`);
       writeFileSync(filePath, content, 'utf-8');
+      logger.debug(`Saved stdin to temp file: ${filePath}`);
     }
 
     // Parse loop: keep trying until valid or user aborts
+    logger.debug('Starting parse...');
     let parseResult = LogParser.parse(content);
 
     while (parseResult.errors.length > 0) {
@@ -238,10 +266,14 @@ export async function logCommand(file?: string): Promise<void> {
 
     // Insert into database
     ensureDataDir();
-    const db = new TimeTrackerDB(getDatabasePath());
+    const dbPath = getDatabasePath();
+    logger.debug(`Using database: ${dbPath}`);
+    const db = new TimeTrackerDB(dbPath);
 
     try {
+      logger.debug(`Inserting ${parseResult.entries.length} entries into database...`);
       const { sessions, interruptions } = insertEntries(db, parseResult.entries);
+      logger.debug(`Inserted ${sessions} sessions and ${interruptions} interruptions`);
 
       console.log(
         chalk.green.bold('✓') +
