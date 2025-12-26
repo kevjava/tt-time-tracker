@@ -8,6 +8,7 @@ import { reportCommand } from './cli/commands/report';
 import { statusCommand } from './cli/commands/status';
 import { interruptCommand } from './cli/commands/interrupt';
 import { resumeCommand } from './cli/commands/resume';
+import { listCommand } from './cli/commands/list';
 import { logger } from './utils/logger';
 
 const program = new Command();
@@ -49,6 +50,18 @@ program
   .option('--tag <tags>', 'Filter by tags (comma-separated)')
   .option('--format <format>', 'Output format: "terminal" (default), "json", "csv"', 'terminal')
   .action(reportCommand);
+
+// List command
+program
+  .command('list')
+  .description('List sessions in columnar format for specified time range')
+  .option('--week <week>', 'Week to list: "current" (default), "last", or ISO week (2024-W51)', 'current')
+  .option('--from <date>', 'Start date (YYYY-MM-DD)')
+  .option('--to <date>', 'End date (YYYY-MM-DD)')
+  .option('--project <project>', 'Filter by project')
+  .option('--tag <tags>', 'Filter by tags (comma-separated)')
+  .option('--state <state>', 'Filter by state: working, paused, completed, abandoned')
+  .action(listCommand);
 
 // Start command
 program
