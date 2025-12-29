@@ -239,6 +239,58 @@ Stop current active task.
 tt stop -r "completed ahead of schedule"
 ```
 
+### `tt interrupt <description>`
+
+Interrupt the current task with a new task. The current task is paused and a new task starts as a child session. Supports log notation syntax.
+
+**Options:**
+
+- `-p, --project <project>` - Project name (overrides log notation)
+- `-t, --tags <tags>` - Comma-separated tags (overrides log notation)
+- `-e, --estimate <duration>` - Estimated duration (overrides log notation, e.g., 2h, 30m)
+
+**Log Notation Support:**
+
+Like the `start` command, `interrupt` supports log notation for quick task creation:
+
+```bash
+# With timestamp
+tt interrupt 10:30 Quick bug fix @hotfix +urgent ~15m
+
+# Without timestamp (uses current time)
+tt interrupt Code review needed @myApp +review
+
+# Command-line options override
+tt interrupt 11:00 Meeting @projectA -p projectB
+```
+
+**Examples:**
+
+```bash
+# Simple interruption
+tt interrupt "urgent customer call"
+
+# With metadata using flags
+tt interrupt "fix production bug" -p backend -t urgent,bugfix -e 30m
+
+# Using log notation
+tt interrupt 14:00 Standup meeting @team +meeting ~15m
+```
+
+### `tt resume`
+
+Complete the current interruption and resume the parent task.
+
+**Options:**
+
+- `-r, --remark <remark>` - Add remark to the interruption being completed
+
+**Example:**
+
+```bash
+tt resume -r "issue resolved"
+```
+
 ### `tt report`
 
 Generate time report for a date range.
