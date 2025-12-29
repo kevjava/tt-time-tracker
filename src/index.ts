@@ -66,6 +66,7 @@ program
   .option('--project <project>', 'Filter by project')
   .option('--tag <tags>', 'Filter by tags (comma-separated)')
   .option('--state <state>', 'Filter by state: working, paused, completed, abandoned')
+  .option('--format <format>', 'Output format: "table" (default), "log"', 'table')
   .action(listCommand);
 
 // Start command

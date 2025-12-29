@@ -5,6 +5,7 @@ import { ensureDataDir, getDatabasePath } from '../../utils/config';
 import { getWeekBounds } from '../../utils/date';
 import { Session } from '../../types/session';
 import { logger } from '../../utils/logger';
+import { formatSessionsAsLog } from '../formatters/log';
 
 interface ListOptions {
   week?: string;
@@ -13,6 +14,7 @@ interface ListOptions {
   project?: string;
   tag?: string;
   state?: string;
+  format?: string;
 }
 
 /**
@@ -151,7 +153,14 @@ export function listCommand(options: ListOptions): void {
         process.exit(0);
       }
 
-      // Display header
+      // Format and display output
+      if (options.format === 'log') {
+        const output = formatSessionsAsLog(sessions, db);
+        console.log(output);
+        return;
+      }
+
+      // Display header (table format)
       console.log(chalk.bold(`\nSessions: ${label}\n`));
 
       // Calculate column widths
