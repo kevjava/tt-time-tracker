@@ -483,6 +483,90 @@ tt delete --from "3 days ago" --to yesterday
 - Child sessions are automatically included in the deletion summary
 - The command shows total time and project breakdown before confirmation
 
+### `tt edit <session-id> [log-notation...]`
+
+Edit a session by ID using command-line flags or log notation.
+
+**Arguments:**
+
+- `<session-id>` - ID of the session to edit (required)
+- `[log-notation...]` - Optional log notation for updates (e.g., `~20m`, `@project`, `+tag1 +tag2`)
+
+**Options:**
+
+- `-d, --description <description>` - Update description
+- `-p, --project <project>` - Update project
+- `-t, --tags <tags>` - Update tags (comma-separated)
+- `-e, --estimate <duration>` - Update estimate (e.g., `2h`, `30m`)
+- `-r, --remark <remark>` - Update remark
+- `--start-time <time>` - Update start time (ISO 8601 format)
+- `--end-time <time>` - Update end time (ISO 8601 format, empty string to clear)
+- `--state <state>` - Update state (`working`, `paused`, `completed`, `abandoned`)
+
+**Log Notation Support:**
+
+Like the `start` command, `edit` supports log notation for quick updates. Command-line flags override log notation values when both are provided.
+
+**Behavior:**
+
+- Only specified fields are updated; other fields remain unchanged
+- Empty description in log notation (e.g., `@project ~30m`) preserves existing description
+- Supports timestamps to update start time (preserves date, updates time only)
+- Supports explicit duration like `(45m)` to set end time relative to start time
+- Command-line flags take precedence over log notation
+
+**Examples:**
+
+```bash
+# Edit using command-line flags
+tt edit 42 -d "Updated description" -p newProject
+
+# Update estimate using log notation
+tt edit 42 ~45m
+
+# Update project and tags using log notation
+tt edit 42 @newProject +tag1 +tag2
+
+# Update description with log notation
+tt edit 42 New task description
+
+# Combine description with metadata
+tt edit 42 Refactored auth module @backend +refactor ~2h
+
+# Update start time using timestamp notation
+tt edit 42 10:30
+
+# Set end time using explicit duration
+tt edit 42 "(45m)"
+
+# Update start time and set end time with explicit duration
+tt edit 42 "10:00 (30m)"
+
+# Update multiple fields with log notation
+tt edit 42 "Fixed critical bug @backend +bugfix +urgent ~1h"
+
+# Command-line flags override log notation
+tt edit 42 @projectA +tagA -p projectB -t tagB
+# Result: Uses projectB and tagB (flags override notation)
+
+# Update only metadata, preserve description
+tt edit 42 @newProject ~2h
+# Description remains unchanged
+
+# Clear end time
+tt edit 42 --end-time ""
+
+# Update state
+tt edit 42 --state abandoned -r "Deprioritized"
+```
+
+**Tips:**
+
+- Use `tt list` to find session IDs
+- Preview current session details before editing - they're displayed when you run the command
+- Changes are shown after applying updates
+- Timestamps in log notation preserve the session's date, only updating the time
+
 ## Report Sections
 
 The weekly report includes:

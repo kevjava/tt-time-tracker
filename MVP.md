@@ -24,10 +24,10 @@ A Unix-philosophy CLI time tracker with low-friction retroactive logging, compre
 
 ### 📊 Test Coverage
 
-- **Total Tests**: 221 passing
-- **Covered Commands**: start, interrupt, delete
-- **Missing Tests**: stop, resume, status, edit, report, list, log
-- **Coverage**: ~45% (need 80%+ for MVP)
+- **Total Tests**: 242 passing
+- **Covered Commands**: start, interrupt, delete, edit
+- **Missing Tests**: stop, resume, status, report, list, log
+- **Coverage**: ~50% (need 80%+ for MVP)
 
 ### 🎯 Known Gaps for MVP
 
@@ -65,19 +65,60 @@ The `tt delete` command now supports:
 
 **Documentation**: Updated README.md and EXAMPLES.md with comprehensive examples
 
-#### 0.2: Edit flexibility
+#### ✅ 0.2: Edit flexibility (COMPLETED 2025-12-28)
 
-I'd like to add log format to the `tt edit` command.
+**Status**: Complete and tested
 
-For example, you could use
+The `tt edit` command now supports log notation for quick updates:
 
-```ttlog
-tt edit 10 ~20m
-```
+- **Log notation syntax**: Same familiar syntax as `start` and `log` commands
+  - `tt edit 10 ~20m` - Update estimate
+  - `tt edit 10 @newProject` - Change project
+  - `tt edit 10 +tag1 +tag2` - Update tags
+  - `tt edit 10 New description` - Change description
+  - `tt edit 10 New description @project +tags ~1h` - Update multiple fields
+- **Timestamp support**: Update start times with timestamps
+  - `tt edit 10 10:30` - Set start time (preserves date)
+  - `tt edit 10 10:00 (30m)` - Set start time and end time via explicit duration
+  - `tt edit 10 "(45m)"` - Set end time based on current start time
+- **Flag override**: Command-line flags take precedence over log notation
+  - `tt edit 10 @projectA -p projectB` uses `projectB`
+- **Smart parsing**: Metadata-only updates preserve existing description
+  - `tt edit 10 @project ~30m` keeps original description
+- **All existing flags**: Still supports traditional flag-based editing
+  - `-d, --description`, `-p, --project`, `-t, --tags`, `-e, --estimate`
+  - `-r, --remark`, `--start-time`, `--end-time`, `--state`
 
-To change the estimate of session number 10 to 20 minutes.
+**Implementation Details**:
 
-Please ask if you see issues that could arise with this or need clarification.
+- Modified `editCommand` to accept optional log notation arguments
+- Added `LogParser` integration with smart placeholder insertion
+- Implemented explicit duration handling for end time calculation
+- Preserved date when updating time portion of timestamps
+- Added `startTime` support to `database.updateSession()` method
+
+**Test Coverage**: 21 comprehensive tests covering:
+
+- Flag-based editing (description, project, tags, estimate)
+- Log notation editing (all metadata types)
+- Timestamp updates (start time, explicit duration)
+- Flag override behavior
+- Field preservation (metadata-only updates)
+- Error handling (invalid inputs, missing session)
+
+**Documentation**:
+
+- README.md: Complete command reference with 15+ examples
+- EXAMPLES.md: Detailed usage scenarios across 6 categories
+  - Quick fixes, flag usage, time adjustments
+  - Metadata-only updates, flag overrides
+  - Workflows and batch corrections
+
+**Notes**:
+
+- Maintains consistency with `start` command log notation patterns
+- Enables rapid corrections without switching to flag-based syntax
+- Supports both workflows: quick log notation OR detailed flags
 
 ### Phase 1: Foundation & Reliability 🔧
 
@@ -105,7 +146,13 @@ Add comprehensive test suites for:
    - Edge cases (paused sessions, etc.)
 
 3. **edit / delete** (Session 2)
-   - Edit session fields (description, project, tags, estimate, remark, times, state)
+   - ✅ **edit** - COMPLETE (21 tests)
+     - Flag-based editing (all fields)
+     - Log notation editing (description, project, tags, estimate, timestamps)
+     - Timestamp updates with explicit duration
+     - Flag override behavior
+     - Field preservation logic
+     - Invalid inputs and error handling
    - ✅ **delete** - COMPLETE (21 tests)
      - Single and bulk deletion
      - Filter-based deletion
@@ -295,7 +342,7 @@ $ tt report
 
 **Time Patterns**:
 
-```
+```text
 Most Productive Hours:
   09:00-11:00: 12h (34%)
   14:00-16:00: 10h (29%)

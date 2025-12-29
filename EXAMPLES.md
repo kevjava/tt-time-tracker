@@ -553,6 +553,124 @@ tt delete --from yesterday --to yesterday
 - Child sessions (interruptions) are automatically deleted with their parents
 - Date ranges are inclusive of both start and end dates
 
+### Session Editing
+
+#### Quick Fixes
+
+```bash
+# Fix a typo in description using log notation
+tt edit 42 "Corrected task description"
+
+# Update project
+tt edit 42 @correctProject
+
+# Add tags
+tt edit 42 +bugfix +urgent
+
+# Update estimate
+tt edit 42 ~2h
+
+# Combine multiple updates
+tt edit 42 "Fixed description @newProject +tag1 +tag2 ~1h30m"
+```
+
+#### Using Command-Line Flags
+
+```bash
+# Update description with flag
+tt edit 42 -d "New description"
+
+# Update project and tags
+tt edit 42 -p backend -t code,refactor
+
+# Update estimate
+tt edit 42 -e 45m
+
+# Update multiple fields
+tt edit 42 -d "Bug fix" -p api -t bugfix,urgent -e 30m
+
+# Add or update remark
+tt edit 42 -r "Took longer than expected"
+
+# Update state
+tt edit 42 --state abandoned -r "Deprioritized"
+```
+
+#### Time Adjustments
+
+```bash
+# Update start time (preserves date, changes time)
+tt edit 42 10:30
+
+# Set end time with explicit duration
+tt edit 42 "(45m)"
+
+# Update both start time and end time
+tt edit 42 "10:00 (30m)"
+
+# Clear end time (re-open session)
+tt edit 42 --end-time ""
+
+# Set specific end time using flag
+tt edit 42 --end-time "2024-12-24T14:30:00"
+```
+
+#### Metadata-Only Updates (Preserve Description)
+
+```bash
+# Update only project, keep description unchanged
+tt edit 42 @newProject
+
+# Update only tags
+tt edit 42 +tag1 +tag2 +tag3
+
+# Update only estimate
+tt edit 42 ~1h
+
+# Update project and tags, preserve description
+tt edit 42 @backend +refactor +code
+```
+
+#### Flag Overrides
+
+```bash
+# Log notation with flag override
+tt edit 42 @projectA -p projectB
+# Result: Uses projectB (flag overrides notation)
+
+# Multiple overrides
+tt edit 42 "Task @projectA +tagA ~30m" -p projectB -t tagB -e 1h
+# Result: Uses projectB, tagB, and 1h (all flags override)
+```
+
+#### Workflow: Find and Fix
+
+```bash
+# List sessions to find ID
+tt list --from today
+
+# Edit the session
+tt edit 15 @correctProject ~2h
+
+# Verify the change
+tt list --from today
+```
+
+#### Batch Corrections
+
+```bash
+# Find all sessions for a project
+tt list --project oldName --format table
+
+# Edit each one (IDs from list output)
+tt edit 10 @newName
+tt edit 11 @newName
+tt edit 12 @newName
+
+# Verify
+tt list --project newName --from "this week"
+```
+
 ## Troubleshooting Examples
 
 ### Fix Common Errors
