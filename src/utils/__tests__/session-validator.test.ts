@@ -11,7 +11,7 @@ import { TimeTrackerDB } from '../../db/database';
 // Mock the time-parser module
 jest.mock('../time-parser', () => ({
   parseAtTime: jest.fn((time: string | undefined) => {
-    if (!time) return new Date('2025-12-29T15:30:00.000Z');
+    if (!time) return new Date(); // Return actual current time for undefined
     if (time === '-30m') return new Date('2025-12-29T15:00:00.000Z');
     if (time === '14:30') return new Date('2025-12-29T14:30:00.000Z');
     if (time === '16:00') return new Date('2025-12-29T16:00:00.000Z');
@@ -20,10 +20,20 @@ jest.mock('../time-parser', () => ({
     throw new Error('Unable to parse time');
   }),
   validateNotFuture: jest.fn((time: Date) => {
-    // For tests with undefined time, use actual current time for comparison
+    // For mocked times, use reference date; for actual current times, use real current time
     const now = new Date();
-    if (time.getTime() > now.getTime()) {
-      throw new Error(`Time cannot be in the future: ${time.toLocaleString()}`);
+    const referenceTime = new Date('2025-12-29T15:30:00.000Z');
+
+    // If the time being validated is close to current time (within 2 seconds), use actual current time
+    if (Math.abs(time.getTime() - now.getTime()) < 2000) {
+      if (time.getTime() > now.getTime()) {
+        throw new Error(`Time cannot be in the future: ${time.toLocaleString()}`);
+      }
+    } else {
+      // Otherwise use reference time (for mocked dates)
+      if (time.getTime() > referenceTime.getTime()) {
+        throw new Error(`Time cannot be in the future: ${time.toLocaleString()}`);
+      }
     }
   }),
   validateTimeOrder: jest.fn((startTime: Date, endTime: Date) => {

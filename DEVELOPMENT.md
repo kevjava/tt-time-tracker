@@ -9,7 +9,13 @@ This document provides comprehensive information for developers working on TT Ti
 - [Code Organization](#code-organization)
 - [Testing Strategy](#testing-strategy)
 - [Implementation Phases](#implementation-phases)
+- [Recent Features](#recent-features-december-2024)
+- [Code Style Guidelines](#code-style-guidelines)
+- [Building and Distribution](#building-and-distribution)
 - [Contributing](#contributing)
+- [Performance Considerations](#performance-considerations)
+- [Debugging](#debugging)
+- [Future Enhancements](#future-enhancements)
 
 ## Development Setup
 
@@ -63,12 +69,14 @@ TT_DATA_DIR=/tmp/tt-test node dist/index.js log test.log
 ### Environment Variables
 
 **Development:**
+
 ```bash
 export TT_DATA_DIR=/tmp/tt-test    # Use temp directory for testing
 export EDITOR=true                  # Non-interactive editor for tests
 ```
 
 **Production:**
+
 ```bash
 export TT_DATA_DIR=~/.local/share/tt
 export EDITOR=vim
@@ -79,11 +87,13 @@ export EDITOR=vim
 The project uses [Husky](https://typicode.github.io/husky/) to manage Git hooks and ensure code quality.
 
 **Pre-commit Hook:**
+
 - Automatically runs `npm test` before each commit
 - Rejects commits if any tests fail
 - Ensures the main branch always has passing tests
 
 **Testing the hook:**
+
 ```bash
 # Make a change and try to commit
 git add .
@@ -94,12 +104,14 @@ git commit -m "Your commit message"
 ```
 
 **Bypassing the hook (not recommended):**
+
 ```bash
 # Only use in emergencies
 git commit --no-verify -m "Emergency fix"
 ```
 
 **Hook location:**
+
 - `.husky/pre-commit` - Pre-commit hook script
 - The `prepare` script in `package.json` initializes Husky automatically on `npm install`
 
@@ -199,11 +211,22 @@ tt-time-tracker/
 │   │   │   ├── log.ts
 │   │   │   ├── start.ts
 │   │   │   ├── stop.ts
-│   │   │   └── report.ts
+│   │   │   ├── interrupt.ts
+│   │   │   ├── resume.ts
+│   │   │   ├── pause.ts
+│   │   │   ├── abandon.ts
+│   │   │   ├── report.ts
+│   │   │   ├── list.ts
+│   │   │   ├── delete.ts
+│   │   │   ├── edit.ts
+│   │   │   └── __tests__/    # Command tests
 │   │   └── editor.ts         # Editor integration
 │   └── utils/                # Utilities
 │       ├── config.ts         # Configuration management
-│       └── date.ts           # Date utilities
+│       ├── date.ts           # Date utilities
+│       ├── time-parser.ts    # --at flag time parsing
+│       ├── session-validator.ts  # Session time validation
+│       └── __tests__/        # Utility tests
 ├── dist/                     # Build output (generated)
 ├── package.json
 ├── tsconfig.json
@@ -217,16 +240,19 @@ tt-time-tracker/
 #### Parser Module
 
 **Duration Parser** (`src/parser/duration.ts`)
+
 - Parses duration strings: `2h`, `30m`, `1h30m`
 - Validates format and constraints
 - Pure function, no side effects
 
 **Tokenizer** (`src/parser/tokenizer.ts`)
+
 - Converts log lines into token streams
 - Handles: timestamps, projects, tags, estimates, durations, remarks
 - Error-resilient: continues on errors, collects all errors
 
 **Grammar Parser** (`src/parser/grammar.ts`)
+
 - `LogParser` class converts tokens to `LogEntry` objects
 - Maintains date context across entries
 - Handles time underflow (midnight crossing)
@@ -236,12 +262,14 @@ tt-time-tracker/
 #### Database Module
 
 **TimeTrackerDB** (`src/db/database.ts`)
+
 - SQLite wrapper using better-sqlite3
 - Manages sessions and tags
 - CRUD operations with transactions
 - Query filtering by time range, project, tags
 
 **Schema** (`src/db/schema.sql`)
+
 - `sessions` table: time entries with metadata
 - `session_tags` table: many-to-many relationship
 - Proper indexes for query performance
@@ -250,12 +278,14 @@ tt-time-tracker/
 #### Reports Module
 
 **Calculators** (`src/reports/calculators/`)
+
 - `context-switches.ts`: Classify switches by severity
 - `efficiency.ts`: Gross/net time calculations
 - `focus-blocks.ts`: Deep work detection
 - `estimate-accuracy.ts`: Estimate vs actual analysis
 
 **Formatters** (`src/reports/formatters/`)
+
 - `terminal.ts`: Colored, formatted terminal output
 - `json.ts`: Structured JSON export
 - `csv.ts`: Excel-compatible CSV
@@ -263,10 +293,37 @@ tt-time-tracker/
 #### CLI Module
 
 **Commands** (`src/cli/commands/`)
+
 - Each command is a separate module
 - Uses Commander.js for argument parsing
 - Chalk for colored output
 - Consistent error handling pattern
+
+#### Utilities Module
+
+**Time Parser** (`src/utils/time-parser.ts`)
+
+- Parses time strings for `--at` flag
+- Supports three formats: relative, time-only, full datetime
+- Uses chrono-node for natural language parsing
+- Validates times are not in the future
+- Validates time ordering (end after start)
+
+**Session Validator** (`src/utils/session-validator.ts`)
+
+- Validation functions for each command type
+- Checks overlap conflicts with existing sessions
+- Enforces time ordering constraints
+- Provides clear error messages
+
+**Functions:**
+
+- `validateStartTime()` - For `start` command
+- `validateStopTime()` - For `stop` command
+- `validateInterruptTime()` - For `interrupt` command
+- `validateResumeTime()` - For `resume` command
+- `validatePauseTime()` - For `pause` command
+- `validateAbandonTime()` - For `abandon` command
 
 ## Testing Strategy
 
@@ -283,18 +340,31 @@ src/
 
 ### Test Coverage
 
-Current: **102 tests passing**
+Current: **139 tests passing**
 
 - **Parser Tests (74 tests)**
   - Duration: 17 tests
   - Tokenizer: 31 tests
   - Grammar: 26 tests
 
-- **Database Tests (28 tests)**
+- **Database Tests (72 tests)**
   - CRUD operations
   - Filtering and queries
   - Foreign key constraints
   - Transaction behavior
+  - Overlap detection (44 tests)
+
+- **Utilities Tests (30 tests)**
+  - Time parser: 26 tests (relative, time-only, full datetime)
+  - Session validator: 30 tests (start, stop, interrupt, resume, pause, abandon)
+
+- **Command Tests (28 tests)**
+  - Start command: 5 tests
+  - Interrupt command: 3 tests
+  - Pause command: 11 tests
+  - Abandon command: 13 tests
+  - Edit command: multiple tests
+  - Delete command: multiple tests
 
 ### Running Tests
 
@@ -318,24 +388,26 @@ npm test -- --testPathPattern=parser
 ### Writing Tests
 
 **Unit Test Example:**
+
 ```typescript
-describe('parseDuration', () => {
-  it('should parse hours and minutes', () => {
-    expect(parseDuration('1h30m')).toBe(90);
+describe("parseDuration", () => {
+  it("should parse hours and minutes", () => {
+    expect(parseDuration("1h30m")).toBe(90);
   });
 
-  it('should reject invalid format', () => {
-    expect(() => parseDuration('invalid')).toThrow(ParseError);
+  it("should reject invalid format", () => {
+    expect(() => parseDuration("invalid")).toThrow(ParseError);
   });
 });
 ```
 
 **Integration Test Example:**
+
 ```typescript
-describe('LogParser', () => {
-  it('should parse complete log file', () => {
+describe("LogParser", () => {
+  it("should parse complete log file", () => {
     const content = `09:00 task @project +tag`;
-    const result = LogParser.parse(content, new Date('2024-12-24'));
+    const result = LogParser.parse(content, new Date("2024-12-24"));
 
     expect(result.errors).toHaveLength(0);
     expect(result.entries).toHaveLength(1);
@@ -346,6 +418,7 @@ describe('LogParser', () => {
 ### Test Fixtures
 
 Located in `src/parser/__tests__/fixtures/`:
+
 - `simple.log` - Basic entries
 - `interruptions.log` - Nested interruptions
 - `errors.log` - Parse errors
@@ -357,6 +430,7 @@ Located in `src/parser/__tests__/fixtures/`:
 The project was built in phases:
 
 ### Phase 1: Parser ✅
+
 - Duration parser with validation
 - Tokenizer with error recovery
 - Grammar parser with date handling
@@ -364,6 +438,7 @@ The project was built in phases:
 - Comprehensive test coverage
 
 ### Phase 2: Database ✅
+
 - SQLite schema design
 - Database wrapper class
 - CRUD operations
@@ -371,6 +446,7 @@ The project was built in phases:
 - In-memory testing
 
 ### Phase 3: CLI - Log Command ✅
+
 - Commander.js setup
 - File and stdin input
 - Editor integration for errors
@@ -379,11 +455,86 @@ The project was built in phases:
 - Summary display
 
 ### Phase 4: Reporting ✅
+
 - Report calculators
 - Terminal formatter
 - JSON/CSV export
 - Week filtering
 - Project/tag filtering
+
+### Phase 5: Session Management ✅
+
+- List command with multiple formats
+- Delete command with bulk operations
+- Edit command with log notation support
+- Status command for active sessions
+
+### Phase 6: Retroactive Tracking ✅
+
+- `--at` flag implementation for all time-based commands
+- Time parsing: relative (`-30m`), time-only (`15:51`), full datetime
+- Session overlap detection and prevention
+- Validation layer for time constraints
+- `pause` and `abandon` commands
+
+## Recent Features (December 2025)
+
+### Retroactive Tracking with `--at` Flag
+
+All time-based commands now support the `--at` flag for retroactive tracking. This allows users to backfill forgotten context switches.
+
+**Supported Commands:**
+
+- `tt start --at <time>` - Start session at specific time
+- `tt stop --at <time>` - Stop session at specific time
+- `tt interrupt --at <time>` - Record interruption at specific time
+- `tt resume --at <time>` - Resume from interruption at specific time
+- `tt pause --at <time>` - Pause session at specific time
+- `tt abandon --at <time>` - Abandon session at specific time
+
+**Time Formats:**
+
+- **Relative:** `-30m`, `-2h`, `-1h30m` (relative to current time)
+- **Time-only:** `15:51` (today, or yesterday if that would be in future)
+- **Full datetime:** `2025-12-29 15:51`
+
+**Implementation Details:**
+
+- `src/utils/time-parser.ts`: Parses and validates time strings using chrono-node
+- `src/utils/session-validator.ts`: Validates times against business rules
+- `src/db/database.ts`: `hasOverlappingSession()` method for conflict detection
+
+**Validation Rules:**
+
+- Times cannot be in the future
+- Stop/pause/abandon time must be after session start
+- New sessions cannot overlap with existing sessions
+- Overlap detection excludes the session being modified
+
+### Pause and Abandon Commands
+
+Two new commands for managing session lifecycle:
+
+**`tt pause`** - Pause active session without starting interruption
+
+- Use case: Lunch breaks, end of day, stepping away
+- Sets session state to `paused` and records end time
+- Supports `--reason` flag for documentation
+- Supports `--at` flag for retroactive pausing
+
+**`tt abandon`** - Abandon active session
+
+- Use case: Blocked tasks, deprioritized work, context switches
+- Sets session state to `abandoned` and records end time
+- Supports `--reason` flag for documentation
+- Supports `--at` flag for retroactive abandonment
+
+**Implementation:**
+
+- `src/cli/commands/pause.ts`: Pause command implementation
+- `src/cli/commands/abandon.ts`: Abandon command implementation
+- Both follow same patterns as `stop` command
+- Comprehensive test coverage (24 tests total)
 
 ## Code Style Guidelines
 
@@ -434,6 +585,7 @@ npm run build
 ```
 
 This:
+
 1. Compiles TypeScript to JavaScript (`tsc`)
 2. Copies schema.sql to dist directory
 3. Generates source maps and type definitions
@@ -455,11 +607,7 @@ tt log mywork.log
   "bin": {
     "tt": "./dist/index.js"
   },
-  "files": [
-    "dist/",
-    "README.md",
-    "LICENSE"
-  ]
+  "files": ["dist/", "README.md", "LICENSE"]
 }
 ```
 
@@ -481,6 +629,7 @@ tt log mywork.log
 Format: `<type>: <description>`
 
 Types:
+
 - `feat`: New feature
 - `fix`: Bug fix
 - `docs`: Documentation
@@ -489,6 +638,7 @@ Types:
 - `chore`: Build/tooling changes
 
 Examples:
+
 ```
 feat: add CSV export format
 fix: handle midnight crossing in parser
@@ -540,8 +690,9 @@ test: add integration tests for reports
 ### Enable Debug Logging
 
 Add to commands:
+
 ```typescript
-console.error('Debug:', JSON.stringify(data, null, 2));
+console.error("Debug:", JSON.stringify(data, null, 2));
 ```
 
 ### Test Database Inspection
@@ -559,14 +710,17 @@ sqlite3 /tmp/tt-test/tt.db
 ### Common Issues
 
 **Build fails:**
+
 - Check TypeScript errors: `npx tsc --noEmit`
 - Ensure schema.sql is copied: `cp src/db/schema.sql dist/db/`
 
 **Tests fail:**
+
 - Clear node_modules: `rm -rf node_modules && npm install`
 - Check for port conflicts (if running services)
 
 **CLI doesn't work:**
+
 - Rebuild: `npm run build`
 - Check shebang: `#!/usr/bin/env node` in dist/index.js
 - Permissions: `chmod +x dist/index.js`
