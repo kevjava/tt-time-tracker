@@ -125,6 +125,10 @@ export class TimeTrackerDB {
     const fields: string[] = [];
     const values: any[] = [];
 
+    if (updates.startTime !== undefined) {
+      fields.push('start_time = ?');
+      values.push(updates.startTime.toISOString());
+    }
     if (updates.endTime !== undefined) {
       fields.push('end_time = ?');
       values.push(updates.endTime?.toISOString() || null);

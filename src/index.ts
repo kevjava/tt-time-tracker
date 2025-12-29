@@ -140,8 +140,9 @@ program
 // Edit command
 program
   .command('edit')
-  .description('Edit a session by ID')
+  .description('Edit a session by ID using flags or log notation')
   .argument('<session-id>', 'Session ID to edit')
+  .argument('[log-notation...]', 'Log notation for updates (e.g., ~20m, @project, +tag1 +tag2)')
   .option('-d, --description <description>', 'Update description')
   .option('-p, --project <project>', 'Update project')
   .option('-t, --tags <tags>', 'Update tags (comma-separated)')
