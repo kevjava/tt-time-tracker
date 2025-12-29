@@ -92,10 +92,10 @@ program
 program
   .command('start')
   .description('Start tracking a task')
-  .argument('<description>', 'Task description')
-  .option('-p, --project <project>', 'Project name')
-  .option('-t, --tags <tags>', 'Comma-separated tags')
-  .option('-e, --estimate <duration>', 'Estimated duration (e.g., 2h, 30m)')
+  .argument('<description...>', 'Task description or log notation (e.g., "09:30 Task name @project +tag ~1h")')
+  .option('-p, --project <project>', 'Project name (overrides log notation)')
+  .option('-t, --tags <tags>', 'Comma-separated tags (overrides log notation)')
+  .option('-e, --estimate <duration>', 'Estimated duration (overrides log notation, e.g., 2h, 30m)')
   .action(startCommand);
 
 // Stop command

@@ -185,18 +185,44 @@ cat work.log | tt log
 
 ### `tt start <description>`
 
-Start tracking a task.
+Start tracking a task. Supports both plain descriptions and log notation syntax.
 
 **Options:**
 
-- `-p, --project <project>` - Project name
-- `-t, --tags <tags>` - Comma-separated tags
-- `-e, --estimate <duration>` - Estimated duration (e.g., 2h, 30m)
+- `-p, --project <project>` - Project name (overrides log notation)
+- `-t, --tags <tags>` - Comma-separated tags (overrides log notation)
+- `-e, --estimate <duration>` - Estimated duration (overrides log notation, e.g., 2h, 30m)
 
-**Example:**
+**Log Notation Support:**
+
+You can use log notation syntax directly with the `start` command for quick task creation with all metadata inline:
 
 ```bash
+# With timestamp (sets start time to specified time)
+tt start 09:30 implement feature @myApp +code ~2h
+
+# Without timestamp (uses current time)
+tt start implement feature @myApp +code +urgent ~1h30m
+
+# Command-line options override log notation values
+tt start 10:00 fix bug @projectA +bugfix -p projectB -t critical
+# Result: Uses projectB (overrides projectA) and critical tag (overrides bugfix)
+```
+
+**Examples:**
+
+```bash
+# Plain description with options
 tt start "implement login" -p myApp -t code,auth -e 1h30m
+
+# Log notation with inline metadata
+tt start 14:30 code review @myProject +review ~30m
+
+# Log notation with just project and tags
+tt start write tests @myApp +testing +urgent
+
+# Mixed: log notation with option override
+tt start 09:00 morning standup @teamA +meeting -p teamB
 ```
 
 ### `tt stop`
