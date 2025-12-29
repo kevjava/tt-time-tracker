@@ -3,6 +3,8 @@ import {
   validateStopTime,
   validateInterruptTime,
   validateResumeTime,
+  validateAbandonTime,
+  validatePauseTime,
 } from '../session-validator';
 import { TimeTrackerDB } from '../../db/database';
 
@@ -18,7 +20,8 @@ jest.mock('../time-parser', () => ({
     throw new Error('Unable to parse time');
   }),
   validateNotFuture: jest.fn((time: Date) => {
-    const now = new Date('2025-12-29T15:30:00.000Z');
+    // For tests with undefined time, use actual current time for comparison
+    const now = new Date();
     if (time.getTime() > now.getTime()) {
       throw new Error(`Time cannot be in the future: ${time.toLocaleString()}`);
     }
@@ -251,6 +254,98 @@ describe('validateResumeTime', () => {
       ...mockSession,
       startTime: new Date('2025-12-29T10:00:00.000Z'),
     });
+
+    expect(result).toEqual(new Date('2025-12-29T14:30:00.000Z'));
+  });
+});
+
+describe('validateAbandonTime', () => {
+  const mockSession = {
+    id: 1,
+    startTime: new Date('2025-12-29T14:00:00.000Z'),
+    description: 'Active task',
+    state: 'working' as const,
+    tags: [],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  it('should return current time when no --at flag provided', () => {
+    const result = validateAbandonTime(undefined, mockSession);
+
+    // Result should be close to current time (within 1 second)
+    const now = new Date();
+    const diff = Math.abs(result.getTime() - now.getTime());
+    expect(diff).toBeLessThan(1000);
+  });
+
+  it('should parse and validate time from --at flag', () => {
+    const result = validateAbandonTime('-30m', mockSession);
+
+    expect(result).toEqual(new Date('2025-12-29T15:00:00.000Z'));
+  });
+
+  it('should throw error if abandon time is before session start', () => {
+    // Session started at 14:00, trying to abandon at 09:00
+    expect(() => validateAbandonTime('09:00', mockSession)).toThrow(
+      'must be after start time'
+    );
+  });
+
+  it('should throw error for future time', () => {
+    expect(() => validateAbandonTime('16:00', mockSession)).toThrow(
+      'Time cannot be in the future'
+    );
+  });
+
+  it('should allow abandon time after session start', () => {
+    const result = validateAbandonTime('14:30', mockSession);
+
+    expect(result).toEqual(new Date('2025-12-29T14:30:00.000Z'));
+  });
+});
+
+describe('validatePauseTime', () => {
+  const mockSession = {
+    id: 1,
+    startTime: new Date('2025-12-29T14:00:00.000Z'),
+    description: 'Active task',
+    state: 'working' as const,
+    tags: [],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  it('should return current time when no --at flag provided', () => {
+    const result = validatePauseTime(undefined, mockSession);
+
+    // Result should be close to current time (within 1 second)
+    const now = new Date();
+    const diff = Math.abs(result.getTime() - now.getTime());
+    expect(diff).toBeLessThan(1000);
+  });
+
+  it('should parse and validate time from --at flag', () => {
+    const result = validatePauseTime('-30m', mockSession);
+
+    expect(result).toEqual(new Date('2025-12-29T15:00:00.000Z'));
+  });
+
+  it('should throw error if pause time is before session start', () => {
+    // Session started at 14:00, trying to pause at 09:00
+    expect(() => validatePauseTime('09:00', mockSession)).toThrow(
+      'must be after start time'
+    );
+  });
+
+  it('should throw error for future time', () => {
+    expect(() => validatePauseTime('16:00', mockSession)).toThrow(
+      'Time cannot be in the future'
+    );
+  });
+
+  it('should allow pause time after session start', () => {
+    const result = validatePauseTime('14:30', mockSession);
 
     expect(result).toEqual(new Date('2025-12-29T14:30:00.000Z'));
   });

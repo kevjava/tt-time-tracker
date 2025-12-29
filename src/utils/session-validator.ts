@@ -86,3 +86,39 @@ export function validateResumeTime(
 
   return resumeTime;
 }
+
+/**
+ * Validate and parse a time for abandoning a session
+ */
+export function validateAbandonTime(
+  atTime: string | undefined,
+  activeSession: Session
+): Date {
+  const abandonTime = atTime ? parseAtTime(atTime) : new Date();
+
+  // Validate not in future
+  validateNotFuture(abandonTime);
+
+  // Validate that abandon time is after start time
+  validateTimeOrder(activeSession.startTime, abandonTime);
+
+  return abandonTime;
+}
+
+/**
+ * Validate and parse a time for pausing a session
+ */
+export function validatePauseTime(
+  atTime: string | undefined,
+  activeSession: Session
+): Date {
+  const pauseTime = atTime ? parseAtTime(atTime) : new Date();
+
+  // Validate not in future
+  validateNotFuture(pauseTime);
+
+  // Validate that pause time is after start time
+  validateTimeOrder(activeSession.startTime, pauseTime);
+
+  return pauseTime;
+}

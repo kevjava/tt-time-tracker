@@ -344,6 +344,58 @@ tt resume --at "-5m"
 tt resume --at "10:51" -r "Back to main task"
 ```
 
+### `tt pause`
+
+Pause the current active task without starting an interruption. This is useful when you need to step away but aren't starting a new task (e.g., lunch break, end of day).
+
+**Options:**
+
+- `--reason <reason>` - Reason for pausing the task
+- `--at <time>` - Pause time for retroactive tracking (e.g., `15:51`, `2025-12-29 15:51`, `-30m`)
+
+**Examples:**
+
+```bash
+# Pause now
+tt pause
+
+# Pause with a reason
+tt pause --reason "Going to lunch"
+
+# Retroactive pause - you paused 20 minutes ago
+tt pause --at "-20m" --reason "End of day"
+
+# Pause at specific time
+tt pause --at "12:00" --reason "Lunch break"
+```
+
+**Note:** To resume work on a paused task, use `tt start` with a new or similar description.
+
+### `tt abandon`
+
+Abandon the current active task. Use this when you need to give up on a task without completing it (e.g., blocked, no longer needed, context switch).
+
+**Options:**
+
+- `--reason <reason>` - Reason for abandoning the task
+- `--at <time>` - Abandon time for retroactive tracking (e.g., `15:51`, `2025-12-29 15:51`, `-30m`)
+
+**Examples:**
+
+```bash
+# Abandon now
+tt abandon
+
+# Abandon with a reason
+tt abandon --reason "Blocked by external dependency"
+
+# Retroactive abandon - realized you stopped working 30 minutes ago
+tt abandon --at "-30m" --reason "Deprioritized"
+
+# Abandon at specific time
+tt abandon --at "14:30" --reason "No longer needed"
+```
+
 ### `tt report`
 
 Generate time report for a date range.

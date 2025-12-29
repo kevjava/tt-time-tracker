@@ -9,6 +9,8 @@ import { reportCommand } from './cli/commands/report';
 import { statusCommand } from './cli/commands/status';
 import { interruptCommand } from './cli/commands/interrupt';
 import { resumeCommand } from './cli/commands/resume';
+import { pauseCommand } from './cli/commands/pause';
+import { abandonCommand } from './cli/commands/abandon';
 import { listCommand } from './cli/commands/list';
 import { deleteCommand } from './cli/commands/delete';
 import { editCommand } from './cli/commands/edit';
@@ -125,6 +127,22 @@ program
   .option('-r, --remark <remark>', 'Add remark to interruption')
   .option('--at <time>', 'Resume time (e.g., "15:51", "2025-12-29 15:51", "-30m")')
   .action(resumeCommand);
+
+// Pause command
+program
+  .command('pause')
+  .description('Pause the current active task without starting an interruption')
+  .option('--reason <reason>', 'Reason for pausing')
+  .option('--at <time>', 'Pause time (e.g., "15:51", "2025-12-29 15:51", "-30m")')
+  .action(pauseCommand);
+
+// Abandon command
+program
+  .command('abandon')
+  .description('Abandon the current active task')
+  .option('--reason <reason>', 'Reason for abandoning')
+  .option('--at <time>', 'Abandon time (e.g., "15:51", "2025-12-29 15:51", "-30m")')
+  .action(abandonCommand);
 
 // Delete command
 program
