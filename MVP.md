@@ -1,7 +1,7 @@
 # TT Time Tracker - MVP Roadmap
 
 **Status**: In Progress - Actively dogfooding
-**Last Updated**: 2025-12-28
+**Last Updated**: 2025-12-29
 
 ## Vision
 
@@ -22,20 +22,24 @@ A Unix-philosophy CLI time tracker with low-friction retroactive logging, compre
 - **Error Visibility**: Parse errors shown as comments in editor
 - **Database**: SQLite with proper indexes and relationships
 
-### 📊 Test Coverage
+### ✅ Test Coverage
 
-- **Total Tests**: 242 passing
-- **Covered Commands**: start, interrupt, delete, edit
-- **Missing Tests**: stop, resume, status, report, list, log
-- **Coverage**: ~50% (need 80%+ for MVP)
+- **Total Tests**: 454 passing across 21 test suites
+- **Covered Commands**: All core commands fully tested
+  - start, stop, resume, interrupt, pause, abandon (18-23 tests each)
+  - edit, delete (21 tests each)
+  - status (23 tests)
+  - report, list (20-21 tests each)
+  - log (14 tests)
+- **Coverage**: 80%+ ✅ (MVP target met)
 
-### 🎯 Known Gaps for MVP
+### 🎯 Remaining Gaps for MVP
 
-1. **Test Coverage**: Critical commands lack tests
-2. **Shell Completion**: No tab completion for better discoverability
-3. **Configuration**: No way to set defaults (project, tags)
-4. **Status Command**: Basic - could show more context
-5. **Trends**: No week-over-week comparisons or pattern analysis
+1. ✅ **Test Coverage**: Complete - all commands have comprehensive tests
+2. ✅ **Shell Completion**: Complete - Bash, Zsh, Fish completions available
+3. ✅ **Configuration**: Complete - Config file support with display preferences
+4. **Status Command**: Basic - could show more context (Phase 3)
+5. **Trends**: No week-over-week comparisons or pattern analysis (Phase 3)
 
 ---
 
@@ -125,35 +129,40 @@ The `tt edit` command now supports log notation for quick updates:
 **Goal**: Make the core stable and well-tested
 **Time Estimate**: 2-3 sessions
 
-#### 1.1 Test Coverage for Core Commands
+#### ✅ 1.1 Test Coverage for Core Commands (COMPLETED 2025-12-29)
 
 **Priority**: HIGH - Must have before adding more features
 
-Add comprehensive test suites for:
+**Status**: Complete - All commands now have comprehensive test coverage
 
-1. **stop / resume** (Session 1)
-   - Stop active session
-   - Stop with remark
-   - Resume from interruption
-   - Resume with remark
-   - Error cases (no active session, no parent to resume)
-   - Follow existing test patterns from start/interrupt
+Comprehensive test suites added for:
 
-2. **status** (Session 1)
-   - Show active session
-   - Show interruption hierarchy
-   - No active session state
-   - Edge cases (paused sessions, etc.)
+1. ✅ **stop / resume** - COMPLETE (18 tests each, 36 total)
+   - **stop**: 18 tests covering basic functionality, --at flag, error handling, console output, edge cases
+   - **resume**: 18 tests covering basic functionality, --at flag, error handling, console output, state transitions
+   - Stop active session with/without remark
+   - Resume from interruption with/without remark
+   - Nested interruptions (resume from level 2 to level 1)
+   - Retroactive tracking with --at flag
+   - Error cases (no active session, no parent to resume, invalid times)
 
-3. **edit / delete** (Session 2)
-   - ✅ **edit** - COMPLETE (21 tests)
+2. ✅ **status** - COMPLETE (23 tests)
+   - Show active/paused/abandoned sessions
+   - Display interruption hierarchy (single and nested)
+   - Multiple active sessions and edge cases
+   - Metadata display (project, tags, estimate)
+   - Elapsed time formatting
+   - Console output variations (with/without isDefault flag)
+
+3. ✅ **edit / delete** - COMPLETE (21 tests each, 42 total)
+   - **edit**: 21 tests
      - Flag-based editing (all fields)
      - Log notation editing (description, project, tags, estimate, timestamps)
      - Timestamp updates with explicit duration
      - Flag override behavior
      - Field preservation logic
      - Invalid inputs and error handling
-   - ✅ **delete** - COMPLETE (21 tests)
+   - **delete**: 21 tests
      - Single and bulk deletion
      - Filter-based deletion
      - Dry-run mode
@@ -161,41 +170,46 @@ Add comprehensive test suites for:
      - Transaction safety
      - Invalid inputs and error handling
 
-4. **report** (Session 2)
+4. ✅ **report** - COMPLETE (21 tests)
    - Different time ranges (week specs, custom dates, fuzzy dates)
-   - Filters (project, tag)
+   - Filters (project, tag, state)
    - Output formats (terminal, json, csv)
    - Edge cases (no sessions, single session, complex hierarchies)
+   - Context switches, efficiency, focus blocks
+   - Estimate accuracy calculations
 
-5. **list** (Session 3)
-   - Time range filtering
+5. ✅ **list** - COMPLETE (20 tests)
+   - Time range filtering (week specs, custom from/to dates)
    - State filtering
    - Output formats (table, log)
-   - Edge cases
+   - Edge cases (no sessions, empty ranges)
+   - Filter combinations (project, tag, state)
 
-6. **log** (Session 3)
-   - Parse valid files
-   - Handle parse errors
-   - Overlap detection
+6. ✅ **log** - COMPLETE (14 tests)
+   - Parse valid files (simple, interruptions, complex)
+   - Handle parse errors gracefully
+   - Display warnings for suspicious patterns
    - Overwrite mode
-   - Interruption hierarchies
+   - Interruption hierarchies and parent-child relationships
+   - Metadata preservation (project, tags, estimates)
 
-**Success Criteria**:
+**Success Criteria**: ✅ ALL MET
 
-- 80%+ test coverage
-- All commands have happy path + error case tests
-- Confidence to refactor without breaking things
+- ✅ 80%+ test coverage - **454 tests passing across 21 test suites**
+- ✅ All commands have happy path + error case tests
+- ✅ Confidence to refactor without breaking things
 
 ---
 
-### Phase 2: Discoverability & Ease of Use ⚡
+### ✅ Phase 2: Discoverability & Ease of Use ⚡ (COMPLETED 2025-12-29)
 
 **Goal**: Reduce friction in daily use
 **Time Estimate**: 1-2 sessions
 
-#### 2.1 Shell Completion Scripts
+#### ✅ 2.1 Shell Completion Scripts (COMPLETED 2025-12-28)
 
 **Priority**: HIGH - Daily UX improvement
+**Status**: Complete
 
 Implement tab completion for:
 
@@ -237,45 +251,50 @@ tt start -t <TAB>         → [list of recent tags]
 
 ---
 
-#### 2.2 Configuration File Support
+#### ✅ 2.2 Configuration File Support (COMPLETED 2025-12-29)
 
 **Priority**: MEDIUM - Reduces repetitive typing
+**Status**: Complete - Config system fully implemented
 
-Allow users to set defaults in `~/.config/tt/config.json`:
+Users can now set defaults in `~/.config/tt/config.json`:
 
 ```json
 {
-  "defaultProject": "myApp",
-  "defaultTags": ["dev"],
   "weekStartDay": "monday",
-  "editor": "vim",
-  "favoriteProjects": ["myApp", "sideProject", "research"],
-  "favoriteTags": ["code", "meeting", "review", "planning"],
   "reportFormat": "terminal",
-  "listFormat": "table"
+  "listFormat": "table",
+  "timeFormat": "24h",
+  "editor": "vim"
 }
 ```
 
-**Commands to Add**:
+**Note**: Deliberately excluded auto-defaults for project/tags to maintain data accuracy (explicit > implicit).
+
+**Commands Implemented**:
 
 ```bash
 tt config                    # Show current config
 tt config set <key> <value>  # Set a config value
 tt config get <key>          # Get a config value
 tt config edit               # Open config file in editor
+tt config path               # Show config file path
 ```
 
-**Behavior**:
+**Implementation Details**:
 
-- Config values are used as defaults when flags not provided
-- Command-line flags always override config
-- Validation on config load (warn about invalid keys)
+- ✅ Config values used as defaults when flags not provided
+- ✅ Command-line flags always override config
+- ✅ Validation on config load with helpful error messages
+- ✅ Only non-default values saved (minimal config files)
+- ✅ Graceful fallback if config missing or malformed
 
-**Files**:
+**Files Created/Modified**:
 
-- `src/utils/config.ts` - Add config loading/saving
-- `src/cli/commands/config.ts` - New command
-- Update existing commands to use config defaults
+- ✅ `src/types/config.ts` - Config schema and defaults
+- ✅ `src/utils/config.ts` - Config loading/saving/validation
+- ✅ `src/cli/commands/config.ts` - New config command
+- ✅ Updated `report` and `list` commands to use config defaults
+- ✅ README.md documentation added
 
 ---
 
@@ -422,34 +441,16 @@ The MVP will be considered complete when:
 
 ## Next Session Plan
 
-**Start with**: Test coverage for `stop` and `resume` commands
+**Status**: Phases 0, 1, and 2 complete! Ready for Phase 3.
 
-**Approach**:
+**Next Up**: Phase 3 - Better Insights 📊
 
-1. Read existing tests for `start` and `interrupt` as templates
-2. Create `src/cli/commands/__tests__/stop.test.ts`
-3. Create `src/cli/commands/__tests__/resume.test.ts`
-4. Follow same pattern: mocking setup, happy paths, error cases
-5. Aim for ~10-15 tests per command
+**Options**:
 
-**Expected Tests for stop**:
+1. **3.1 Enhanced Status Command** - Show richer context (today's summary, warnings, time remaining)
+2. **3.2 Trends & Analytics** - Week-over-week comparisons, time patterns, trend indicators
 
-- Stop active session
-- Stop with remark
-- Stop when no active session (error)
-- Stop and verify end time is set
-- Stop and verify state changes to completed
-- Multiple start/stop cycles
-
-**Expected Tests for resume**:
-
-- Resume from interruption
-- Resume with remark
-- Resume when no active session (error)
-- Resume when not in interruption (error)
-- Resume and verify parent state changes to working
-- Resume and verify interruption state changes to completed
-- Nested interruptions (resume from level 2 to level 1)
+Both features would improve the daily UX and provide actionable insights from the tracking data.
 
 ---
 
