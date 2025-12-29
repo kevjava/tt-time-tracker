@@ -289,37 +289,45 @@ export async function deleteCommand(
 
       console.log('');
 
+      // Check if we should actually delete
+      let shouldDelete = true;
+
       // Dry run mode
       if (options.dryRun) {
         console.log(chalk.blue.bold('🔍 DRY RUN MODE - No sessions were deleted'));
+        shouldDelete = false;
         process.exit(0);
       }
 
       // Confirm deletion unless --yes or --force is used
-      if (!options.yes && !options.force) {
+      if (shouldDelete && !options.yes && !options.force) {
         const confirmed = await promptConfirmation(
           chalk.yellow('Are you sure you want to delete these sessions? (y/N): ')
         );
 
         if (!confirmed) {
           console.log(chalk.gray('Deletion cancelled.'));
+          shouldDelete = false;
           process.exit(0);
         }
       }
 
-      // Collect all IDs to delete (sessions + descendants)
-      const allIdsToDelete = new Set<number>();
-      for (const session of sessionsToDelete) {
-        allIdsToDelete.add(session.id!);
-      }
-      for (const desc of allDescendants) {
-        allIdsToDelete.add(desc.id);
-      }
+      // Only delete if we should
+      if (shouldDelete) {
+        // Collect all IDs to delete (sessions + descendants)
+        const allIdsToDelete = new Set<number>();
+        for (const session of sessionsToDelete) {
+          allIdsToDelete.add(session.id!);
+        }
+        for (const desc of allDescendants) {
+          allIdsToDelete.add(desc.id);
+        }
 
-      // Delete all sessions
-      db.deleteSessions(Array.from(allIdsToDelete));
+        // Delete all sessions
+        db.deleteSessions(Array.from(allIdsToDelete));
 
-      console.log(chalk.green.bold('\n✓') + chalk.green(` Successfully deleted ${allIdsToDelete.size} session(s)`));
+        console.log(chalk.green.bold('\n✓') + chalk.green(` Successfully deleted ${allIdsToDelete.size} session(s)`));
+      }
     } finally {
       db.close();
     }
