@@ -361,6 +361,21 @@ export async function logCommand(file?: string, options: LogCommandOptions = {})
 
       console.log(chalk.yellow('Opening file in editor to fix errors...\n'));
 
+      // Prepend errors as comments to help user fix them
+      const errorComments = [
+        '# PARSING ERRORS - Fix these issues and save the file',
+        '# Remove these comment lines when done',
+        '#',
+        ...parseResult.errors.map(err => `# ERROR: ${err.message}`),
+        '#',
+        '# ────────────────────────────────────────────────────────',
+        '',
+        content,
+      ].join('\n');
+
+      // Write the file with error comments
+      writeFileSync(filePath, errorComments, 'utf-8');
+
       // Open in editor
       const editorResult = openInEditor(filePath);
 
@@ -369,7 +384,7 @@ export async function logCommand(file?: string, options: LogCommandOptions = {})
         process.exit(1);
       }
 
-      // Re-parse
+      // Re-parse (errors will be stripped since they're comments)
       content = editorResult.content;
       parseResult = LogParser.parse(content);
     }
