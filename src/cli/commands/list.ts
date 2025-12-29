@@ -2,7 +2,7 @@ import chalk from 'chalk';
 import { format } from 'date-fns';
 import { TimeTrackerDB } from '../../db/database';
 import { ensureDataDir, getDatabasePath } from '../../utils/config';
-import { getWeekBounds } from '../../utils/date';
+import { getWeekBounds, parseFuzzyDate } from '../../utils/date';
 import { Session } from '../../types/session';
 import { logger } from '../../utils/logger';
 import { formatSessionsAsLog } from '../formatters/log';
@@ -93,9 +93,10 @@ export function listCommand(options: ListOptions): void {
       if (options.from || options.to) {
         // Custom date range
         if (options.from) {
-          start = new Date(options.from);
-          if (isNaN(start.getTime())) {
-            console.error(chalk.red(`Error: Invalid --from date: ${options.from}`));
+          try {
+            start = parseFuzzyDate(options.from);
+          } catch (error) {
+            console.error(chalk.red(`Error parsing --from date: ${error instanceof Error ? error.message : error}`));
             process.exit(1);
           }
         } else {
@@ -104,13 +105,14 @@ export function listCommand(options: ListOptions): void {
         }
 
         if (options.to) {
-          end = new Date(options.to);
-          if (isNaN(end.getTime())) {
-            console.error(chalk.red(`Error: Invalid --to date: ${options.to}`));
+          try {
+            end = parseFuzzyDate(options.to);
+            // Set to end of day
+            end.setHours(23, 59, 59, 999);
+          } catch (error) {
+            console.error(chalk.red(`Error parsing --to date: ${error instanceof Error ? error.message : error}`));
             process.exit(1);
           }
-          // Set to end of day
-          end.setHours(23, 59, 59, 999);
         } else {
           // Default to now
           end = new Date();

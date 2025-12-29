@@ -1,4 +1,5 @@
 import { startOfISOWeek, endOfISOWeek, format } from 'date-fns';
+import * as chrono from 'chrono-node';
 
 /**
  * Get the start and end of a week
@@ -53,4 +54,34 @@ export function formatDateRange(start: Date, end: Date): string {
  */
 export function getDateKey(date: Date): string {
   return format(date, 'yyyy-MM-dd');
+}
+
+/**
+ * Parse a date string that can be either:
+ * - ISO format (YYYY-MM-DD)
+ * - Natural language (e.g., "yesterday", "monday", "last week", "3 days ago")
+ *
+ * Returns a Date object or throws an error if parsing fails
+ */
+export function parseFuzzyDate(input: string, referenceDate: Date = new Date()): Date {
+  // First, try ISO date format (YYYY-MM-DD) for backward compatibility
+  const isoMatch = input.match(/^\d{4}-\d{2}-\d{2}$/);
+  if (isoMatch) {
+    // Parse as local date (not UTC) to avoid timezone issues
+    const [year, month, day] = input.split('-').map(Number);
+    const parsed = new Date(year, month - 1, day);
+    if (!isNaN(parsed.getTime())) {
+      return parsed;
+    }
+  }
+
+  // Try natural language parsing with chrono-node
+  const parsed = chrono.parseDate(input, referenceDate);
+
+  if (parsed) {
+    return parsed;
+  }
+
+  // If all parsing attempts fail, throw an error
+  throw new Error(`Unable to parse date: "${input}". Try formats like "YYYY-MM-DD", "yesterday", "monday", "last week", etc.`);
 }

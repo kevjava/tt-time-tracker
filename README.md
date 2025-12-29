@@ -301,11 +301,17 @@ Generate time report for a date range.
   - `current` - Current week
   - `last` - Last week
   - `2024-W52` - Specific ISO week
-- `--from <date>` - Start date (YYYY-MM-DD)
-- `--to <date>` - End date (YYYY-MM-DD)
+- `--from <date>` - Start date (supports ISO format and natural language)
+- `--to <date>` - End date (supports ISO format and natural language)
 - `--project <project>` - Filter by project
 - `--tag <tags>` - Filter by tags (comma-separated)
 - `--format <format>` - Output format: `terminal`, `json`, `csv`
+
+**Date Formats:**
+
+The `--from` and `--to` options support both ISO dates and natural language:
+- **ISO format**: `YYYY-MM-DD` (e.g., `2024-12-25`)
+- **Natural language**: `yesterday`, `today`, `tomorrow`, `monday`, `last week`, `3 days ago`, `2 months ago`, etc.
 
 **Date Range Behavior:**
 
@@ -326,8 +332,13 @@ tt report --week last
 # Specific week
 tt report --week 2024-W52
 
-# Custom date range
+# Custom date range (ISO format)
 tt report --from 2024-12-01 --to 2024-12-31
+
+# Natural language dates
+tt report --from monday --to yesterday
+tt report --from "last week" --to today
+tt report --from "3 days ago"
 
 # From a specific date to now
 tt report --from 2024-12-20
@@ -336,7 +347,7 @@ tt report --from 2024-12-20
 tt report --project myApp
 
 # Multiple filters with custom range
-tt report --from 2024-12-01 --to 2024-12-31 --project myApp --tag code
+tt report --from yesterday --to today --project myApp --tag code
 
 # Export formats
 tt report --format json > report.json
@@ -353,12 +364,16 @@ List individual sessions in tabular or log format.
   - `current` - Current week
   - `last` - Last week
   - `2024-W52` - Specific ISO week
-- `--from <date>` - Start date (YYYY-MM-DD)
-- `--to <date>` - End date (YYYY-MM-DD)
+- `--from <date>` - Start date (supports ISO format and natural language)
+- `--to <date>` - End date (supports ISO format and natural language)
 - `--project <project>` - Filter by project
 - `--tag <tags>` - Filter by tags (comma-separated)
 - `--state <state>` - Filter by state: `working`, `paused`, `completed`, `abandoned`
 - `--format <format>` - Output format: `table` (default), `log`
+
+**Date Formats:**
+
+Like the `report` command, `--from` and `--to` support both ISO dates and natural language (e.g., `yesterday`, `monday`, `last week`).
 
 **Output Formats:**
 
@@ -374,15 +389,20 @@ tt list
 # List with filters
 tt list --project myApp --tag code
 
-# List specific date range
+# List specific date range (ISO format)
 tt list --from 2024-12-20 --to 2024-12-26
+
+# List with natural language dates
+tt list --from monday --to friday
+tt list --from "last week"
+tt list --from yesterday --to today
 
 # Export sessions in log format for backup
 tt list --format log > backup.log
 
 # Round-trip export and import
-tt list --from 2024-12-01 --to 2024-12-31 --format log > december.log
-tt log december.log
+tt list --from "last month" --format log > backup.log
+tt log backup.log
 
 # List only paused tasks
 tt list --state paused

@@ -2,7 +2,7 @@ import chalk from 'chalk';
 import { format as formatDate } from 'date-fns';
 import { TimeTrackerDB } from '../../db/database';
 import { ensureDataDir, getDatabasePath } from '../../utils/config';
-import { getWeekBounds } from '../../utils/date';
+import { getWeekBounds, parseFuzzyDate } from '../../utils/date';
 import { generateWeeklyReport } from '../../reports/weekly';
 import { formatTerminalReport } from '../../reports/formatters/terminal';
 import { formatJsonReport } from '../../reports/formatters/json';
@@ -35,9 +35,10 @@ export function reportCommand(options: ReportOptions): void {
       if (options.from || options.to) {
         // Parse and validate start date
         if (options.from) {
-          start = new Date(options.from);
-          if (isNaN(start.getTime())) {
-            console.error(chalk.red(`Error: Invalid --from date: ${options.from}. Use YYYY-MM-DD format.`));
+          try {
+            start = parseFuzzyDate(options.from);
+          } catch (error) {
+            console.error(chalk.red(`Error parsing --from date: ${error instanceof Error ? error.message : error}`));
             process.exit(1);
           }
         } else {
@@ -46,12 +47,13 @@ export function reportCommand(options: ReportOptions): void {
 
         // Parse and validate end date
         if (options.to) {
-          end = new Date(options.to);
-          if (isNaN(end.getTime())) {
-            console.error(chalk.red(`Error: Invalid --to date: ${options.to}. Use YYYY-MM-DD format.`));
+          try {
+            end = parseFuzzyDate(options.to);
+            end.setHours(23, 59, 59, 999);  // Include entire end day
+          } catch (error) {
+            console.error(chalk.red(`Error parsing --to date: ${error instanceof Error ? error.message : error}`));
             process.exit(1);
           }
-          end.setHours(23, 59, 59, 999);  // Include entire end day
         } else {
           end = new Date();  // Current moment if only --from is provided
         }
