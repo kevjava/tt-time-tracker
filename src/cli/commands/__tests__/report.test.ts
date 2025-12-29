@@ -51,6 +51,13 @@ jest.mock('../../../utils/config', () => {
         fs.mkdirSync(testDataDir, { recursive: true });
       }
     }),
+    loadConfig: jest.fn(() => ({
+      weekStartDay: 'monday',
+      reportFormat: 'terminal',
+      listFormat: 'table',
+      timeFormat: '24h',
+      editor: '',
+    })),
   };
 });
 

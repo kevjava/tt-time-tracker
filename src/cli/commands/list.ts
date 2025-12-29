@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 import { format } from 'date-fns';
 import { TimeTrackerDB } from '../../db/database';
-import { ensureDataDir, getDatabasePath } from '../../utils/config';
+import { ensureDataDir, getDatabasePath, loadConfig } from '../../utils/config';
 import { getWeekBounds, parseFuzzyDate } from '../../utils/date';
 import { Session } from '../../types/session';
 import { logger } from '../../utils/logger';
@@ -155,8 +155,11 @@ export function listCommand(options: ListOptions): void {
         process.exit(0);
       }
 
-      // Format and display output
-      if (options.format === 'log') {
+      // Format and display output - use config default if not specified
+      const config = loadConfig();
+      const outputFormat = options.format || config.listFormat;
+
+      if (outputFormat === 'log') {
         const output = formatSessionsAsLog(sessions, db);
         console.log(output);
         return;

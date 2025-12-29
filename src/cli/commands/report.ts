@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 import { format as formatDate } from 'date-fns';
 import { TimeTrackerDB } from '../../db/database';
-import { ensureDataDir, getDatabasePath } from '../../utils/config';
+import { ensureDataDir, getDatabasePath, loadConfig } from '../../utils/config';
 import { getWeekBounds, parseFuzzyDate } from '../../utils/date';
 import { generateWeeklyReport } from '../../reports/weekly';
 import { formatTerminalReport } from '../../reports/formatters/terminal';
@@ -96,8 +96,9 @@ export function reportCommand(options: ReportOptions): void {
       // Generate report
       const report = generateWeeklyReport(sessions, label, start, end);
 
-      // Format output
-      const format = options.format || 'terminal';
+      // Format output - use config default if not specified
+      const config = loadConfig();
+      const format = options.format || config.reportFormat;
       logger.debug(`Output format: ${format}`);
 
       let output: string;

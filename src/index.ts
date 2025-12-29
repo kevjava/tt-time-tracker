@@ -14,6 +14,7 @@ import { abandonCommand } from './cli/commands/abandon';
 import { listCommand } from './cli/commands/list';
 import { deleteCommand } from './cli/commands/delete';
 import { editCommand } from './cli/commands/edit';
+import { configCommand } from './cli/commands/config';
 import { logger } from './utils/logger';
 
 const program = new Command();
@@ -173,5 +174,13 @@ program
   .option('--end-time <time>', 'Update end time (ISO 8601 format, empty string to clear)')
   .option('--state <state>', 'Update state (working, paused, completed, abandoned)')
   .action(editCommand);
+
+// Config command
+program
+  .command('config')
+  .description('Manage user configuration')
+  .argument('[subcommand]', 'Subcommand: get, set, edit, path')
+  .argument('[args...]', 'Arguments for subcommand')
+  .action(configCommand);
 
 program.parse();

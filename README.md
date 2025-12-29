@@ -32,6 +32,7 @@ A Unix-philosophy CLI time tracker with low-friction retroactive logging and com
   - [`tt list`](#tt-list)
   - [`tt delete`](#tt-delete-session-ids)
   - [`tt edit`](#tt-edit-session-id-log-notation)
+  - [`tt config`](#tt-config)
 - [Report Sections](#report-sections)
 - [Configuration](#configuration)
 - [Tips & Best Practices](#tips--best-practices)
@@ -101,6 +102,41 @@ fish_update_completions
 - Week specs (`current`, `last`, ISO weeks)
 - Fuzzy date completions (`yesterday`, `monday`, etc.)
 - Common duration suggestions (`15m`, `1h`, `2h`)
+
+### Configuration (Optional)
+
+Customize TT's behavior with a config file at `~/.config/tt/config.json`:
+
+```bash
+# View current configuration
+tt config
+
+# Set a config value
+tt config set reportFormat json
+tt config set listFormat log
+tt config set weekStartDay sunday
+
+# Get a specific value
+tt config get reportFormat
+
+# Edit config file directly
+tt config edit
+
+# Show config file location
+tt config path
+```
+
+**Available Settings:**
+
+| Setting | Options | Default | Description |
+|---------|---------|---------|-------------|
+| `weekStartDay` | `monday`, `sunday` | `monday` | Week start day for `--week current` |
+| `reportFormat` | `terminal`, `json`, `csv` | `terminal` | Default output format for `tt report` |
+| `listFormat` | `table`, `log` | `table` | Default output format for `tt list` |
+| `timeFormat` | `24h`, `12h` | `24h` | Time display format |
+| `editor` | Any editor command | Uses `$EDITOR` | Editor for `tt config edit` and fixing parse errors |
+
+**Note:** Command-line flags always override config settings.
 
 ## Quick Start
 
