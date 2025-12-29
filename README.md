@@ -14,6 +14,33 @@ A Unix-philosophy CLI time tracker with low-friction retroactive logging and com
 - 💾 **SQLite Storage** - Portable, reliable local database
 - ✏️ **Session Management** - Edit, delete, and manage tracked sessions
 
+## Table of Contents
+
+- [Features](#features)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Log File Notation](#log-file-notation)
+- [Commands](#commands)
+  - [`tt log`](#tt-log-file)
+  - [`tt start`](#tt-start-description)
+  - [`tt stop`](#tt-stop)
+  - [`tt interrupt`](#tt-interrupt-description)
+  - [`tt resume`](#tt-resume)
+  - [`tt pause`](#tt-pause)
+  - [`tt abandon`](#tt-abandon)
+  - [`tt report`](#tt-report)
+  - [`tt list`](#tt-list)
+  - [`tt delete`](#tt-delete-session-ids)
+  - [`tt edit`](#tt-edit-session-id-log-notation)
+- [Report Sections](#report-sections)
+- [Configuration](#configuration)
+- [Tips & Best Practices](#tips--best-practices)
+- [Troubleshooting](#troubleshooting)
+- [Examples](#examples)
+- [Contributing](#contributing)
+- [License](#license)
+- [Support](#support)
+
 ## Installation
 
 ### From Source
