@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
+import chalk from 'chalk';
 import { logCommand } from './cli/commands/log';
 import { startCommand } from './cli/commands/start';
 import { stopCommand } from './cli/commands/stop';
@@ -19,12 +20,30 @@ program
   .name('tt')
   .description('Unix-philosophy CLI time tracker')
   .option('-v, --verbose', 'Output debug messages.')
-  .version('1.0.0');
+  .version('1.0.0')
+  .configureOutput({
+    outputError: (str, write) => {
+      // Intercept error messages to provide better context for unknown commands
+      if (str.includes("too many arguments for 'status'")) {
+        const args = process.argv.slice(2);
+        const possibleCommand = args.find(arg => !arg.startsWith('-'));
+        if (possibleCommand && possibleCommand !== 'status') {
+          write(chalk.red(`error: unknown command '${possibleCommand}'\n`));
+          const availableCommands = program.commands.map(cmd => cmd.name()).filter(n => n);
+          write(chalk.yellow(`Available commands: ${availableCommands.join(', ')}\n`));
+          write(chalk.gray(`Run 'tt --help' for more information.\n`));
+          return;
+        }
+      }
+      write(str);
+    }
+  });
 
 // Status command (default)
 program
   .command('status', { isDefault: true })
   .description('Show status of all running timers and interruptions')
+  .allowExcessArguments(false)
   .action(() => statusCommand({ isDefault: process.argv.length === 2 }));
 
 // Hook to enable verbose logging before any command runs
