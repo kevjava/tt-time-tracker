@@ -442,6 +442,29 @@ export class TimeTrackerDB {
   }
 
   /**
+   * Delete multiple sessions in a single transaction
+   */
+  deleteSessions(ids: number[]): void {
+    if (ids.length === 0) {
+      return;
+    }
+
+    const deleteStmt = this.db.prepare('DELETE FROM sessions WHERE id = ?');
+
+    const transaction = this.db.transaction((sessionIds: number[]) => {
+      for (const id of sessionIds) {
+        deleteStmt.run(id);
+      }
+    });
+
+    try {
+      transaction(ids);
+    } catch (error) {
+      throw new DatabaseError(`Failed to delete sessions: ${error}`);
+    }
+  }
+
+  /**
    * Convert database row to Session object
    */
   private rowToSession(row: any, tags: string[]): Session & { tags: string[] } {

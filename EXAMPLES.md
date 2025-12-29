@@ -282,6 +282,7 @@ function tt-eod() {
 **Vim - Syntax Highlighting**
 
 Create `~/.vim/syntax/ttlog.vim`:
+
 ```vim
 syntax match ttTimestamp /^\d\{2}:\d\{2}/
 syntax match ttProject /@\w\+/
@@ -299,6 +300,7 @@ highlight link ttComment Comment
 ```
 
 Add to `~/.vim/ftdetect/ttlog.vim`:
+
 ```vim
 autocmd BufRead,BufNewFile *.log set filetype=ttlog
 ```
@@ -306,6 +308,7 @@ autocmd BufRead,BufNewFile *.log set filetype=ttlog
 ### Template Files
 
 **templates/daily.log**
+
 ```
 # Daily Log Template - $(date +%Y-%m-%d)
 
@@ -321,6 +324,7 @@ autocmd BufRead,BufNewFile *.log set filetype=ttlog
 ```
 
 Usage:
+
 ```bash
 envsubst < templates/daily.log > $(date +%Y-%m-%d).log
 $EDITOR $(date +%Y-%m-%d).log
@@ -330,6 +334,7 @@ tt log $(date +%Y-%m-%d).log
 ### Integration with Other Tools
 
 **Pomodoro Technique**
+
 ```bash
 # Start a pomodoro
 tt start "deep work on feature X" -p myapp -t code -e 25m
@@ -348,6 +353,7 @@ tt start "deep work on feature X" -p myapp -t code -e 25m
 **Git Hooks**
 
 `.git/hooks/post-commit`:
+
 ```bash
 #!/bin/bash
 # Auto-log git commits
@@ -414,6 +420,7 @@ tt report --format json | jq -r '
 ### Consistent Tagging
 
 Create a standard set of tags:
+
 - `+code` - Writing code
 - `+review` - Code reviews
 - `+meeting` - All meetings
@@ -430,6 +437,7 @@ Create a standard set of tags:
 ### Project Naming
 
 Use consistent project identifiers:
+
 - Company projects: `@acme-api`, `@acme-web`
 - Personal: `@personal`, `@learning`
 - Client work: `@client-name`
@@ -500,6 +508,50 @@ EOF
 
 tt log week.log
 ```
+
+### Deleting Sessions
+
+```bash
+# Delete a single session
+tt delete 42
+
+# Delete multiple sessions by ID
+tt delete 10 11 14 18 20
+
+# Delete all sessions from a date range
+tt delete --from monday --to wednesday
+
+# Delete all sessions for a specific project
+tt delete --project oldProject
+
+# Delete all meetings this week
+tt delete --tag meeting --from "this week"
+
+# Delete paused sessions
+tt delete --state paused
+
+# Combine filters
+tt delete --project testProject --from "last week" --to "last friday"
+
+# Preview what would be deleted (dry-run)
+tt delete --from monday --to tuesday --dry-run
+
+# Skip confirmation prompt
+tt delete 10 11 --yes
+
+# Combine session IDs with filters (union)
+tt delete 5 6 --project myApp
+
+# Delete sessions from a specific day
+tt delete --from yesterday --to yesterday
+```
+
+**Tips:**
+
+- Always use `--dry-run` first when using filters to see what will be deleted
+- The delete command shows a summary before confirmation
+- Child sessions (interruptions) are automatically deleted with their parents
+- Date ranges are inclusive of both start and end dates
 
 ## Troubleshooting Examples
 

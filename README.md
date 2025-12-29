@@ -408,6 +408,81 @@ tt log backup.log
 tt list --state paused
 ```
 
+### `tt delete [session-ids...]`
+
+Delete one or more sessions by ID or by filter criteria.
+
+**Arguments:**
+
+- `[session-ids...]` - One or more session IDs to delete (optional if using filters)
+
+**Options:**
+
+- `--from <date>` - Delete sessions from this date (supports ISO format and natural language)
+- `--to <date>` - Delete sessions up to this date (supports ISO format and natural language)
+- `-p, --project <project>` - Delete sessions for specific project
+- `-t, --tag <tags>` - Delete sessions with specific tag(s) (comma-separated)
+- `-s, --state <state>` - Delete sessions with specific state: `working`, `paused`, `completed`, `abandoned`
+- `--dry-run` - Show what would be deleted without actually deleting
+- `-y, --yes` - Skip confirmation prompt
+- `-f, --force` - Skip confirmation prompt (same as --yes)
+
+**Behavior:**
+
+- Shows a summary of sessions to be deleted before confirmation
+- Displays total time, project breakdown, and child session count
+- Automatically deletes child sessions (interruptions) when parent is deleted
+- Supports combining session IDs with filters (union of both criteria)
+- Requires confirmation unless `--yes` or `--force` flag is used
+- All deletions are performed in a single transaction (all or nothing)
+
+**Examples:**
+
+```bash
+# Delete a single session
+tt delete 42
+
+# Delete multiple sessions by ID
+tt delete 10 11 14 18 20
+
+# Delete with confirmation skip
+tt delete 5 --yes
+
+# Delete all sessions from a date range
+tt delete --from monday --to wednesday
+
+# Delete all sessions for a specific project
+tt delete --project oldProject
+
+# Delete all meetings this week
+tt delete --tag meeting --from "this week"
+
+# Delete paused sessions
+tt delete --state paused
+
+# Combine filters
+tt delete --project testProject --from "last week" --to "last friday"
+
+# Preview what would be deleted (recommended before bulk deletions)
+tt delete --from monday --to tuesday --dry-run
+
+# Combine session IDs with filters (deletes union of both)
+tt delete 5 6 --project myApp
+
+# Delete sessions from a specific day
+tt delete --from yesterday --to yesterday
+
+# Delete all sessions from natural language date
+tt delete --from "3 days ago" --to yesterday
+```
+
+**Tips:**
+
+- Always use `--dry-run` first when using filters to preview deletions
+- Date ranges are inclusive of both start and end dates
+- Child sessions are automatically included in the deletion summary
+- The command shows total time and project breakdown before confirmation
+
 ## Report Sections
 
 The weekly report includes:

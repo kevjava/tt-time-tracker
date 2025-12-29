@@ -24,10 +24,10 @@ A Unix-philosophy CLI time tracker with low-friction retroactive logging, compre
 
 ### 📊 Test Coverage
 
-- **Total Tests**: 200 passing
-- **Covered Commands**: start, interrupt
-- **Missing Tests**: stop, resume, status, edit, delete, report, list, log
-- **Coverage**: ~40% (need 80%+ for MVP)
+- **Total Tests**: 221 passing
+- **Covered Commands**: start, interrupt, delete
+- **Missing Tests**: stop, resume, status, edit, report, list, log
+- **Coverage**: ~45% (need 80%+ for MVP)
 
 ### 🎯 Known Gaps for MVP
 
@@ -43,20 +43,27 @@ A Unix-philosophy CLI time tracker with low-friction retroactive logging, compre
 
 ### Phase 0: Priority quality-of-life fixes
 
-#### 0.1: Bulk deletion
+#### ✅ 0.1: Bulk deletion (COMPLETED 2025-12-28)
 
-The `tt delete` command should be able to delete multiple entries. We should be
-able to do things like:
+**Status**: Complete and tested
 
-```ttlog
-tt delete 10 11 14 18 20
-```
+The `tt delete` command now supports:
 
-or:
+- **Multiple session IDs**: `tt delete 10 11 14 18 20`
+- **Date range deletion**: `tt delete --from sunday --to tuesday`
+- **Filter-based deletion**: Match all `list` command filters
+  - `--project <name>` - Delete sessions for a project
+  - `--tag <tags>` - Delete sessions with specific tags
+  - `--state <state>` - Delete sessions by state
+- **Union of IDs and filters**: `tt delete 5 6 --project myApp`
+- **Dry-run mode**: `--dry-run` to preview what would be deleted
+- **Enhanced summary**: Shows total time, project breakdown, child sessions
+- **Confirmation prompt**: Can be skipped with `--yes` or `--force`
+- **Transaction safety**: All deletions in a single transaction (all-or-nothing)
 
-```ttlog
-tt delete --from sunday --to tuesday
-```
+**Test Coverage**: 21 tests covering all functionality
+
+**Documentation**: Updated README.md and EXAMPLES.md with comprehensive examples
 
 #### 0.2: Edit flexibility
 
@@ -99,10 +106,13 @@ Add comprehensive test suites for:
 
 3. **edit / delete** (Session 2)
    - Edit session fields (description, project, tags, estimate, remark, times, state)
-   - Delete session (with confirmation)
-   - Delete with children (cascade)
-   - Invalid inputs
-   - Non-existent session IDs
+   - ✅ **delete** - COMPLETE (21 tests)
+     - Single and bulk deletion
+     - Filter-based deletion
+     - Dry-run mode
+     - Cascade deletion with children
+     - Transaction safety
+     - Invalid inputs and error handling
 
 4. **report** (Session 2)
    - Different time ranges (week specs, custom dates, fuzzy dates)

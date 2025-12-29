@@ -125,9 +125,16 @@ program
 // Delete command
 program
   .command('delete')
-  .description('Delete a session by ID')
-  .argument('<session-id>', 'Session ID to delete')
+  .description('Delete one or more sessions')
+  .argument('[session-ids...]', 'Session IDs to delete (can specify multiple)')
   .option('-f, --force', 'Skip confirmation prompt')
+  .option('-y, --yes', 'Skip confirmation prompt (same as --force)')
+  .option('--from <date>', 'Delete sessions from this date (fuzzy date or YYYY-MM-DD)')
+  .option('--to <date>', 'Delete sessions up to this date (fuzzy date or YYYY-MM-DD)')
+  .option('-p, --project <project>', 'Delete sessions for specific project')
+  .option('-t, --tag <tags>', 'Delete sessions with specific tag(s) (comma-separated)')
+  .option('-s, --state <state>', 'Delete sessions with specific state (working, paused, completed, abandoned)')
+  .option('--dry-run', 'Show what would be deleted without actually deleting')
   .action(deleteCommand);
 
 // Edit command
