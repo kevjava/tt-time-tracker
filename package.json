@@ -4,7 +4,8 @@
   "description": "Unix-philosophy CLI time tracker with retroactive logging and comprehensive reporting",
   "main": "dist/index.js",
   "bin": {
-    "tt": "./dist/index.js"
+    "tt": "./dist/index.js",
+    "tt-completion-helper": "./dist/cli/completion-helper.js"
   },
   "scripts": {
     "build": "tsc && cp src/db/schema.sql dist/db/",
@@ -38,6 +39,7 @@
   "license": "MIT",
   "files": [
     "dist/",
+    "completions/",
     "README.md",
     "LICENSE",
     "CHANGELOG.md"

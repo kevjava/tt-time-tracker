@@ -1,0 +1,258 @@
+#compdef tt
+# Zsh completion for tt (time tracker)
+# Installation: Copy this file to a directory in your $fpath (e.g., /usr/local/share/zsh/site-functions/)
+
+_tt_recent_projects() {
+    if (( $+commands[tt-completion-helper] )); then
+        local projects
+        projects=(${(f)"$(tt-completion-helper projects 2>/dev/null)"})
+        _describe 'recent projects' projects
+    fi
+}
+
+_tt_recent_tags() {
+    if (( $+commands[tt-completion-helper] )); then
+        local tags
+        tags=(${(f)"$(tt-completion-helper tags 2>/dev/null)"})
+        _describe 'recent tags' tags
+    fi
+}
+
+_tt_week_specs() {
+    local specs=(
+        'current:Current week'
+        'last:Last week'
+    )
+    local year=$(date +%Y)
+    local prev_year=$((year - 1))
+    local i
+    for i in {1..53}; do
+        specs+=("${year}-W$(printf '%02d' $i):Week $i of $year")
+    done
+    _describe 'week specification' specs
+}
+
+_tt_fuzzy_dates() {
+    local dates=(
+        'yesterday:Yesterday'
+        'today:Today'
+        'monday:Last/next Monday'
+        'tuesday:Last/next Tuesday'
+        'wednesday:Last/next Wednesday'
+        'thursday:Last/next Thursday'
+        'friday:Last/next Friday'
+        'saturday:Last/next Saturday'
+        'sunday:Last/next Sunday'
+    )
+    _describe 'fuzzy date' dates
+}
+
+_tt_durations() {
+    local durations=(
+        '15m:15 minutes'
+        '30m:30 minutes'
+        '1h:1 hour'
+        '1h30m:1.5 hours'
+        '2h:2 hours'
+        '3h:3 hours'
+        '4h:4 hours'
+    )
+    _describe 'duration' durations
+}
+
+_tt_relative_times() {
+    local times=(
+        '-15m:15 minutes ago'
+        '-30m:30 minutes ago'
+        '-1h:1 hour ago'
+    )
+    _describe 'relative time' times
+}
+
+_tt_states() {
+    local states=(
+        'working:Currently active'
+        'paused:Paused task'
+        'completed:Completed task'
+        'abandoned:Abandoned task'
+    )
+    _describe 'session state' states
+}
+
+_tt_report() {
+    _arguments \
+        '--week[Week to report]:week spec:_tt_week_specs' \
+        '--from[Start date]:date:_tt_fuzzy_dates' \
+        '--to[End date]:date:_tt_fuzzy_dates' \
+        '--project[Filter by project]:project:_tt_recent_projects' \
+        '--tag[Filter by tags]:tags:_tt_recent_tags' \
+        '--format[Output format]:format:(terminal json csv)' \
+        '--help[Show help]'
+}
+
+_tt_list() {
+    _arguments \
+        '--week[Week to list]:week spec:_tt_week_specs' \
+        '--from[Start date]:date:_tt_fuzzy_dates' \
+        '--to[End date]:date:_tt_fuzzy_dates' \
+        '--project[Filter by project]:project:_tt_recent_projects' \
+        '--tag[Filter by tags]:tags:_tt_recent_tags' \
+        '--state[Filter by state]:state:_tt_states' \
+        '--format[Output format]:format:(table log)' \
+        '--help[Show help]'
+}
+
+_tt_start() {
+    _arguments \
+        '1:description:' \
+        '-p[Project name]:project:_tt_recent_projects' \
+        '--project[Project name]:project:_tt_recent_projects' \
+        '-t[Tags (comma-separated)]:tags:_tt_recent_tags' \
+        '--tags[Tags (comma-separated)]:tags:_tt_recent_tags' \
+        '-e[Estimated duration]:duration:_tt_durations' \
+        '--estimate[Estimated duration]:duration:_tt_durations' \
+        '--at[Start time]:time:_tt_relative_times' \
+        '--help[Show help]'
+}
+
+_tt_stop() {
+    _arguments \
+        '-r[Add remark]:remark:' \
+        '--remark[Add remark]:remark:' \
+        '--at[Stop time]:time:_tt_relative_times' \
+        '--help[Show help]'
+}
+
+_tt_interrupt() {
+    _arguments \
+        '1:description:' \
+        '-p[Project name]:project:_tt_recent_projects' \
+        '--project[Project name]:project:_tt_recent_projects' \
+        '-t[Tags (comma-separated)]:tags:_tt_recent_tags' \
+        '--tags[Tags (comma-separated)]:tags:_tt_recent_tags' \
+        '-e[Estimated duration]:duration:_tt_durations' \
+        '--estimate[Estimated duration]:duration:_tt_durations' \
+        '--at[Interrupt time]:time:_tt_relative_times' \
+        '--help[Show help]'
+}
+
+_tt_resume() {
+    _arguments \
+        '-r[Add remark]:remark:' \
+        '--remark[Add remark]:remark:' \
+        '--at[Resume time]:time:_tt_relative_times' \
+        '--help[Show help]'
+}
+
+_tt_pause() {
+    _arguments \
+        '--reason[Reason for pausing]:reason:' \
+        '--at[Pause time]:time:_tt_relative_times' \
+        '--help[Show help]'
+}
+
+_tt_abandon() {
+    _arguments \
+        '--reason[Reason for abandoning]:reason:' \
+        '--at[Abandon time]:time:_tt_relative_times' \
+        '--help[Show help]'
+}
+
+_tt_delete() {
+    _arguments \
+        '*:session IDs:' \
+        '-y[Skip confirmation]' \
+        '--yes[Skip confirmation]' \
+        '--from[Delete from date]:date:_tt_fuzzy_dates' \
+        '--to[Delete to date]:date:_tt_fuzzy_dates' \
+        '-p[Filter by project]:project:_tt_recent_projects' \
+        '--project[Filter by project]:project:_tt_recent_projects' \
+        '-t[Filter by tag]:tags:_tt_recent_tags' \
+        '--tag[Filter by tag]:tags:_tt_recent_tags' \
+        '-s[Filter by state]:state:_tt_states' \
+        '--state[Filter by state]:state:_tt_states' \
+        '--dry-run[Preview without deleting]' \
+        '--help[Show help]'
+}
+
+_tt_edit() {
+    _arguments \
+        '1:session ID:' \
+        '*:log notation:' \
+        '-d[Update description]:description:' \
+        '--description[Update description]:description:' \
+        '-p[Update project]:project:_tt_recent_projects' \
+        '--project[Update project]:project:_tt_recent_projects' \
+        '-t[Update tags]:tags:_tt_recent_tags' \
+        '--tags[Update tags]:tags:_tt_recent_tags' \
+        '-e[Update estimate]:duration:_tt_durations' \
+        '--estimate[Update estimate]:duration:_tt_durations' \
+        '-r[Update remark]:remark:' \
+        '--remark[Update remark]:remark:' \
+        '--start-time[Update start time]:time:' \
+        '--end-time[Update end time]:time:' \
+        '--state[Update state]:state:_tt_states' \
+        '--help[Show help]'
+}
+
+_tt_log() {
+    _arguments \
+        '1:log file:_files' \
+        '--overwrite[Allow overwriting overlapping sessions]' \
+        '--help[Show help]'
+}
+
+_tt_status() {
+    _arguments \
+        '--help[Show help]'
+}
+
+_tt() {
+    local -a commands
+    commands=(
+        'status:Show status of running timers (default)'
+        'log:Parse and insert time entries from file'
+        'report:Generate time report for a date range'
+        'list:List sessions in columnar format'
+        'start:Start tracking a task'
+        'stop:Stop current active task'
+        'interrupt:Interrupt current task with a new task'
+        'resume:Complete interruption and resume parent'
+        'pause:Pause current active task'
+        'abandon:Abandon current active task'
+        'delete:Delete one or more sessions'
+        'edit:Edit a session by ID'
+        'help:Show help information'
+    )
+
+    _arguments -C \
+        '(-v --verbose)'{-v,--verbose}'[Output debug messages]' \
+        '(--version)--version[Show version]' \
+        '(--help)--help[Show help]' \
+        '1:command:->command' \
+        '*::arg:->args'
+
+    case "$state" in
+        command)
+            _describe 'tt command' commands
+            ;;
+        args)
+            case "$words[1]" in
+                report) _tt_report ;;
+                list) _tt_list ;;
+                start) _tt_start ;;
+                stop) _tt_stop ;;
+                interrupt) _tt_interrupt ;;
+                resume) _tt_resume ;;
+                pause) _tt_pause ;;
+                abandon) _tt_abandon ;;
+                delete) _tt_delete ;;
+                edit) _tt_edit ;;
+                log) _tt_log ;;
+                status) _tt_status ;;
+            esac
+            ;;
+    esac
+}
+
+_tt "$@"

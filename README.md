@@ -58,6 +58,50 @@ npm install -g .
 - Node.js >= 18
 - SQLite3 (included via better-sqlite3)
 
+### Shell Completions (Optional)
+
+Enable tab completion for commands, flags, and dynamic suggestions (recent projects/tags):
+
+#### Bash
+
+```bash
+# Copy the completion script
+sudo cp completions/tt.bash /etc/bash_completion.d/tt
+
+# Or source it in your ~/.bashrc
+echo 'source /path/to/tt-time-tracker/completions/tt.bash' >> ~/.bashrc
+source ~/.bashrc
+```
+
+#### Zsh
+
+```bash
+# Copy to your fpath (adjust path as needed)
+sudo cp completions/_tt /usr/local/share/zsh/site-functions/_tt
+
+# Or add to your ~/.zshrc
+fpath=(/path/to/tt-time-tracker/completions $fpath)
+compinit
+```
+
+#### Fish
+
+```bash
+# Copy to fish completions directory
+cp completions/tt.fish ~/.config/fish/completions/
+
+# Reload completions
+fish_update_completions
+```
+
+**Features:**
+- Command and flag completion
+- Dynamic project suggestions from recent sessions
+- Dynamic tag suggestions from recent sessions
+- Week specs (`current`, `last`, ISO weeks)
+- Fuzzy date completions (`yesterday`, `monday`, etc.)
+- Common duration suggestions (`15m`, `1h`, `2h`)
+
 ## Quick Start
 
 ### 1. Log Your Time
