@@ -41,11 +41,44 @@ A Unix-philosophy CLI time tracker with low-friction retroactive logging, compre
 
 ## MVP Roadmap
 
+### Phase 0: Priority quality-of-life fixes
+
+#### 0.1: Bulk deletion
+
+The `tt delete` command should be able to delete multiple entries. We should be
+able to do things like:
+
+```ttlog
+tt delete 10 11 14 18 20
+```
+
+or:
+
+```ttlog
+tt delete --from sunday --to tuesday
+```
+
+#### 0.2: Edit flexibility
+
+I'd like to add log format to the `tt edit` command.
+
+For example, you could use
+
+```ttlog
+tt edit 10 ~20m
+```
+
+To change the estimate of session number 10 to 20 minutes.
+
+Please ask if you see issues that could arise with this or need clarification.
+
 ### Phase 1: Foundation & Reliability 🔧
+
 **Goal**: Make the core stable and well-tested
 **Time Estimate**: 2-3 sessions
 
 #### 1.1 Test Coverage for Core Commands
+
 **Priority**: HIGH - Must have before adding more features
 
 Add comprehensive test suites for:
@@ -91,6 +124,7 @@ Add comprehensive test suites for:
    - Interruption hierarchies
 
 **Success Criteria**:
+
 - 80%+ test coverage
 - All commands have happy path + error case tests
 - Confidence to refactor without breaking things
@@ -98,15 +132,18 @@ Add comprehensive test suites for:
 ---
 
 ### Phase 2: Discoverability & Ease of Use ⚡
+
 **Goal**: Reduce friction in daily use
 **Time Estimate**: 1-2 sessions
 
 #### 2.1 Shell Completion Scripts
+
 **Priority**: HIGH - Daily UX improvement
 
 Implement tab completion for:
 
 **Commands**:
+
 ```bash
 tt st<TAB>     → tt start
 tt rep<TAB>    → tt report
@@ -114,6 +151,7 @@ tt int<TAB>    → tt interrupt
 ```
 
 **Options**:
+
 ```bash
 tt report --f<TAB>        → tt report --from
 tt start -p <TAB>         → [list of recent projects]
@@ -121,18 +159,21 @@ tt start -t <TAB>         → [list of recent tags]
 ```
 
 **Dynamic Suggestions** (from database):
+
 - Projects: Show recent projects when completing `-p` or `--project`
 - Tags: Show recent tags when completing `-t` or `--tags`
 - Week specs: `current`, `last`, `2024-W51`, etc.
 - Date examples: `yesterday`, `monday`, `last week`
 
 **Files to Create**:
+
 - `completions/tt.bash`
 - `completions/tt.zsh`
 - `completions/tt.fish`
 - Installation instructions in README
 
 **Implementation Notes**:
+
 - Use commander.js's built-in completion support
 - Query database for recent projects/tags (last 30 days)
 - Include installation instructions for each shell
@@ -140,6 +181,7 @@ tt start -t <TAB>         → [list of recent tags]
 ---
 
 #### 2.2 Configuration File Support
+
 **Priority**: MEDIUM - Reduces repetitive typing
 
 Allow users to set defaults in `~/.config/tt/config.json`:
@@ -158,6 +200,7 @@ Allow users to set defaults in `~/.config/tt/config.json`:
 ```
 
 **Commands to Add**:
+
 ```bash
 tt config                    # Show current config
 tt config set <key> <value>  # Set a config value
@@ -166,11 +209,13 @@ tt config edit               # Open config file in editor
 ```
 
 **Behavior**:
+
 - Config values are used as defaults when flags not provided
 - Command-line flags always override config
 - Validation on config load (warn about invalid keys)
 
 **Files**:
+
 - `src/utils/config.ts` - Add config loading/saving
 - `src/cli/commands/config.ts` - New command
 - Update existing commands to use config defaults
@@ -178,10 +223,12 @@ tt config edit               # Open config file in editor
 ---
 
 ### Phase 3: Better Insights 📊
+
 **Goal**: Make the data more useful
 **Time Estimate**: 2-3 sessions
 
 #### 3.1 Enhanced Status Command
+
 **Priority**: HIGH - Used frequently
 
 Show richer context about current work:
@@ -205,6 +252,7 @@ Today's Summary:
 ```
 
 **What to Show**:
+
 - Current session with metadata
 - How long you've been working
 - Time remaining (if estimate set)
@@ -215,11 +263,13 @@ Today's Summary:
 ---
 
 #### 3.2 Trends & Analytics
+
 **Priority**: MEDIUM - Nice insights, but not critical
 
 Add comparative analytics to reports:
 
 **Week-over-Week Comparison**:
+
 ```bash
 $ tt report
 
@@ -234,6 +284,7 @@ $ tt report
 ```
 
 **Time Patterns**:
+
 ```
 Most Productive Hours:
   09:00-11:00: 12h (34%)
@@ -243,6 +294,7 @@ Morning Focus: Avg 2h 15m before first interruption
 ```
 
 **Features**:
+
 - Week-over-week deltas
 - Month-over-month trends
 - Time-of-day heatmap
@@ -251,6 +303,7 @@ Morning Focus: Avg 2h 15m before first interruption
 - Identify patterns (most productive times)
 
 **Implementation**:
+
 - Add `--compare` flag to report command
 - Query previous period's data
 - Calculate deltas and percentages
@@ -263,27 +316,32 @@ Morning Focus: Avg 2h 15m before first interruption
 These are nice-to-have features that can come after MVP:
 
 ### Goals & Targets
+
 - Weekly hour targets per project
 - Tag-based goals (e.g., "40h coding per week")
 - Progress tracking and warnings
 
 ### Import from Other Tools
+
 - Toggl CSV export
 - Harvest CSV export
 - RescueTime data
 - Generic CSV format
 
 ### Pomodoro Mode
+
 - Built-in timer: `tt pomo "Task" --duration 25m`
 - Auto-break reminders
 - Pomodoro statistics in reports
 
 ### Web Dashboard
+
 - Optional web UI for reports
 - Visualizations and charts
 - Mobile-friendly
 
 ### Team Features
+
 - Shared projects database
 - Team reports
 - Export for invoicing
@@ -310,6 +368,7 @@ The MVP will be considered complete when:
 **Start with**: Test coverage for `stop` and `resume` commands
 
 **Approach**:
+
 1. Read existing tests for `start` and `interrupt` as templates
 2. Create `src/cli/commands/__tests__/stop.test.ts`
 3. Create `src/cli/commands/__tests__/resume.test.ts`
@@ -317,6 +376,7 @@ The MVP will be considered complete when:
 5. Aim for ~10-15 tests per command
 
 **Expected Tests for stop**:
+
 - Stop active session
 - Stop with remark
 - Stop when no active session (error)
@@ -325,6 +385,7 @@ The MVP will be considered complete when:
 - Multiple start/stop cycles
 
 **Expected Tests for resume**:
+
 - Resume from interruption
 - Resume with remark
 - Resume when no active session (error)
