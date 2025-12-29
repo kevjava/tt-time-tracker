@@ -2,9 +2,11 @@ import chalk from 'chalk';
 import { TimeTrackerDB } from '../../db/database';
 import { ensureDataDir, getDatabasePath } from '../../utils/config';
 import { differenceInMinutes } from 'date-fns';
+import { validateStopTime } from '../../utils/session-validator';
 
 interface StopOptions {
   remark?: string;
+  at?: string;
 }
 
 /**
@@ -23,12 +25,8 @@ export function stopCommand(options: StopOptions): void {
         process.exit(1);
       }
 
-      let endTime = new Date();
-
-      // Ensure end_time is after start_time (database constraint)
-      if (endTime <= activeSession.startTime) {
-        endTime = new Date(activeSession.startTime.getTime() + 1);
-      }
+      // Validate and parse stop time
+      const endTime = validateStopTime(options.at, activeSession);
 
       // Update session
       db.updateSession(activeSession.id!, {
@@ -47,6 +45,10 @@ export function stopCommand(options: StopOptions): void {
       console.log(chalk.green.bold('✓') + chalk.green(' Stopped tracking'));
       console.log(chalk.gray(`  Task: ${activeSession.description}`));
       console.log(chalk.gray(`  Duration: ${duration}`));
+
+      if (options.at) {
+        console.log(chalk.gray(`  Stop time: ${endTime.toLocaleString()}`));
+      }
 
       if (options.remark) {
         console.log(chalk.gray(`  Remark: ${options.remark}`));

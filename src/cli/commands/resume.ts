@@ -1,9 +1,11 @@
 import chalk from 'chalk';
 import { TimeTrackerDB } from '../../db/database';
 import { ensureDataDir, getDatabasePath } from '../../utils/config';
+import { validateResumeTime } from '../../utils/session-validator';
 
 interface ResumeOptions {
   remark?: string;
+  at?: string;
 }
 
 /**
@@ -44,13 +46,8 @@ export function resumeCommand(options: ResumeOptions = {}): void {
         process.exit(1);
       }
 
-      // Stop current interruption
-      let endTime = new Date();
-
-      // Ensure end_time is after start_time (database constraint)
-      if (endTime <= activeSession.startTime) {
-        endTime = new Date(activeSession.startTime.getTime() + 1);
-      }
+      // Validate and parse resume time (which is the end time for the interruption)
+      const endTime = validateResumeTime(options.at, activeSession);
 
       db.updateSession(activeSession.id!, {
         endTime,
@@ -67,6 +64,10 @@ export function resumeCommand(options: ResumeOptions = {}): void {
       console.log(
         chalk.green.bold('✓') + chalk.green(` Completed interruption: ${activeSession.description}`)
       );
+
+      if (options.at) {
+        console.log(chalk.gray(`  Resume time: ${endTime.toLocaleString()}`));
+      }
 
       if (options.remark) {
         console.log(chalk.gray(`  Remark: ${options.remark}`));

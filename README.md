@@ -6,6 +6,7 @@ A Unix-philosophy CLI time tracker with low-friction retroactive logging and com
 
 - 📝 **Retroactive Logging** - Log your time using a simple text notation, edit in your favorite editor
 - ⚡ **Live Tracking** - Start/stop tasks in real-time with interruption support
+- ⏰ **Retroactive Commands** - Use `--at` flag to backfill forgotten context switches with overlap prevention
 - 📊 **Rich Analytics** - Context switching, deep work sessions, efficiency metrics, and more
 - 🎨 **Multiple Formats** - Terminal, JSON, CSV, and log format output
 - 🔍 **Smart Filtering** - Filter reports by project, tags, date ranges, and state
@@ -65,6 +66,13 @@ Stop when done:
 
 ```bash
 tt stop -r "completed with tests"
+```
+
+Forgot to start tracking? Backfill with `--at`:
+
+```bash
+tt start "Code review" --at "-30m" -p myApp -t review
+tt stop --at "-5m"
 ```
 
 ### 3. Generate Reports
@@ -192,6 +200,7 @@ Start tracking a task. Supports both plain descriptions and log notation syntax.
 - `-p, --project <project>` - Project name (overrides log notation)
 - `-t, --tags <tags>` - Comma-separated tags (overrides log notation)
 - `-e, --estimate <duration>` - Estimated duration (overrides log notation, e.g., 2h, 30m)
+- `--at <time>` - Start time for retroactive tracking (e.g., `15:51`, `2025-12-29 15:51`, `-30m`)
 
 **Log Notation Support:**
 
@@ -209,6 +218,15 @@ tt start 10:00 fix bug @projectA +bugfix -p projectB -t critical
 # Result: Uses projectB (overrides projectA) and critical tag (overrides bugfix)
 ```
 
+**Retroactive Tracking:**
+
+Use the `--at` flag to log tasks that you forgot to start. The time can be specified in three formats:
+- **Time-only**: `15:51` (assumes today, or yesterday if that would be in the future)
+- **Full datetime**: `2025-12-29 15:51`
+- **Relative**: `-30m`, `-2h`, `-1h30m` (relative to current time)
+
+The system prevents overlaps - you'll get an error if the time conflicts with an existing session.
+
 **Examples:**
 
 ```bash
@@ -223,6 +241,15 @@ tt start write tests @myApp +testing +urgent
 
 # Mixed: log notation with option override
 tt start 09:00 morning standup @teamA +meeting -p teamB
+
+# Retroactive tracking - started 30 minutes ago
+tt start "Forgot to start this" --at "-30m" -p myApp
+
+# Retroactive tracking - started at specific time today
+tt start "Morning standup" --at "09:00" -p team -t meeting
+
+# Retroactive tracking - started at specific datetime
+tt start "Yesterday's work" --at "2025-12-28 14:00" -p myApp
 ```
 
 ### `tt stop`
@@ -232,11 +259,22 @@ Stop current active task.
 **Options:**
 
 - `-r, --remark <remark>` - Add remark to task
+- `--at <time>` - Stop time for retroactive tracking (e.g., `15:51`, `2025-12-29 15:51`, `-30m`)
 
-**Example:**
+**Examples:**
 
 ```bash
+# Stop now with a remark
 tt stop -r "completed ahead of schedule"
+
+# Retroactive stop - you forgot to stop 10 minutes ago
+tt stop --at "-10m"
+
+# Stop at specific time today
+tt stop --at "15:51" -r "Completed early"
+
+# Stop at specific datetime
+tt stop --at "2025-12-29 17:30" -r "End of day"
 ```
 
 ### `tt interrupt <description>`
@@ -248,6 +286,7 @@ Interrupt the current task with a new task. The current task is paused and a new
 - `-p, --project <project>` - Project name (overrides log notation)
 - `-t, --tags <tags>` - Comma-separated tags (overrides log notation)
 - `-e, --estimate <duration>` - Estimated duration (overrides log notation, e.g., 2h, 30m)
+- `--at <time>` - Interrupt time for retroactive tracking (e.g., `15:51`, `2025-12-29 15:51`, `-30m`)
 
 **Log Notation Support:**
 
@@ -275,6 +314,12 @@ tt interrupt "fix production bug" -p backend -t urgent,bugfix -e 30m
 
 # Using log notation
 tt interrupt 14:00 Standup meeting @team +meeting ~15m
+
+# Retroactive interruption - happened 15 minutes ago
+tt interrupt "Quick bug fix" --at "-15m" -t urgent
+
+# Retroactive interruption at specific time
+tt interrupt "Customer call" --at "10:30" -p support
 ```
 
 ### `tt resume`
@@ -284,11 +329,19 @@ Complete the current interruption and resume the parent task.
 **Options:**
 
 - `-r, --remark <remark>` - Add remark to the interruption being completed
+- `--at <time>` - Resume time for retroactive tracking (e.g., `15:51`, `2025-12-29 15:51`, `-30m`)
 
-**Example:**
+**Examples:**
 
 ```bash
+# Resume now with a remark
 tt resume -r "issue resolved"
+
+# Retroactive resume - you finished the interruption 5 minutes ago
+tt resume --at "-5m"
+
+# Resume at specific time
+tt resume --at "10:51" -r "Back to main task"
 ```
 
 ### `tt report`
@@ -680,6 +733,36 @@ Default: `vi`
    ```bash
    tt report --week current
    ```
+
+### Retroactive Tracking with `--at`
+
+When you forget to track context switches in real-time, use the `--at` flag to backfill:
+
+```bash
+# Realized you forgot to start tracking an hour ago
+tt start "Code review" --at "-1h" -p myApp -t review
+
+# Stop it 30 minutes ago
+tt stop --at "-30m"
+
+# Or use specific times
+tt start "Morning standup" --at "09:00" -t meeting
+tt stop --at "09:15"
+
+# Handle interruptions retroactively
+tt start "Feature work" --at "10:00" -p myApp
+tt interrupt "Bug fix" --at "11:30" -t urgent
+tt resume --at "12:00" -r "Fixed the issue"
+tt stop --at "13:00"
+```
+
+**Overlap Prevention:**
+The `--at` flag validates that times don't conflict with existing sessions. If you get an overlap error, you'll need to stop or adjust the conflicting session first.
+
+**Time Formats:**
+- **Relative**: `-30m`, `-2h`, `-1h30m` (most convenient for recent tasks)
+- **Time-only**: `15:51` (assumes today, or yesterday if in future)
+- **Full datetime**: `2025-12-29 15:51` (for older corrections)
 
 ### Log File Organization
 

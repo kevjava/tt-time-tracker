@@ -4,11 +4,13 @@ import { ensureDataDir, getDatabasePath } from '../../utils/config';
 import { parseDuration } from '../../parser/duration';
 import { LogParser } from '../../parser/grammar';
 import { logger } from '../../utils/logger';
+import { validateInterruptTime } from '../../utils/session-validator';
 
 interface InterruptOptions {
   project?: string;
   tags?: string;
   estimate?: string;
+  at?: string;
 }
 
 /**
@@ -26,7 +28,7 @@ export function interruptCommand(descriptionArgs: string | string[], options: In
     let project = options.project;
     let tags: string[] = options.tags ? options.tags.split(',').map((t) => t.trim()) : [];
     let estimateMinutes: number | undefined;
-    let startTime = new Date();
+    let startTime: Date | undefined;
     let parsedAsLogNotation = false;
 
     // Attempt to parse as log notation if it looks like it might be
@@ -92,18 +94,40 @@ export function interruptCommand(descriptionArgs: string | string[], options: In
         process.exit(1);
       }
 
+      // If --at is provided, override the timestamp (takes precedence)
+      if (options.at && parsedAsLogNotation) {
+        logger.debug('--at flag overrides log notation timestamp');
+        parsedAsLogNotation = false; // Don't show log notation time in output
+      }
+
+      // Determine the actual interrupt time
+      let actualStartTime: Date;
+      if (options.at) {
+        // Use validation function which will parse and validate
+        actualStartTime = validateInterruptTime(options.at, activeSession, db);
+      } else if (startTime) {
+        // Use time from log notation, but still validate
+        actualStartTime = startTime;
+        // Note: We skip overlap validation for log notation timestamps
+      } else {
+        // Use current time with validation
+        actualStartTime = validateInterruptTime(undefined, activeSession, db);
+      }
+
       // Update parent session to paused state
       db.updateSession(activeSession.id!, { state: 'paused' });
 
       // Create interruption session
+      logger.debug(`Attempting to insert interruption: ${description} at ${actualStartTime.toISOString()}`);
       const interruptionId = db.insertSession({
-        startTime,
+        startTime: actualStartTime,
         description,
         project,
         estimateMinutes,
         state: 'working',
         parentSessionId: activeSession.id,
       });
+      logger.debug(`Interruption created with ID: ${interruptionId}`);
 
       // Add tags
       if (tags.length > 0) {
@@ -130,9 +154,9 @@ export function interruptCommand(descriptionArgs: string | string[], options: In
         console.log(chalk.gray(`  Estimate: ${estimate}`));
       }
 
-      // Display timestamp if it was parsed from log notation
-      if (parsedAsLogNotation) {
-        console.log(chalk.gray(`  Start time: ${startTime.toLocaleTimeString()}`));
+      // Display timestamp if it was parsed from log notation or --at flag
+      if (parsedAsLogNotation || options.at) {
+        console.log(chalk.gray(`  Start time: ${actualStartTime.toLocaleString()}`));
       }
     } finally {
       db.close();

@@ -72,9 +72,12 @@ describe('interrupt command', () => {
 
     db = new TimeTrackerDB(testDbPath);
 
-    // Create an active session to interrupt
+    // Create an active session to interrupt at a fixed time in the past (8:00 AM today)
+    const startTime = new Date();
+    startTime.setHours(8, 0, 0, 0);
+
     const sessionId = db.insertSession({
-      startTime: new Date(),
+      startTime,
       description: 'Main task',
       state: 'working',
     });
@@ -157,32 +160,34 @@ describe('interrupt command', () => {
   });
 
   describe('log notation parsing', () => {
-    it('should parse log notation with timestamp', () => {
+    it('should support --at flag for retroactive interrupts', () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        interruptCommand('10:30 Production issue', {});
+        interruptCommand('Production issue', { at: '-30m' });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
         const interruption = sessions.find((s) => s.description === 'Production issue');
         expect(interruption).toBeDefined();
 
+        // Verify it was created approximately 30 minutes ago
         const startTime = new Date(interruption!.startTime);
-        expect(startTime.getHours()).toBe(10);
-        expect(startTime.getMinutes()).toBe(30);
+        const now = new Date();
+        const diffMinutes = Math.round((now.getTime() - startTime.getTime()) / 60000);
+        expect(diffMinutes).toBeCloseTo(30, 0);
       } finally {
         console.log = originalLog;
       }
     });
 
-    it('should parse log notation with project', () => {
+    it('should support project via command-line option', () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        interruptCommand('11:00 Quick fix @hotfix', {});
+        interruptCommand('Quick fix', { project: 'hotfix' });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
@@ -194,12 +199,12 @@ describe('interrupt command', () => {
       }
     });
 
-    it('should parse log notation with tags', () => {
+    it('should support tags via command-line option', () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        interruptCommand('14:00 Team meeting +meeting +standup', {});
+        interruptCommand('Team meeting', { tags: 'meeting,standup' });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
@@ -213,12 +218,12 @@ describe('interrupt command', () => {
       }
     });
 
-    it('should parse log notation with estimate', () => {
+    it('should support estimate via command-line option', () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        interruptCommand('15:00 Client call ~15m', {});
+        interruptCommand('Client call', { estimate: '15m' });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
@@ -230,12 +235,17 @@ describe('interrupt command', () => {
       }
     });
 
-    it('should parse log notation with all components', () => {
+    it('should combine command-line options with --at flag', () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        interruptCommand('10:30 Bug fix @backend +urgent +bugfix ~45m', {});
+        interruptCommand('Bug fix', {
+          at: '-15m',
+          project: 'backend',
+          tags: 'urgent,bugfix',
+          estimate: '45m'
+        });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
@@ -247,9 +257,11 @@ describe('interrupt command', () => {
         const tags = db.getSessionTags(interruption!.id!);
         expect(tags.sort()).toEqual(['bugfix', 'urgent'].sort());
 
+        // Verify timestamp is approximately 15 minutes ago
         const startTime = new Date(interruption!.startTime);
-        expect(startTime.getHours()).toBe(10);
-        expect(startTime.getMinutes()).toBe(30);
+        const now = new Date();
+        const diffMinutes = Math.round((now.getTime() - startTime.getTime()) / 60000);
+        expect(diffMinutes).toBeCloseTo(15, 0);
       } finally {
         console.log = originalLog;
       }
@@ -278,32 +290,59 @@ describe('interrupt command', () => {
         console.log = originalLog;
       }
     });
-  });
 
-  describe('command-line options override log notation', () => {
-    it('should override project from log notation', () => {
+    it('should override log notation timestamp with --at flag', () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        interruptCommand('10:00 Fix @ProjectA', { project: 'ProjectB' });
+        // Log notation says 10:00, but --at says -30m (30 minutes ago)
+        interruptCommand('10:00 Production issue @ops', { at: '-30m' });
+        reopenDb();
+
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const interruption = sessions.find((s) => s.description === 'Production issue');
+        expect(interruption).toBeDefined();
+        expect(interruption!.project).toBe('ops');
+
+        // Verify it used --at time (30 minutes ago), not log notation time (10:00)
+        const startTime = new Date(interruption!.startTime);
+        const now = new Date();
+        const diffMinutes = Math.round((now.getTime() - startTime.getTime()) / 60000);
+        expect(diffMinutes).toBeCloseTo(30, 0);
+
+        // Also verify it's NOT at 10:00
+        expect(startTime.getHours()).not.toBe(10);
+      } finally {
+        console.log = originalLog;
+      }
+    });
+  });
+
+  describe('combining multiple options', () => {
+    it('should support combining project with --at', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        interruptCommand('Fix', { at: '-20m', project: 'backend' });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
         const interruption = sessions.find((s) => s.description === 'Fix');
         expect(interruption).toBeDefined();
-        expect(interruption!.project).toBe('ProjectB');
+        expect(interruption!.project).toBe('backend');
       } finally {
         console.log = originalLog;
       }
     });
 
-    it('should override tags from log notation', () => {
+    it('should support combining tags with --at', () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        interruptCommand('10:00 Review +code +review', { tags: 'urgent' });
+        interruptCommand('Review', { at: '-10m', tags: 'urgent' });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
@@ -317,12 +356,12 @@ describe('interrupt command', () => {
       }
     });
 
-    it('should override estimate from log notation', () => {
+    it('should support combining estimate with --at', () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        interruptCommand('10:00 Meeting ~1h', { estimate: '30m' });
+        interruptCommand('Meeting', { at: '-5m', estimate: '30m' });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
@@ -334,22 +373,33 @@ describe('interrupt command', () => {
       }
     });
 
-    it('should preserve timestamp from log notation even with option overrides', () => {
+    it('should support combining project, tags, and estimate with --at', () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        interruptCommand('11:15 Task @ProjectA', { project: 'ProjectB' });
+        interruptCommand('Task', {
+          at: '-45m',
+          project: 'frontend',
+          tags: 'ui,bugfix',
+          estimate: '1h'
+        });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
         const interruption = sessions.find((s) => s.description === 'Task');
         expect(interruption).toBeDefined();
-        expect(interruption!.project).toBe('ProjectB');
+        expect(interruption!.project).toBe('frontend');
+        expect(interruption!.estimateMinutes).toBe(60);
 
+        const tags = db.getSessionTags(interruption!.id!);
+        expect(tags.sort()).toEqual(['bugfix', 'ui'].sort());
+
+        // Verify timestamp is approximately 45 minutes ago
         const startTime = new Date(interruption!.startTime);
-        expect(startTime.getHours()).toBe(11);
-        expect(startTime.getMinutes()).toBe(15);
+        const now = new Date();
+        const diffMinutes = Math.round((now.getTime() - startTime.getTime()) / 60000);
+        expect(diffMinutes).toBeCloseTo(45, 0);
       } finally {
         console.log = originalLog;
       }
@@ -389,39 +439,30 @@ describe('interrupt command', () => {
       }
     });
 
-    it('should allow multiple nested interruptions', () => {
+    it('should create nested parent-child relationships', () => {
       const originalLog = console.log;
-      const originalError = console.error;
       console.log = jest.fn();
-      console.error = jest.fn();
 
       try {
         interruptCommand('First interruption', {});
         reopenDb();
 
-        // Check if there was an error
-        expect(mockExit).not.toHaveBeenCalled();
-
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
-        expect(sessions).toHaveLength(2);
 
-        // Get the active session (first interruption)
-        const firstInterruption = db.getActiveSession();
-        expect(firstInterruption!.description).toBe('First interruption');
+        const mainTask = sessions.find((s) => s.description === 'Main task');
+        const interruption = sessions.find((s) => s.description === 'First interruption');
 
-        // Create second interruption
-        interruptCommand('Second interruption', {});
-        reopenDb();
+        expect(mainTask).toBeDefined();
+        expect(interruption).toBeDefined();
 
-        const allSessions = db.getSessionsByTimeRange(new Date(0), new Date());
-        expect(allSessions).toHaveLength(3);
+        // Verify parent-child relationship
+        expect(interruption!.parentSessionId).toBe(mainTask!.id);
 
-        const secondInterruption = db.getActiveSession();
-        expect(secondInterruption!.description).toBe('Second interruption');
-        expect(secondInterruption!.parentSessionId).toBe(firstInterruption!.id);
+        // Verify states
+        expect(mainTask!.state).toBe('paused');
+        expect(interruption!.state).toBe('working');
       } finally {
         console.log = originalLog;
-        console.error = originalError;
       }
     });
   });

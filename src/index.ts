@@ -96,6 +96,7 @@ program
   .option('-p, --project <project>', 'Project name (overrides log notation)')
   .option('-t, --tags <tags>', 'Comma-separated tags (overrides log notation)')
   .option('-e, --estimate <duration>', 'Estimated duration (overrides log notation, e.g., 2h, 30m)')
+  .option('--at <time>', 'Start time (e.g., "15:51", "2025-12-29 15:51", "-30m")')
   .action(startCommand);
 
 // Stop command
@@ -103,6 +104,7 @@ program
   .command('stop')
   .description('Stop current active task')
   .option('-r, --remark <remark>', 'Add remark to task')
+  .option('--at <time>', 'Stop time (e.g., "15:51", "2025-12-29 15:51", "-30m")')
   .action(stopCommand);
 
 // Interrupt command
@@ -113,6 +115,7 @@ program
   .option('-p, --project <project>', 'Project name (overrides log notation)')
   .option('-t, --tags <tags>', 'Comma-separated tags (overrides log notation)')
   .option('-e, --estimate <duration>', 'Estimated duration (overrides log notation, e.g., 2h, 30m)')
+  .option('--at <time>', 'Interrupt time (e.g., "15:51", "2025-12-29 15:51", "-30m")')
   .action(interruptCommand);
 
 // Resume command
@@ -120,6 +123,7 @@ program
   .command('resume')
   .description('Complete current interruption and resume parent task')
   .option('-r, --remark <remark>', 'Add remark to interruption')
+  .option('--at <time>', 'Resume time (e.g., "15:51", "2025-12-29 15:51", "-30m")')
   .action(resumeCommand);
 
 // Delete command

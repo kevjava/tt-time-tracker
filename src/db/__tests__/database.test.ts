@@ -479,4 +479,210 @@ describe('TimeTrackerDB', () => {
       expect(db.getSessionById(childId)).toBeNull();
     });
   });
+
+  describe('hasOverlappingSession', () => {
+    beforeEach(() => {
+      // Insert some test sessions
+      // Session 1: 09:00 - 10:00
+      db.insertSession({
+        startTime: new Date('2024-12-24T09:00:00'),
+        endTime: new Date('2024-12-24T10:00:00'),
+        description: 'completed task 1',
+        state: 'completed',
+      });
+
+      // Session 2: 11:00 - 12:00
+      db.insertSession({
+        startTime: new Date('2024-12-24T11:00:00'),
+        endTime: new Date('2024-12-24T12:00:00'),
+        description: 'completed task 2',
+        state: 'completed',
+      });
+
+      // Session 3: 14:00 - (active, no end time)
+      db.insertSession({
+        startTime: new Date('2024-12-24T14:00:00'),
+        description: 'active task',
+        state: 'working',
+      });
+    });
+
+    describe('starting new sessions', () => {
+      it('should not detect overlap when starting before all sessions', () => {
+        const startTime = new Date('2024-12-24T08:00:00');
+        expect(db.hasOverlappingSession(startTime, null)).toBe(false);
+      });
+
+      it('should not detect overlap when starting between completed sessions', () => {
+        const startTime = new Date('2024-12-24T10:30:00');
+        expect(db.hasOverlappingSession(startTime, null)).toBe(false);
+      });
+
+      it('should detect overlap when starting during a completed session', () => {
+        const startTime = new Date('2024-12-24T09:30:00'); // During 09:00-10:00
+        expect(db.hasOverlappingSession(startTime, null)).toBe(true);
+      });
+
+      it('should not detect overlap when starting exactly at a session start time', () => {
+        // Starting at the exact same time as another session is allowed
+        // (sessions can be 0-length or adjacent)
+        const startTime = new Date('2024-12-24T09:00:00');
+        expect(db.hasOverlappingSession(startTime, null)).toBe(false);
+      });
+
+      it('should not detect overlap when starting exactly at a session end time', () => {
+        const startTime = new Date('2024-12-24T10:00:00');
+        expect(db.hasOverlappingSession(startTime, null)).toBe(false);
+      });
+
+      it('should detect overlap with active session', () => {
+        const startTime = new Date('2024-12-24T15:00:00'); // After active task start
+        expect(db.hasOverlappingSession(startTime, null)).toBe(true);
+      });
+
+      it('should not detect overlap when starting before active session', () => {
+        const startTime = new Date('2024-12-24T13:00:00'); // Before active task
+        expect(db.hasOverlappingSession(startTime, null)).toBe(false);
+      });
+    });
+
+    describe('time range overlaps', () => {
+      it('should not detect overlap for non-overlapping time range', () => {
+        const startTime = new Date('2024-12-24T10:30:00');
+        const endTime = new Date('2024-12-24T10:45:00');
+        expect(db.hasOverlappingSession(startTime, endTime)).toBe(false);
+      });
+
+      it('should detect overlap when range starts during a session', () => {
+        const startTime = new Date('2024-12-24T09:30:00');
+        const endTime = new Date('2024-12-24T10:30:00');
+        expect(db.hasOverlappingSession(startTime, endTime)).toBe(true);
+      });
+
+      it('should detect overlap when range ends during a session', () => {
+        const startTime = new Date('2024-12-24T08:30:00');
+        const endTime = new Date('2024-12-24T09:30:00');
+        expect(db.hasOverlappingSession(startTime, endTime)).toBe(true);
+      });
+
+      it('should detect overlap when range completely contains a session', () => {
+        const startTime = new Date('2024-12-24T08:00:00');
+        const endTime = new Date('2024-12-24T13:00:00');
+        expect(db.hasOverlappingSession(startTime, endTime)).toBe(true);
+      });
+
+      it('should detect overlap when range is completely within a session', () => {
+        const startTime = new Date('2024-12-24T09:15:00');
+        const endTime = new Date('2024-12-24T09:45:00');
+        expect(db.hasOverlappingSession(startTime, endTime)).toBe(true);
+      });
+
+      it('should detect overlap with active session', () => {
+        const startTime = new Date('2024-12-24T14:30:00');
+        const endTime = new Date('2024-12-24T15:00:00');
+        expect(db.hasOverlappingSession(startTime, endTime)).toBe(true);
+      });
+
+      it('should not detect overlap for exact adjacent ranges', () => {
+        // Ends exactly when next session starts
+        const startTime = new Date('2024-12-24T10:00:00');
+        const endTime = new Date('2024-12-24T11:00:00');
+        expect(db.hasOverlappingSession(startTime, endTime)).toBe(false);
+      });
+    });
+
+    describe('excluding sessions', () => {
+      it('should exclude specified session from overlap check', () => {
+        const sessions = db.getSessionsByTimeRange(
+          new Date('2024-12-24T00:00:00'),
+          new Date('2024-12-24T23:59:59')
+        );
+        const firstSessionId = sessions[0].id!;
+
+        // This would overlap with first session, but we exclude it
+        const startTime = new Date('2024-12-24T09:30:00');
+        expect(db.hasOverlappingSession(startTime, null, firstSessionId)).toBe(false);
+      });
+
+      it('should still detect overlap with other sessions when excluding one', () => {
+        const sessions = db.getSessionsByTimeRange(
+          new Date('2024-12-24T00:00:00'),
+          new Date('2024-12-24T23:59:59')
+        );
+        const firstSessionId = sessions[0].id!;
+
+        // Overlaps with second session (11:00-12:00), not first
+        const startTime = new Date('2024-12-24T11:30:00');
+        expect(db.hasOverlappingSession(startTime, null, firstSessionId)).toBe(true);
+      });
+
+      it('should work with non-existent session ID for exclusion', () => {
+        const startTime = new Date('2024-12-24T09:30:00');
+        expect(db.hasOverlappingSession(startTime, null, 99999)).toBe(true);
+      });
+    });
+
+    describe('edge cases', () => {
+      it('should handle sessions at midnight', () => {
+        db.insertSession({
+          startTime: new Date('2024-12-24T00:00:00'),
+          endTime: new Date('2024-12-24T01:00:00'),
+          description: 'midnight task',
+          state: 'completed',
+        });
+
+        const startTime = new Date('2024-12-24T00:30:00');
+        expect(db.hasOverlappingSession(startTime, null)).toBe(true);
+      });
+
+      it('should handle sessions spanning multiple days', () => {
+        // First, complete the active session from beforeEach
+        const sessions = db.getSessionsByTimeRange(
+          new Date('2024-12-24T00:00:00'),
+          new Date('2024-12-24T23:59:59')
+        );
+        const activeSession = sessions.find((s) => s.endTime === undefined);
+        if (activeSession) {
+          db.updateSession(activeSession.id!, {
+            endTime: new Date('2024-12-24T15:00:00'),
+            state: 'completed',
+          });
+        }
+
+        // Now insert overnight session
+        db.insertSession({
+          startTime: new Date('2024-12-24T23:00:00'),
+          endTime: new Date('2024-12-25T02:00:00'),
+          description: 'overnight task',
+          state: 'completed',
+        });
+
+        // Should overlap - starts during the overnight session
+        const startTime1 = new Date('2024-12-24T23:30:00');
+        expect(db.hasOverlappingSession(startTime1, null)).toBe(true);
+
+        // Should overlap - starts during the overnight session
+        const startTime2 = new Date('2024-12-25T01:00:00');
+        expect(db.hasOverlappingSession(startTime2, null)).toBe(true);
+
+        // Should not overlap - starts after overnight session ends
+        const startTime3 = new Date('2024-12-25T02:00:00');
+        expect(db.hasOverlappingSession(startTime3, null)).toBe(false);
+
+        // Should not overlap - starts before overnight session
+        const startTime4 = new Date('2024-12-24T22:00:00');
+        expect(db.hasOverlappingSession(startTime4, null)).toBe(false);
+      });
+
+      it('should return false when no sessions exist', () => {
+        const emptyDb = new TimeTrackerDB(':memory:');
+        try {
+          const startTime = new Date('2024-12-24T10:00:00');
+          expect(emptyDb.hasOverlappingSession(startTime, null)).toBe(false);
+        } finally {
+          emptyDb.close();
+        }
+      });
+    });
+  });
 });

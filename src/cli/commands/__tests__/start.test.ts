@@ -148,32 +148,34 @@ describe('start command', () => {
   });
 
   describe('log notation parsing', () => {
-    it('should parse log notation with timestamp', () => {
+    it('should support --at flag with time format', () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        startCommand('09:30 Fix bug', {});
+        startCommand('Fix bug', { at: '-2h' });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
         expect(sessions).toHaveLength(1);
         expect(sessions[0].description).toBe('Fix bug');
 
+        // Verify it was created approximately 2 hours ago
         const startTime = new Date(sessions[0].startTime);
-        expect(startTime.getHours()).toBe(9);
-        expect(startTime.getMinutes()).toBe(30);
+        const now = new Date();
+        const diffHours = Math.round((now.getTime() - startTime.getTime()) / 3600000);
+        expect(diffHours).toBeCloseTo(2, 0);
       } finally {
         console.log = originalLog;
       }
     });
 
-    it('should parse log notation with project', () => {
+    it('should support project via command-line option', () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        startCommand('09:30 Implement feature @ProjectX', {});
+        startCommand('Implement feature', { project: 'ProjectX' });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
@@ -185,12 +187,12 @@ describe('start command', () => {
       }
     });
 
-    it('should parse log notation with tags', () => {
+    it('should support tags via command-line option', () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        startCommand('10:00 Code review +review +urgent', {});
+        startCommand('Code review', { tags: 'review,urgent' });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
@@ -204,12 +206,12 @@ describe('start command', () => {
       }
     });
 
-    it('should parse log notation with estimate', () => {
+    it('should support estimate via command-line option', () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        startCommand('11:00 Write tests ~1h30m', {});
+        startCommand('Write tests', { estimate: '1h30m' });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
@@ -271,29 +273,30 @@ describe('start command', () => {
     });
   });
 
-  describe('command-line options override log notation', () => {
-    it('should override project from log notation', () => {
+  describe('combining multiple options', () => {
+    it('should support combining project with other options', () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        startCommand('10:00 Fix bug @ProjectA', { project: 'ProjectB' });
+        startCommand('Fix bug', { project: 'ProjectB', estimate: '1h' });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
         expect(sessions).toHaveLength(1);
         expect(sessions[0].project).toBe('ProjectB');
+        expect(sessions[0].estimateMinutes).toBe(60);
       } finally {
         console.log = originalLog;
       }
     });
 
-    it('should override tags from log notation', () => {
+    it('should support combining tags with other options', () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        startCommand('10:00 Fix bug +bugfix +low', { tags: 'urgent,critical' });
+        startCommand('Fix bug', { tags: 'urgent,critical', project: 'backend' });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
@@ -301,42 +304,50 @@ describe('start command', () => {
 
         const tags = db.getSessionTags(sessions[0].id!);
         expect(tags.sort()).toEqual(['critical', 'urgent'].sort());
+        expect(sessions[0].project).toBe('backend');
       } finally {
         console.log = originalLog;
       }
     });
 
-    it('should override estimate from log notation', () => {
+    it('should support combining estimate with other options', () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        startCommand('10:00 Fix bug ~2h', { estimate: '30m' });
+        startCommand('Fix bug', { estimate: '30m', tags: 'bugfix' });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
         expect(sessions).toHaveLength(1);
         expect(sessions[0].estimateMinutes).toBe(30);
+
+        const tags = db.getSessionTags(sessions[0].id!);
+        expect(tags).toEqual(['bugfix']);
       } finally {
         console.log = originalLog;
       }
     });
 
-    it('should preserve timestamp from log notation even with option overrides', () => {
+    it('should support combining --at with other options', () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        startCommand('09:30 Task @ProjectA', { project: 'ProjectB' });
+        startCommand('Task', { at: '-3h', project: 'ProjectB', tags: 'test' });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
         expect(sessions).toHaveLength(1);
         expect(sessions[0].project).toBe('ProjectB');
 
+        const tags = db.getSessionTags(sessions[0].id!);
+        expect(tags).toEqual(['test']);
+
         const startTime = new Date(sessions[0].startTime);
-        expect(startTime.getHours()).toBe(9);
-        expect(startTime.getMinutes()).toBe(30);
+        const now = new Date();
+        const diffHours = Math.round((now.getTime() - startTime.getTime()) / 3600000);
+        expect(diffHours).toBeCloseTo(3, 0);
       } finally {
         console.log = originalLog;
       }
@@ -428,6 +439,132 @@ describe('start command', () => {
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
         expect(sessions).toHaveLength(1);
         expect(sessions[0].description).toBe('123 Main Street analysis');
+      } finally {
+        console.log = originalLog;
+      }
+    });
+  });
+
+  describe('--at flag (retroactive tracking)', () => {
+    it('should start session at specified time', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        startCommand('Task 1', { at: '09:00' });
+        reopenDb();
+
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        expect(sessions).toHaveLength(1);
+
+        const startTime = new Date(sessions[0].startTime);
+        expect(startTime.getHours()).toBe(9);
+        expect(startTime.getMinutes()).toBe(0);
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    it('should prevent overlapping sessions', () => {
+      const originalLog = console.log;
+      const originalError = console.error;
+      console.log = jest.fn();
+      console.error = jest.fn();
+
+      try {
+        // Start first session 2 hours ago
+        startCommand('Task 1', { at: '-2h' });
+        reopenDb();
+
+        // Try to start second session 1 hour ago (should fail with overlap since first session is still active)
+        startCommand('Task 2', { at: '-1h' });
+
+        expect(mockExit).toHaveBeenCalledWith(1);
+        expect(console.error).toHaveBeenCalledWith(
+          expect.stringContaining('overlap')
+        );
+      } finally {
+        console.log = originalLog;
+        console.error = originalError;
+      }
+    });
+
+    it('should allow starting after previous session ended', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        // Start and stop first session
+        startCommand('Task 1', { at: '09:00' });
+        reopenDb();
+
+        const sessions1 = db.getSessionsByTimeRange(new Date(0), new Date());
+        const firstSession = sessions1[0];
+
+        // Set end time to 1 hour after start time
+        const endTime = new Date(firstSession.startTime);
+        endTime.setHours(endTime.getHours() + 1);
+
+        db.updateSession(firstSession.id!, {
+          endTime,
+          state: 'completed',
+        });
+        reopenDb();
+
+        // Start second session after first ends
+        startCommand('Task 2', { at: '10:00' });
+        reopenDb();
+
+        const sessions2 = db.getSessionsByTimeRange(new Date(0), new Date());
+        expect(sessions2).toHaveLength(2);
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    it('should combine --at with other options', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        startCommand('Task', {
+          at: '09:00',
+          project: 'myApp',
+          tags: 'code,urgent',
+          estimate: '2h',
+        });
+        reopenDb();
+
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        expect(sessions).toHaveLength(1);
+        expect(sessions[0].project).toBe('myApp');
+        expect(sessions[0].estimateMinutes).toBe(120);
+
+        const startTime = new Date(sessions[0].startTime);
+        expect(startTime.getHours()).toBe(9);
+
+        const tags = db.getSessionTags(sessions[0].id!);
+        expect(tags.sort()).toEqual(['code', 'urgent'].sort());
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    it('should override log notation timestamp with --at flag', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        // Log notation says 10:00, but --at says 09:00
+        startCommand('10:00 Task @project', { at: '09:00' });
+        reopenDb();
+
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        expect(sessions).toHaveLength(1);
+
+        const startTime = new Date(sessions[0].startTime);
+        expect(startTime.getHours()).toBe(9); // Should use --at time
+        expect(startTime.getMinutes()).toBe(0);
       } finally {
         console.log = originalLog;
       }

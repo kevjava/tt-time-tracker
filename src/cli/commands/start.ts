@@ -4,11 +4,13 @@ import { ensureDataDir, getDatabasePath } from '../../utils/config';
 import { parseDuration } from '../../parser/duration';
 import { LogParser } from '../../parser/grammar';
 import { logger } from '../../utils/logger';
+import { validateStartTime } from '../../utils/session-validator';
 
 interface StartOptions {
   project?: string;
   tags?: string;
   estimate?: string;
+  at?: string;
 }
 
 /**
@@ -26,7 +28,7 @@ export function startCommand(descriptionArgs: string | string[], options: StartO
     let project = options.project;
     let tags: string[] = options.tags ? options.tags.split(',').map((t) => t.trim()) : [];
     let estimateMinutes: number | undefined;
-    let startTime = new Date();
+    let startTime: Date | undefined;
     let parsedAsLogNotation = false;
 
     // Attempt to parse as log notation if it looks like it might be
@@ -79,25 +81,46 @@ export function startCommand(descriptionArgs: string | string[], options: StartO
       process.exit(1);
     }
 
-    // Check for active session
+    // Check for active session and validate start time
     ensureDataDir();
     const db = new TimeTrackerDB(getDatabasePath());
 
     try {
-      const activeSession = db.getActiveSession();
+      // If --at is provided, override the timestamp (takes precedence)
+      if (options.at && parsedAsLogNotation) {
+        logger.debug('--at flag overrides log notation timestamp');
+        parsedAsLogNotation = false; // Don't show log notation time in output
+      }
 
-      if (activeSession) {
-        console.error(
-          chalk.red(
-            `Error: Already tracking "${activeSession.description}". Stop it first with: tt stop`
-          )
-        );
-        process.exit(1);
+      // Determine the actual start time
+      let actualStartTime: Date;
+      if (options.at) {
+        // Use validation function which will parse and validate overlap
+        actualStartTime = validateStartTime(options.at, db);
+      } else if (startTime) {
+        // Use time from log notation
+        actualStartTime = startTime;
+        // Note: We skip overlap validation for log notation timestamps
+        // because they're typically used for backdating entire sessions
+      } else {
+        // Current time - check for active session with friendly error
+        const activeSession = db.getActiveSession();
+
+        if (activeSession) {
+          console.error(
+            chalk.red(
+              `Error: Already tracking "${activeSession.description}". Stop it first with: tt stop`
+            )
+          );
+          process.exit(1);
+        }
+
+        actualStartTime = new Date();
       }
 
       // Create session
       const sessionId = db.insertSession({
-        startTime,
+        startTime: actualStartTime,
         description,
         project,
         estimateMinutes,
@@ -128,9 +151,9 @@ export function startCommand(descriptionArgs: string | string[], options: StartO
         console.log(chalk.gray(`  Estimate: ${estimate}`));
       }
 
-      // Display timestamp if it was parsed from log notation
-      if (parsedAsLogNotation) {
-        console.log(chalk.gray(`  Start time: ${startTime.toLocaleTimeString()}`));
+      // Display timestamp if it was parsed from log notation or --at flag
+      if (parsedAsLogNotation || options.at) {
+        console.log(chalk.gray(`  Start time: ${actualStartTime.toLocaleString()}`));
       }
     } finally {
       db.close();
