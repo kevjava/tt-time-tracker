@@ -16,6 +16,8 @@ jest.mock('chalk', () => {
     gray: mockFn,
     red: mockFn,
     yellow: mockFn,
+    cyan: mockFn,
+    white: mockFn,
     bold: mockFn,
     dim: mockFn,
   };
@@ -321,7 +323,8 @@ describe('status command', () => {
         expect(output).toContain('Complex task');
         expect(output).toContain('Project: myProject');
         expect(output).toContain('Tags: bug, urgent'); // Tags are sorted alphabetically
-        expect(output).toContain('Estimate: 1h30m');
+        expect(output).toContain('Estimate: 1h 30m');
+        expect(output).toContain('remaining'); // Should show time remaining
       } finally {
         console.log = originalLog;
       }
@@ -554,9 +557,9 @@ describe('status command', () => {
 
         statusCommand({ isDefault: true });
 
-        expect(console.log).toHaveBeenCalledWith(
-          expect.stringContaining('tt help')
-        );
+        // With the enhanced status command showing summary, help text appears at the end
+        const allCalls = (console.log as jest.Mock).mock.calls.flat().join(' ');
+        expect(allCalls).toContain('tt help');
       } finally {
         console.log = originalLog;
       }
@@ -668,7 +671,8 @@ describe('status command', () => {
         statusCommand({});
 
         const output = (console.log as jest.Mock).mock.calls.join('\n');
-        expect(output).toContain('Estimate: 1h15m');
+        expect(output).toContain('Estimate: 1h 15m');
+        expect(output).toContain('remaining'); // Should show time remaining
       } finally {
         console.log = originalLog;
       }

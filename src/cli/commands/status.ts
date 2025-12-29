@@ -1,4 +1,5 @@
 import chalk from 'chalk';
+import { startOfDay, endOfDay } from 'date-fns';
 import { TimeTrackerDB } from '../../db/database';
 import { ensureDataDir, getDatabasePath } from '../../utils/config';
 import { Session } from '../../types/session';
@@ -7,12 +8,26 @@ interface StatusOptions {
   isDefault?: boolean;
 }
 
+interface TodaySummary {
+  totalMinutes: number;
+  interruptionCount: number;
+  projectBreakdown: Map<string, number>;
+  longestSessionMinutes: number;
+}
+
+/**
+ * Calculate elapsed time in minutes
+ */
+function getElapsedMinutes(startTime: Date): number {
+  const elapsed = Date.now() - startTime.getTime();
+  return Math.floor(elapsed / 60000);
+}
+
 /**
  * Calculate elapsed time in human-readable format
  */
 function formatElapsedTime(startTime: Date): string {
-  const elapsed = Date.now() - startTime.getTime();
-  const minutes = Math.floor(elapsed / 60000);
+  const minutes = getElapsedMinutes(startTime);
   const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;
 
@@ -20,6 +35,132 @@ function formatElapsedTime(startTime: Date): string {
     return `${hours}h ${mins}m`;
   }
   return `${mins}m`;
+}
+
+/**
+ * Format duration in minutes to human-readable string
+ */
+function formatDuration(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+
+  if (hours > 0) {
+    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+  }
+  return `${mins}m`;
+}
+
+/**
+ * Calculate time remaining for a session with an estimate
+ */
+function getTimeRemaining(session: Session, elapsedMinutes: number): { minutes: number; isOverEstimate: boolean } {
+  if (!session.estimateMinutes) {
+    return { minutes: 0, isOverEstimate: false };
+  }
+
+  const remaining = session.estimateMinutes - elapsedMinutes;
+  return {
+    minutes: Math.abs(remaining),
+    isOverEstimate: remaining < 0,
+  };
+}
+
+/**
+ * Calculate today's summary statistics
+ */
+function calculateTodaySummary(db: TimeTrackerDB): TodaySummary {
+  const today = new Date();
+  const start = startOfDay(today);
+  const end = endOfDay(today);
+
+  const sessions = db.getSessionsByTimeRange(start, end);
+
+  let totalMinutes = 0;
+  let interruptionCount = 0;
+  const projectBreakdown = new Map<string, number>();
+  let longestSessionMinutes = 0;
+
+  for (const session of sessions) {
+    // Calculate duration
+    let duration = 0;
+    if (session.explicitDurationMinutes) {
+      duration = session.explicitDurationMinutes;
+    } else if (session.endTime) {
+      duration = Math.floor((session.endTime.getTime() - session.startTime.getTime()) / 60000);
+    } else {
+      // Active session - calculate elapsed time
+      duration = getElapsedMinutes(session.startTime);
+    }
+
+    totalMinutes += duration;
+
+    // Track longest session (excluding interruptions)
+    if (!session.parentSessionId && duration > longestSessionMinutes) {
+      longestSessionMinutes = duration;
+    }
+
+    // Count interruptions
+    if (session.parentSessionId) {
+      interruptionCount++;
+    }
+
+    // Project breakdown
+    const project = session.project || '(no project)';
+    projectBreakdown.set(project, (projectBreakdown.get(project) || 0) + duration);
+  }
+
+  return {
+    totalMinutes,
+    interruptionCount,
+    projectBreakdown,
+    longestSessionMinutes,
+  };
+}
+
+/**
+ * Display today's summary section
+ */
+function displayTodaySummary(summary: TodaySummary): void {
+  // Don't show summary if there's been less than a minute of work today
+  if (summary.totalMinutes < 1) {
+    return;
+  }
+
+  console.log();
+  console.log(chalk.bold("Today's Summary:"));
+  console.log(`  Total time: ${chalk.cyan(formatDuration(summary.totalMinutes))}`);
+
+  if (summary.interruptionCount > 0) {
+    const interruptionText = summary.interruptionCount === 1 ? 'interruption' : 'interruptions';
+    const color = summary.interruptionCount > 5 ? chalk.yellow : chalk.white;
+    console.log(`  Interruptions: ${color(summary.interruptionCount)} ${interruptionText}`);
+  }
+
+  if (summary.projectBreakdown.size > 0) {
+    console.log(`  Projects:`);
+    // Sort projects by time (descending)
+    const sorted = Array.from(summary.projectBreakdown.entries()).sort((a, b) => b[1] - a[1]);
+    for (const [project, minutes] of sorted) {
+      console.log(`    ${project}: ${chalk.cyan(formatDuration(minutes))}`);
+    }
+  }
+
+  if (summary.longestSessionMinutes > 0) {
+    console.log(`  Deep work: ${chalk.cyan(formatDuration(summary.longestSessionMinutes))} (longest session)`);
+  }
+
+  // Warnings
+  const warnings: string[] = [];
+  if (summary.interruptionCount > 10) {
+    warnings.push(`${chalk.yellow('⚠')} High interruption count (${summary.interruptionCount}) - consider blocking focus time`);
+  }
+
+  if (warnings.length > 0) {
+    console.log();
+    for (const warning of warnings) {
+      console.log(`  ${warning}`);
+    }
+  }
 }
 
 /**
@@ -68,6 +209,10 @@ export function statusCommand(options: StatusOptions = {}): void {
         displaySession(root, 0, childSessions);
       }
 
+      // Calculate and display today's summary
+      const summary = calculateTodaySummary(db);
+      displayTodaySummary(summary);
+
       if (options.isDefault) {
         console.log(chalk.gray('\nRun `tt help` to see available commands'));
       }
@@ -90,6 +235,7 @@ function displaySession(
 ): void {
   const indent = '  '.repeat(depth);
   const elapsed = formatElapsedTime(session.startTime);
+  const elapsedMinutes = getElapsedMinutes(session.startTime);
 
   // State indicator
   let stateIndicator = '';
@@ -115,10 +261,18 @@ function displaySession(
     console.log(`${indent}  ${chalk.gray(`Tags: ${session.tags.join(', ')}`)}`);
   }
   if (session.estimateMinutes) {
-    const hours = Math.floor(session.estimateMinutes / 60);
-    const mins = session.estimateMinutes % 60;
-    const estimate = hours > 0 ? `${hours}h${mins > 0 ? `${mins}m` : ''}` : `${mins}m`;
-    console.log(`${indent}  ${chalk.gray(`Estimate: ${estimate}`)}`);
+    const estimateFormatted = formatDuration(session.estimateMinutes);
+    const timeRemaining = getTimeRemaining(session, elapsedMinutes);
+
+    if (timeRemaining.isOverEstimate) {
+      console.log(
+        `${indent}  ${chalk.gray(`Estimate: ${estimateFormatted}`)} ${chalk.yellow(`⚠ Over by ${formatDuration(timeRemaining.minutes)}`)}`
+      );
+    } else {
+      console.log(
+        `${indent}  ${chalk.gray(`Estimate: ${estimateFormatted}, ${formatDuration(timeRemaining.minutes)} remaining`)}`
+      );
+    }
   }
 
   // Display children (interruptions)
