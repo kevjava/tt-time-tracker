@@ -503,6 +503,60 @@ tt abandon --at "-30m" --reason "Deprioritized"
 tt abandon --at "14:30" --reason "No longer needed"
 ```
 
+### `tt status`
+
+Show active timers and today's summary. This is the default command when you run `tt` with no arguments.
+
+**Features:**
+
+- **Active Sessions** - Shows all currently active tasks with elapsed time
+- **Interruption Hierarchy** - Displays parent-child relationships for interrupted tasks
+- **Time Remaining** - Shows remaining time when estimates are set
+- **Over-Estimate Warning** - Highlights tasks that have exceeded their estimate (⚠)
+- **Today's Summary** - Daily productivity metrics including:
+  - Total time tracked today
+  - Interruption count
+  - Project breakdown (sorted by time)
+  - Deep work metric (longest uninterrupted session)
+  - Warnings for excessive interruptions (>10)
+
+**Examples:**
+
+```bash
+# Show current status
+tt status
+
+# Or just run tt with no arguments
+tt
+```
+
+**Example Output:**
+
+```
+Active Timers:
+
+▶ Feature implementation (1h 15m)
+  Project: myApp
+  Tags: dev, feature
+  Estimate: 2h, 45m remaining
+
+⏸ Morning standup (30m)
+  Project: team
+  Tags: meeting
+  Interrupted by:
+    ▶ Quick bug fix (10m)
+      Project: myApp
+      Tags: bugfix, urgent
+
+Today's Summary:
+  Total time: 4h 30m
+  Interruptions: 3 interruptions
+  Projects:
+    myApp: 3h 15m
+    team: 1h 15m
+  Deep work: 2h 30m (longest session)
+```
+
 ### `tt report`
 
 Generate time report for a date range.
