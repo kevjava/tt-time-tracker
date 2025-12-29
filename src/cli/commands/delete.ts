@@ -7,7 +7,6 @@ import { parseFuzzyDate } from '../../utils/date';
 import { Session } from '../../types/session';
 
 interface DeleteOptions {
-  force?: boolean;
   yes?: boolean;
   from?: string;
   to?: string;
@@ -299,8 +298,8 @@ export async function deleteCommand(
         process.exit(0);
       }
 
-      // Confirm deletion unless --yes or --force is used
-      if (shouldDelete && !options.yes && !options.force) {
+      // Confirm deletion unless --yes is used
+      if (shouldDelete && !options.yes) {
         const confirmed = await promptConfirmation(
           chalk.yellow('Are you sure you want to delete these sessions? (y/N): ')
         );

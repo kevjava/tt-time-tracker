@@ -425,7 +425,6 @@ Delete one or more sessions by ID or by filter criteria.
 - `-s, --state <state>` - Delete sessions with specific state: `working`, `paused`, `completed`, `abandoned`
 - `--dry-run` - Show what would be deleted without actually deleting
 - `-y, --yes` - Skip confirmation prompt
-- `-f, --force` - Skip confirmation prompt (same as --yes)
 
 **Behavior:**
 
@@ -433,7 +432,7 @@ Delete one or more sessions by ID or by filter criteria.
 - Displays total time, project breakdown, and child session count
 - Automatically deletes child sessions (interruptions) when parent is deleted
 - Supports combining session IDs with filters (union of both criteria)
-- Requires confirmation unless `--yes` or `--force` flag is used
+- Requires confirmation unless `--yes` flag is used
 - All deletions are performed in a single transaction (all or nothing)
 
 **Examples:**

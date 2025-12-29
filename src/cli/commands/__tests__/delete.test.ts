@@ -142,7 +142,7 @@ describe('delete command', () => {
             expect(mockReadline.question).not.toHaveBeenCalled();
         });
 
-        test('should delete a single session with --force flag', async () => {
+        test('should delete a single session with --yes flag', async () => {
             const sessionId = db.insertSession({
                 startTime: new Date('2024-01-15T09:00:00'),
                 endTime: new Date('2024-01-15T10:00:00'),
@@ -150,7 +150,7 @@ describe('delete command', () => {
                 state: 'completed',
             });
 
-            await deleteCommand(sessionId.toString(), { force: true });
+            await deleteCommand(sessionId.toString(), { yes: true });
 
             reopenDb();
 
@@ -158,7 +158,7 @@ describe('delete command', () => {
             expect(session).toBeNull();
         });
 
-        test('should prompt for confirmation when no --yes or --force flag', async () => {
+        test('should prompt for confirmation when no --yes flag', async () => {
             const sessionId = db.insertSession({
                 startTime: new Date('2024-01-15T09:00:00'),
                 endTime: new Date('2024-01-15T10:00:00'),
