@@ -5,11 +5,13 @@ A Unix-philosophy CLI time tracker with low-friction retroactive logging and com
 ## Features
 
 - 📝 **Retroactive Logging** - Log your time using a simple text notation, edit in your favorite editor
-- ⚡ **Live Tracking** - Start/stop tasks in real-time
+- ⚡ **Live Tracking** - Start/stop tasks in real-time with interruption support
 - 📊 **Rich Analytics** - Context switching, deep work sessions, efficiency metrics, and more
-- 🎨 **Multiple Formats** - Terminal, JSON, and CSV output
-- 🔍 **Smart Filtering** - Filter reports by project, tags, and time ranges
+- 🎨 **Multiple Formats** - Terminal, JSON, CSV, and log format output
+- 🔍 **Smart Filtering** - Filter reports by project, tags, date ranges, and state
+- 🔄 **Round-trip Export** - Export sessions in log format and re-import seamlessly
 - 💾 **SQLite Storage** - Portable, reliable local database
+- ✏️ **Session Management** - Edit, delete, and manage tracked sessions
 
 ## Installation
 
@@ -213,7 +215,7 @@ tt stop -r "completed ahead of schedule"
 
 ### `tt report`
 
-Generate weekly time report.
+Generate time report for a date range.
 
 **Options:**
 
@@ -221,9 +223,18 @@ Generate weekly time report.
   - `current` - Current week
   - `last` - Last week
   - `2024-W52` - Specific ISO week
+- `--from <date>` - Start date (YYYY-MM-DD)
+- `--to <date>` - End date (YYYY-MM-DD)
 - `--project <project>` - Filter by project
 - `--tag <tags>` - Filter by tags (comma-separated)
 - `--format <format>` - Output format: `terminal`, `json`, `csv`
+
+**Date Range Behavior:**
+
+- If `--from` and/or `--to` are provided, they take precedence over `--week`
+- Using only `--from` reports from that date to now
+- Using only `--to` reports from the beginning to that date
+- End date includes the entire day (until 23:59:59)
 
 **Examples:**
 
@@ -237,15 +248,66 @@ tt report --week last
 # Specific week
 tt report --week 2024-W52
 
+# Custom date range
+tt report --from 2024-12-01 --to 2024-12-31
+
+# From a specific date to now
+tt report --from 2024-12-20
+
 # Filter by project
 tt report --project myApp
 
-# Multiple filters
-tt report --week current --project myApp --tag code
+# Multiple filters with custom range
+tt report --from 2024-12-01 --to 2024-12-31 --project myApp --tag code
 
 # Export formats
 tt report --format json > report.json
 tt report --format csv > report.csv
+```
+
+### `tt list`
+
+List individual sessions in tabular or log format.
+
+**Options:**
+
+- `--week <week>` - Week specification (default: current)
+  - `current` - Current week
+  - `last` - Last week
+  - `2024-W52` - Specific ISO week
+- `--from <date>` - Start date (YYYY-MM-DD)
+- `--to <date>` - End date (YYYY-MM-DD)
+- `--project <project>` - Filter by project
+- `--tag <tags>` - Filter by tags (comma-separated)
+- `--state <state>` - Filter by state: `working`, `paused`, `completed`, `abandoned`
+- `--format <format>` - Output format: `table` (default), `log`
+
+**Output Formats:**
+
+- `table` - Columnar display with session details (default)
+- `log` - Log notation format compatible with `tt log` command (enables round-trip export/import)
+
+**Examples:**
+
+```bash
+# List current week sessions
+tt list
+
+# List with filters
+tt list --project myApp --tag code
+
+# List specific date range
+tt list --from 2024-12-20 --to 2024-12-26
+
+# Export sessions in log format for backup
+tt list --format log > backup.log
+
+# Round-trip export and import
+tt list --from 2024-12-01 --to 2024-12-31 --format log > december.log
+tt log december.log
+
+# List only paused tasks
+tt list --state paused
 ```
 
 ## Report Sections
@@ -451,6 +513,24 @@ tt report --tag code,testing
 
 # Export for analysis
 tt report --format json | jq '.summary.byProject'
+```
+
+### Round-trip Export/Import
+
+```bash
+# Export December's sessions to a log file
+tt list --from 2024-12-01 --to 2024-12-31 --format log > december-backup.log
+
+# Later, re-import the sessions (e.g., to a new database)
+tt log december-backup.log
+
+# Export specific project for sharing with team
+tt list --project myApp --format log > myapp-time.log
+
+# Export and edit before re-importing
+tt list --week last --format log > last-week.log
+# Edit last-week.log in your editor to fix/adjust entries
+tt log last-week.log
 ```
 
 ## Contributing
