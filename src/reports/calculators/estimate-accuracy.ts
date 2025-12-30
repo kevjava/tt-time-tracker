@@ -1,23 +1,9 @@
 import { SessionWithTags, EstimateAccuracyMetrics } from '../types';
-import { differenceInMinutes } from 'date-fns';
-
-/**
- * Calculate duration of a session in minutes
- */
-function getSessionDuration(session: SessionWithTags): number {
-  if (!session.endTime) {
-    return 0;
-  }
-
-  if (session.explicitDurationMinutes) {
-    return session.explicitDurationMinutes;
-  }
-
-  return differenceInMinutes(session.endTime, session.startTime);
-}
+import { getNetSessionDuration } from '../../utils/duration';
 
 /**
  * Calculate estimate accuracy metrics
+ * Uses net duration (actual work time minus interruptions) for comparison
  */
 export function calculateEstimateAccuracy(sessions: SessionWithTags[]): EstimateAccuracyMetrics | null {
   const estimatedSessions = sessions.filter((s) => s.estimateMinutes && s.endTime);
@@ -39,7 +25,8 @@ export function calculateEstimateAccuracy(sessions: SessionWithTags[]): Estimate
 
   for (const session of estimatedSessions) {
     const estimateMinutes = session.estimateMinutes!;
-    const actualMinutes = getSessionDuration(session);
+    // Use net duration to compare actual work time vs estimate
+    const actualMinutes = getNetSessionDuration(session, sessions);
 
     totalEstimated += estimateMinutes;
     totalActual += actualMinutes;

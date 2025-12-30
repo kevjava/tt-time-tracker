@@ -6,6 +6,7 @@ import { getWeekBounds, parseFuzzyDate } from '../../utils/date';
 import { Session } from '../../types/session';
 import { logger } from '../../utils/logger';
 import { formatSessionsAsLog } from '../formatters/log';
+import { getSessionDuration } from '../../utils/duration';
 
 interface ListOptions {
   week?: string;
@@ -32,20 +33,55 @@ function formatDuration(minutes: number): string {
 
 /**
  * Calculate duration between start and end times
+ * For interrupted tasks, shows both gross and net duration
  */
-function calculateDuration(session: Session & { tags: string[] }): string {
+function calculateDuration(session: Session & { tags: string[] }, db: TimeTrackerDB): string {
+  // Handle explicit duration (can exist even without end time)
   if (session.explicitDurationMinutes) {
-    return formatDuration(session.explicitDurationMinutes);
+    const grossMinutes = session.explicitDurationMinutes;
+
+    // Check if this session has interruptions (child sessions)
+    const children = session.id ? db.getChildSessions(session.id) : [];
+
+    if (children.length === 0) {
+      return formatDuration(grossMinutes);
+    }
+
+    // Calculate interruption time
+    const interruptionMinutes = children.reduce(
+      (sum, child) => sum + getSessionDuration(child),
+      0
+    );
+
+    const netMinutes = Math.max(0, grossMinutes - interruptionMinutes);
+    return `${formatDuration(grossMinutes)} ${chalk.dim(`(${formatDuration(netMinutes)} net)`)}`;
   }
 
-  if (session.endTime) {
-    const durationMs = session.endTime.getTime() - session.startTime.getTime();
-    const durationMinutes = Math.floor(durationMs / 60000);
-    return formatDuration(durationMinutes);
+  // Active session (no end time and no explicit duration)
+  if (!session.endTime) {
+    return chalk.green('(active)');
   }
 
-  // Active session
-  return chalk.green('(active)');
+  const grossMinutes = getSessionDuration(session);
+
+  // Check if this session has interruptions (child sessions)
+  const children = session.id ? db.getChildSessions(session.id) : [];
+
+  if (children.length === 0) {
+    // No interruptions, just show gross duration
+    return formatDuration(grossMinutes);
+  }
+
+  // Calculate interruption time
+  const interruptionMinutes = children.reduce(
+    (sum, child) => sum + getSessionDuration(child),
+    0
+  );
+
+  const netMinutes = Math.max(0, grossMinutes - interruptionMinutes);
+
+  // Show both gross and net: "3h (2h 30m net)"
+  return `${formatDuration(grossMinutes)} ${chalk.dim(`(${formatDuration(netMinutes)} net)`)}`;
 }
 
 /**
@@ -242,7 +278,7 @@ function printSession(session: Session & { tags: string[] }, indentLevel: number
 
   const project = session.project || '';
   const tags = session.tags.length > 0 ? session.tags.join(', ') : '';
-  const duration = calculateDuration(session);
+  const duration = calculateDuration(session, db);
   const estimate = session.estimateMinutes ? formatDuration(session.estimateMinutes) : '';
   const state = formatState(session.state);
 

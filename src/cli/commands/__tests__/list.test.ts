@@ -16,6 +16,7 @@ jest.mock('chalk', () => {
     gray: mockFn,
     red: mockFn,
     yellow: Object.assign(mockFn, { bold: mockFn }),
+    dim: mockFn,
     bold: Object.assign(mockFn, {
       cyan: mockFn,
       yellow: mockFn,

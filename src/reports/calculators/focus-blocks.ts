@@ -1,27 +1,11 @@
 import { SessionWithTags, DeepWorkSession, FocusBlockMetrics } from '../types';
-import { differenceInMinutes } from 'date-fns';
 import { getDateKey } from '../../utils/date';
-
-/**
- * Calculate duration of a session in minutes
- */
-function getSessionDuration(session: SessionWithTags): number {
-  if (!session.endTime) {
-    return 0;
-  }
-
-  if (session.explicitDurationMinutes) {
-    return session.explicitDurationMinutes;
-  }
-
-  return differenceInMinutes(session.endTime, session.startTime);
-}
+import { getSessionDuration, getNetSessionDuration } from '../../utils/duration';
 
 /**
  * Check if a session qualifies as deep work
- * - Duration >= 90 minutes
- * - No interruptions (no child sessions in the time window)
- * - Same project + activity throughout
+ * - Net duration (after subtracting interruptions) >= 90 minutes
+ * - Must have an end time (completed session)
  */
 function isDeepWork(
   session: SessionWithTags,
@@ -31,22 +15,10 @@ function isDeepWork(
     return false;
   }
 
-  const duration = getSessionDuration(session);
+  // Use net duration (gross duration minus interruption time)
+  const netDuration = getNetSessionDuration(session, allSessions);
 
-  if (duration < 90) {
-    return false;
-  }
-
-  // Check for interruptions (child sessions)
-  const hasInterruptions = allSessions.some(
-    (s) => s.parentSessionId === session.id
-  );
-
-  if (hasInterruptions) {
-    return false;
-  }
-
-  return true;
+  return netDuration >= 90;
 }
 
 /**
@@ -126,7 +98,8 @@ export function calculateFocusBlocks(sessions: SessionWithTags[]): FocusBlockMet
   // Find deep work sessions
   for (const session of sessions) {
     if (!session.parentSessionId && isDeepWork(session, sessions)) {
-      const durationMinutes = getSessionDuration(session);
+      // Use net duration (gross minus interruptions) for tracking
+      const durationMinutes = getNetSessionDuration(session, sessions);
       deepWorkSessions.push({
         session,
         durationMinutes,

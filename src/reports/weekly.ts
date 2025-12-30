@@ -1,24 +1,9 @@
 import { SessionWithTags, WeeklyReport, TimeSummary, Outlier } from './types';
-import { differenceInMinutes } from 'date-fns';
 import { calculateContextSwitches } from './calculators/context-switches';
 import { calculateEfficiency } from './calculators/efficiency';
 import { calculateFocusBlocks } from './calculators/focus-blocks';
 import { calculateEstimateAccuracy } from './calculators/estimate-accuracy';
-
-/**
- * Calculate duration of a session in minutes
- */
-function getSessionDuration(session: SessionWithTags): number {
-  if (!session.endTime) {
-    return 0;
-  }
-
-  if (session.explicitDurationMinutes) {
-    return session.explicitDurationMinutes;
-  }
-
-  return differenceInMinutes(session.endTime, session.startTime);
-}
+import { getSessionDuration, getNetSessionDuration } from '../utils/duration';
 
 /**
  * Calculate time summary (total, by project, by tag)
@@ -57,6 +42,7 @@ function calculateSummary(sessions: SessionWithTags[]): TimeSummary {
 
 /**
  * Calculate statistical outliers (tasks > 2σ from mean)
+ * Uses net duration (actual work time minus interruptions)
  */
 function calculateOutliers(sessions: SessionWithTags[]): Outlier[] {
   // Only consider top-level completed sessions
@@ -66,7 +52,8 @@ function calculateOutliers(sessions: SessionWithTags[]): Outlier[] {
     return [];
   }
 
-  const durations = completedSessions.map(getSessionDuration);
+  // Use net duration for more accurate outlier detection
+  const durations = completedSessions.map(s => getNetSessionDuration(s, sessions));
 
   // Calculate mean
   const mean = durations.reduce((sum, d) => sum + d, 0) / durations.length;

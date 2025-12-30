@@ -1,21 +1,5 @@
 import { SessionWithTags, EfficiencyMetrics } from '../types';
-import { differenceInMinutes } from 'date-fns';
-
-/**
- * Calculate duration of a session in minutes
- */
-function getSessionDuration(session: SessionWithTags): number {
-  if (!session.endTime) {
-    return 0;
-  }
-
-  // Use explicit duration if provided
-  if (session.explicitDurationMinutes) {
-    return session.explicitDurationMinutes;
-  }
-
-  return differenceInMinutes(session.endTime, session.startTime);
-}
+import { getSessionDuration } from '../../utils/duration';
 
 /**
  * Calculate efficiency metrics
