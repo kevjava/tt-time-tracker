@@ -7,6 +7,8 @@ import { getSessionDuration, getNetSessionDuration } from '../utils/duration';
 
 /**
  * Calculate time summary (total, by project, by tag)
+ * Total time: Gross time of top-level sessions (wall-clock time)
+ * Breakdowns: Net duration for ALL sessions (prevents double-counting)
  */
 function calculateSummary(sessions: SessionWithTags[]): TimeSummary {
   let totalMinutes = 0;
@@ -14,22 +16,30 @@ function calculateSummary(sessions: SessionWithTags[]): TimeSummary {
   const byTag = new Map<string, number>();
 
   for (const session of sessions) {
-    // Only count top-level sessions (interruptions are tracked separately)
+    // Calculate net duration for this session (handles nested interruptions)
+    const netDuration = getNetSessionDuration(session, sessions);
+
     if (session.parentSessionId) {
-      continue;
-    }
+      // Interruption: contributes net time to its own project/tags
+      if (session.project) {
+        byProject.set(session.project, (byProject.get(session.project) || 0) + netDuration);
+      }
 
-    const duration = getSessionDuration(session);
-    totalMinutes += duration;
+      for (const tag of session.tags) {
+        byTag.set(tag, (byTag.get(tag) || 0) + netDuration);
+      }
+    } else {
+      // Top-level session: contributes gross time to total, net time to project/tags
+      const grossDuration = getSessionDuration(session);
+      totalMinutes += grossDuration;
 
-    // By project
-    if (session.project) {
-      byProject.set(session.project, (byProject.get(session.project) || 0) + duration);
-    }
+      if (session.project) {
+        byProject.set(session.project, (byProject.get(session.project) || 0) + netDuration);
+      }
 
-    // By tag
-    for (const tag of session.tags) {
-      byTag.set(tag, (byTag.get(tag) || 0) + duration);
+      for (const tag of session.tags) {
+        byTag.set(tag, (byTag.get(tag) || 0) + netDuration);
+      }
     }
   }
 
