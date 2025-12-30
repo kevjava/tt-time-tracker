@@ -37,9 +37,33 @@ function progressBar(percent: number, width: number = 20): string {
 }
 
 /**
+ * Format duration change with trend indicator
+ */
+function formatDurationChange(current: number, previous: number): string {
+  const delta = current - previous;
+  if (delta === 0) return '';
+
+  const indicator = delta > 0 ? chalk.green('↑') : chalk.red('↓');
+  const sign = delta > 0 ? '+' : '';
+  return ` ${indicator} ${sign}${formatDuration(Math.abs(delta))}`;
+}
+
+/**
+ * Format count change with trend indicator
+ */
+function formatCountChange(current: number, previous: number): string {
+  const delta = current - previous;
+  if (delta === 0) return '';
+
+  const indicator = delta > 0 ? chalk.green('↑') : chalk.red('↓');
+  const sign = delta > 0 ? '+' : '';
+  return ` ${indicator} ${sign}${delta}`;
+}
+
+/**
  * Format weekly report for terminal display
  */
-export function formatTerminalReport(report: WeeklyReport): string {
+export function formatTerminalReport(report: WeeklyReport, previousReport?: WeeklyReport | null): string {
   const lines: string[] = [];
 
   // Header
@@ -47,13 +71,19 @@ export function formatTerminalReport(report: WeeklyReport): string {
   lines.push(chalk.bold.cyan('═'.repeat(80)));
   lines.push(chalk.bold.cyan(`  TIME TRACKING REPORT - ${report.weekLabel}`));
   lines.push(chalk.bold.cyan(`  ${formatDateRange(report.startDate, report.endDate)}`));
+  if (previousReport) {
+    lines.push(chalk.bold.cyan(`  Comparing to: ${previousReport.weekLabel}`));
+  }
   lines.push(chalk.bold.cyan('═'.repeat(80)));
   lines.push('');
 
   // 1. Summary
   lines.push(chalk.bold.yellow('📊 SUMMARY'));
   lines.push(chalk.gray('─'.repeat(80)));
-  lines.push(`  Total Time: ${chalk.bold(formatDuration(report.summary.totalMinutes))}`);
+  const totalTimeChange = previousReport
+    ? formatDurationChange(report.summary.totalMinutes, previousReport.summary.totalMinutes)
+    : '';
+  lines.push(`  Total Time: ${chalk.bold(formatDuration(report.summary.totalMinutes))}${totalTimeChange}`);
   lines.push('');
 
   // 2. By Project
@@ -130,7 +160,10 @@ export function formatTerminalReport(report: WeeklyReport): string {
   // 6. Context Switching
   lines.push(chalk.bold.yellow('🔀 CONTEXT SWITCHING'));
   lines.push(chalk.gray('─'.repeat(80)));
-  lines.push(`  Total Switches: ${chalk.bold(report.contextSwitches.totalSwitches)}`);
+  const totalSwitchesChange = previousReport
+    ? formatCountChange(report.contextSwitches.totalSwitches, previousReport.contextSwitches.totalSwitches)
+    : '';
+  lines.push(`  Total Switches: ${chalk.bold(report.contextSwitches.totalSwitches)}${totalSwitchesChange}`);
   lines.push(`    Hard Switches: ${chalk.red(report.contextSwitches.hardSwitches)}`);
   lines.push(`    Medium Switches: ${chalk.yellow(report.contextSwitches.mediumSwitches)}`);
   lines.push(`    Soft Switches: ${chalk.green(report.contextSwitches.softSwitches)}`);
@@ -147,8 +180,14 @@ export function formatTerminalReport(report: WeeklyReport): string {
   // 7. Deep Work Sessions
   lines.push(chalk.bold.yellow('🧠 DEEP WORK SESSIONS'));
   lines.push(chalk.gray('─'.repeat(80)));
-  lines.push(`  Total Deep Work: ${chalk.bold.green(formatDuration(report.focusBlocks.totalDeepWorkMinutes))}`);
-  lines.push(`  Sessions: ${report.focusBlocks.deepWorkSessions.length}`);
+  const deepWorkChange = previousReport
+    ? formatDurationChange(report.focusBlocks.totalDeepWorkMinutes, previousReport.focusBlocks.totalDeepWorkMinutes)
+    : '';
+  const deepWorkSessionsChange = previousReport
+    ? formatCountChange(report.focusBlocks.deepWorkSessions.length, previousReport.focusBlocks.deepWorkSessions.length)
+    : '';
+  lines.push(`  Total Deep Work: ${chalk.bold.green(formatDuration(report.focusBlocks.totalDeepWorkMinutes))}${deepWorkChange}`);
+  lines.push(`  Sessions: ${report.focusBlocks.deepWorkSessions.length}${deepWorkSessionsChange}`);
 
   if (report.focusBlocks.deepWorkSessions.length > 0) {
     lines.push(`  Average Length: ${formatDuration(report.focusBlocks.averageSessionLength)}`);

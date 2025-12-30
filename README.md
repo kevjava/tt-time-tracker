@@ -572,6 +572,19 @@ Generate time report for a date range.
 - `--project <project>` - Filter by project
 - `--tag <tags>` - Filter by tags (comma-separated)
 - `--format <format>` - Output format: `terminal`, `json`, `csv`
+- `--compare` - Compare with previous period and show trend indicators
+
+**Comparison Feature:**
+
+The `--compare` flag enables period-over-period comparison with trend indicators (↑↓) for key metrics:
+- **Total Time** - Shows increase/decrease from previous period
+- **Context Switches** - Track switching behavior trends
+- **Deep Work** - Monitor focus session changes
+
+The previous period is automatically calculated based on your current time range:
+- Current week → compares to last week
+- Last 7 days → compares to previous 7 days
+- Custom range → compares to same duration immediately before
 
 **Date Formats:**
 
@@ -615,9 +628,34 @@ tt report --project myApp
 # Multiple filters with custom range
 tt report --from yesterday --to today --project myApp --tag code
 
+# Compare with previous period
+tt report --compare
+tt report --week last --compare
+tt report --from "last monday" --to "last friday" --compare
+
 # Export formats
 tt report --format json > report.json
 tt report --format csv > report.csv
+```
+
+**Example Comparison Output:**
+
+```
+📊 SUMMARY
+────────────────────────────────────────────────────────────────────────────────
+  Total Time: 35h ↑ +5h
+
+🔀 CONTEXT SWITCHING
+────────────────────────────────────────────────────────────────────────────────
+  Total Switches: 45 ↓ -5
+    Hard Switches: 12
+    Medium Switches: 20
+    Soft Switches: 13
+
+🧠 DEEP WORK SESSIONS
+────────────────────────────────────────────────────────────────────────────────
+  Total Deep Work: 18h ↑ +3h
+  Sessions: 8 ↑ +2
 ```
 
 ### `tt list`

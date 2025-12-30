@@ -76,6 +76,7 @@ program
   .option('--project <project>', 'Filter by project')
   .option('--tag <tags>', 'Filter by tags (comma-separated)')
   .option('--format <format>', 'Output format: "terminal" (default), "json", "csv"', 'terminal')
+  .option('--compare', 'Compare with previous period')
   .action(reportCommand);
 
 // List command

@@ -16,6 +16,21 @@ interface ReportOptions {
   project?: string;
   tag?: string;
   format?: string;
+  compare?: boolean;
+}
+
+/**
+ * Calculate the previous period's time range
+ */
+function getPreviousPeriod(start: Date, end: Date): { start: Date; end: Date; label: string } {
+  const durationMs = end.getTime() - start.getTime();
+
+  const prevEnd = new Date(start.getTime() - 1); // 1ms before current period start
+  const prevStart = new Date(prevEnd.getTime() - durationMs);
+
+  const label = `${formatDate(prevStart, 'MMM d')} - ${formatDate(prevEnd, 'MMM d, yyyy')}`;
+
+  return { start: prevStart, end: prevEnd, label };
 }
 
 /**
@@ -96,6 +111,20 @@ export function reportCommand(options: ReportOptions): void {
       // Generate report
       const report = generateWeeklyReport(sessions, label, start, end);
 
+      // Generate comparison if requested
+      let previousReport = null;
+      if (options.compare) {
+        const prevPeriod = getPreviousPeriod(start, end);
+        logger.debug(`Generating comparison report for: ${prevPeriod.label}`);
+
+        const prevSessions = db.getSessionsByTimeRange(prevPeriod.start, prevPeriod.end, filterOptions);
+        if (prevSessions.length > 0) {
+          previousReport = generateWeeklyReport(prevSessions, prevPeriod.label, prevPeriod.start, prevPeriod.end);
+        } else {
+          logger.debug('No sessions found in previous period for comparison');
+        }
+      }
+
       // Format output - use config default if not specified
       const config = loadConfig();
       const format = options.format || config.reportFormat;
@@ -106,15 +135,21 @@ export function reportCommand(options: ReportOptions): void {
       switch (format) {
         case 'json':
           output = formatJsonReport(report);
+          if (options.compare && previousReport) {
+            console.log(chalk.yellow('Warning: Comparison mode not supported for JSON format'));
+          }
           break;
 
         case 'csv':
           output = formatCsvReport(report);
+          if (options.compare && previousReport) {
+            console.log(chalk.yellow('Warning: Comparison mode not supported for CSV format'));
+          }
           break;
 
         case 'terminal':
         default:
-          output = formatTerminalReport(report);
+          output = formatTerminalReport(report, previousReport);
           break;
       }
 
