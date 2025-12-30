@@ -30,7 +30,8 @@ function getStateMarker(state: SessionState): string | null {
 function formatSessionLine(
   session: Session & { tags: string[] },
   depth: number,
-  useFullTimestamp: boolean
+  useFullTimestamp: boolean,
+  isInterruption: boolean
 ): string {
   const parts: string[] = [];
 
@@ -66,7 +67,14 @@ function formatSessionLine(
   }
 
   // 6. Explicit duration
-  if (session.explicitDurationMinutes) {
+  // For interruptions, always output calculated duration for round-trip compatibility
+  if (isInterruption && session.endTime) {
+    const durationMinutes = Math.floor(
+      (session.endTime.getTime() - session.startTime.getTime()) / 60000
+    );
+    parts.push(`(${formatDurationString(durationMinutes)})`);
+  } else if (session.explicitDurationMinutes) {
+    // For top-level sessions, only output if explicitly set
     parts.push(`(${formatDurationString(session.explicitDurationMinutes)})`);
   }
 
@@ -88,7 +96,8 @@ function processSession(
   depth: number,
   previousDate: { current?: Date },
   db: TimeTrackerDB,
-  lines: string[]
+  lines: string[],
+  nextSiblingStart?: Date
 ): void {
   // Check if date changed to determine timestamp format
   const useFullTimestamp = !previousDate.current || !isSameDay(session.startTime, previousDate.current);
@@ -97,14 +106,39 @@ function processSession(
   previousDate.current = session.startTime;
 
   // Build and emit line
-  const line = formatSessionLine(session, depth, useFullTimestamp);
+  const isInterruption = depth > 0;
+  const line = formatSessionLine(session, depth, useFullTimestamp, isInterruption);
   lines.push(line);
 
   // Process children
   if (session.id) {
     const children = db.getChildSessions(session.id);
-    for (const child of children) {
-      processSession(child, depth + 1, previousDate, db, lines);
+    for (let i = 0; i < children.length; i++) {
+      const child = children[i];
+      const nextChild = children[i + 1];
+      const nextChildStart = nextChild?.startTime;
+
+      processSession(child, depth + 1, previousDate, db, lines, nextChildStart);
+    }
+  }
+
+  // Only output @end markers for top-level sessions (depth === 0)
+  // Interruptions use explicit durations instead
+  if (depth === 0 && session.endTime) {
+    const needsEndMarker = !nextSiblingStart ||
+      session.endTime.getTime() !== nextSiblingStart.getTime();
+
+    if (needsEndMarker) {
+      // Determine timestamp format for @end marker
+      const endUseFullTimestamp = !isSameDay(session.endTime, previousDate.current);
+      const endTimestamp = endUseFullTimestamp
+        ? format(session.endTime, 'yyyy-MM-dd HH:mm')
+        : format(session.endTime, 'HH:mm');
+
+      const endParts = [endTimestamp, '@end'];
+
+      lines.push(endParts.join(' '));
+      previousDate.current = session.endTime;
     }
   }
 }
@@ -119,11 +153,16 @@ export function formatSessionsAsLog(
   const lines: string[] = [];
   const previousDate: { current?: Date } = {};
 
+  // Get root sessions
+  const rootSessions = sessions.filter(s => !s.parentSessionId);
+
   // Process only root sessions (children are handled recursively)
-  for (const session of sessions) {
-    if (!session.parentSessionId) {
-      processSession(session, 0, previousDate, db, lines);
-    }
+  for (let i = 0; i < rootSessions.length; i++) {
+    const session = rootSessions[i];
+    const nextSession = rootSessions[i + 1];
+    const nextSiblingStart = nextSession?.startTime;
+
+    processSession(session, 0, previousDate, db, lines, nextSiblingStart);
   }
 
   return lines.join('\n');

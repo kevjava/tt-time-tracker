@@ -28,7 +28,7 @@ describe('formatSessionsAsLog', () => {
 
       const output = formatSessionsAsLog(sessions, db);
 
-      expect(output).toBe('2025-12-27 09:00 Simple task');
+      expect(output).toBe('2025-12-27 09:00 Simple task\n10:00 @end');
     });
 
     it('should format session with project', () => {
@@ -47,7 +47,7 @@ describe('formatSessionsAsLog', () => {
 
       const output = formatSessionsAsLog(sessions, db);
 
-      expect(output).toBe('2025-12-27 09:00 Task with project @ProjectA');
+      expect(output).toBe('2025-12-27 09:00 Task with project @ProjectA\n10:00 @end');
     });
 
     it('should format session with tags', () => {
@@ -67,7 +67,7 @@ describe('formatSessionsAsLog', () => {
 
       const output = formatSessionsAsLog(sessions, db);
 
-      expect(output).toBe('2025-12-27 09:00 Task with tags +dev +urgent');
+      expect(output).toBe('2025-12-27 09:00 Task with tags +dev +urgent\n10:00 @end');
     });
 
     it('should format session with estimate', () => {
@@ -86,7 +86,7 @@ describe('formatSessionsAsLog', () => {
 
       const output = formatSessionsAsLog(sessions, db);
 
-      expect(output).toBe('2025-12-27 09:00 Task with estimate ~2h');
+      expect(output).toBe('2025-12-27 09:00 Task with estimate ~2h\n10:00 @end');
     });
 
     it('should format session with explicit duration', () => {
@@ -105,7 +105,7 @@ describe('formatSessionsAsLog', () => {
 
       const output = formatSessionsAsLog(sessions, db);
 
-      expect(output).toBe('2025-12-27 09:00 Task with duration (45m)');
+      expect(output).toBe('2025-12-27 09:00 Task with duration (45m)\n10:00 @end');
     });
 
     it('should format session with remark', () => {
@@ -124,7 +124,7 @@ describe('formatSessionsAsLog', () => {
 
       const output = formatSessionsAsLog(sessions, db);
 
-      expect(output).toBe('2025-12-27 09:00 Task with remark # took longer than expected');
+      expect(output).toBe('2025-12-27 09:00 Task with remark # took longer than expected\n10:00 @end');
     });
 
     it('should format session with all components', () => {
@@ -175,7 +175,7 @@ describe('formatSessionsAsLog', () => {
 
       const output = formatSessionsAsLog(sessions, db);
 
-      expect(output).toBe('2025-12-27 09:00 First task');
+      expect(output).toBe('2025-12-27 09:00 First task\n10:00 @end');
     });
 
     it('should use time-only timestamp for sessions on same date', () => {
@@ -202,7 +202,9 @@ describe('formatSessionsAsLog', () => {
       const lines = output.split('\n');
 
       expect(lines[0]).toBe('2025-12-27 09:00 First task');
-      expect(lines[1]).toBe('11:00 Second task');
+      expect(lines[1]).toBe('10:00 @end');
+      expect(lines[2]).toBe('11:00 Second task');
+      expect(lines[3]).toBe('12:00 @end');
     });
 
     it('should use full timestamp when date changes', () => {
@@ -229,7 +231,9 @@ describe('formatSessionsAsLog', () => {
       const lines = output.split('\n');
 
       expect(lines[0]).toBe('2025-12-27 09:00 First day task');
-      expect(lines[1]).toBe('2025-12-28 09:00 Second day task');
+      expect(lines[1]).toBe('10:00 @end');
+      expect(lines[2]).toBe('2025-12-28 09:00 Second day task');
+      expect(lines[3]).toBe('10:00 @end');
     });
   });
 
@@ -259,7 +263,8 @@ describe('formatSessionsAsLog', () => {
       const lines = output.split('\n');
 
       expect(lines[0]).toBe('2025-12-27 09:00 Parent task');
-      expect(lines[1]).toBe('  10:00 Interruption');
+      expect(lines[1]).toBe('  10:00 Interruption (30m)');
+      expect(lines[2]).toBe('12:00 @end');
     });
 
     it('should handle multiple interruptions', () => {
@@ -295,8 +300,9 @@ describe('formatSessionsAsLog', () => {
       const lines = output.split('\n');
 
       expect(lines[0]).toBe('2025-12-27 09:00 Parent task');
-      expect(lines[1]).toBe('  10:00 First interruption');
-      expect(lines[2]).toBe('  10:30 Second interruption');
+      expect(lines[1]).toBe('  10:00 First interruption (15m)');
+      expect(lines[2]).toBe('  10:30 Second interruption (15m)');
+      expect(lines[3]).toBe('12:00 @end');
     });
 
     it('should handle nested interruptions with multiple indent levels', () => {
@@ -332,8 +338,9 @@ describe('formatSessionsAsLog', () => {
       const lines = output.split('\n');
 
       expect(lines[0]).toBe('2025-12-27 09:00 Parent task');
-      expect(lines[1]).toBe('  10:00 Level 1 interruption');
-      expect(lines[2]).toBe('    10:15 Level 2 interruption');
+      expect(lines[1]).toBe('  10:00 Level 1 interruption (1h)');
+      expect(lines[2]).toBe('    10:15 Level 2 interruption (15m)');
+      expect(lines[3]).toBe('12:00 @end');
     });
   });
 
@@ -405,7 +412,7 @@ describe('formatSessionsAsLog', () => {
 
       const output = formatSessionsAsLog(sessions, db);
 
-      expect(output).toBe('2025-12-27 09:00 Completed task');
+      expect(output).toBe('2025-12-27 09:00 Completed task\n10:00 @end');
     });
 
     it('should use normal description for working sessions', () => {
@@ -443,7 +450,7 @@ describe('formatSessionsAsLog', () => {
 
       const output = formatSessionsAsLog(sessions, db);
 
-      expect(output).toBe('2025-12-27 09:00 Task (2h)');
+      expect(output).toBe('2025-12-27 09:00 Task (2h)\n11:00 @end');
     });
 
     it('should format minutes-only duration', () => {
@@ -462,7 +469,7 @@ describe('formatSessionsAsLog', () => {
 
       const output = formatSessionsAsLog(sessions, db);
 
-      expect(output).toBe('2025-12-27 09:00 Task (45m)');
+      expect(output).toBe('2025-12-27 09:00 Task (45m)\n09:45 @end');
     });
 
     it('should format mixed hours and minutes duration', () => {
@@ -481,7 +488,7 @@ describe('formatSessionsAsLog', () => {
 
       const output = formatSessionsAsLog(sessions, db);
 
-      expect(output).toBe('2025-12-27 09:00 Task (1h30m)');
+      expect(output).toBe('2025-12-27 09:00 Task (1h30m)\n10:30 @end');
     });
   });
 
@@ -526,12 +533,15 @@ describe('formatSessionsAsLog', () => {
       const lines = output.split('\n');
 
       expect(lines[0]).toBe('2025-12-27 09:00 Morning task @ProjectA +dev (2h)');
-      expect(lines[1]).toBe('14:00 Afternoon task');
+      expect(lines[1]).toBe('11:00 @end');
+      expect(lines[2]).toBe('14:00 Afternoon task');
+      expect(lines[3]).toBe('15:00 @end');
       // Tag order may vary
-      expect(lines[2]).toContain('2025-12-28 09:00 Next day task @ProjectB');
-      expect(lines[2]).toContain('+planning');
-      expect(lines[2]).toContain('+meeting');
-      expect(lines[2]).toContain('~3h (3h)');
+      expect(lines[4]).toContain('2025-12-28 09:00 Next day task @ProjectB');
+      expect(lines[4]).toContain('+planning');
+      expect(lines[4]).toContain('+meeting');
+      expect(lines[4]).toContain('~3h (3h)');
+      expect(lines[5]).toBe('12:00 @end');
     });
 
     it('should handle parent with multiple interruptions and attributes', () => {
@@ -577,6 +587,7 @@ describe('formatSessionsAsLog', () => {
       expect(lines[0]).toBe('2025-12-27 09:00 Main development task @ProjectX +dev +feature ~6h (6h) # productive day');
       expect(lines[1]).toBe('  10:00 Quick standup +meeting (30m)');
       expect(lines[2]).toBe('  12:00 Lunch break (1h)');
+      expect(lines[3]).toBe('15:00 @end');
     });
 
     it('should return empty string for empty session list', () => {
