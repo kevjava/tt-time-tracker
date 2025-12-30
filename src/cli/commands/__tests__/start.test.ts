@@ -273,6 +273,137 @@ describe('start command', () => {
     });
   });
 
+  describe('inline notation without timestamp', () => {
+    it('should parse project from description without timestamp', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        startCommand('Backend stubs for 3436 @elms', {});
+        reopenDb();
+
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        expect(sessions).toHaveLength(1);
+        expect(sessions[0].description).toBe('Backend stubs for 3436');
+        expect(sessions[0].project).toBe('elms');
+        expect(sessions[0].state).toBe('working');
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    it('should parse tags from description without timestamp', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        startCommand('Fix authentication bug +bug +urgent', {});
+        reopenDb();
+
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        expect(sessions).toHaveLength(1);
+        expect(sessions[0].description).toBe('Fix authentication bug');
+
+        const tags = db.getSessionTags(sessions[0].id!);
+        expect(tags.sort()).toEqual(['bug', 'urgent'].sort());
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    it('should parse project and tags from description without timestamp', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        startCommand('Backend stubs for 3436 @elms +code', {});
+        reopenDb();
+
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        expect(sessions).toHaveLength(1);
+        expect(sessions[0].description).toBe('Backend stubs for 3436');
+        expect(sessions[0].project).toBe('elms');
+
+        const tags = db.getSessionTags(sessions[0].id!);
+        expect(tags).toEqual(['code']);
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    it('should parse estimate from description without timestamp', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        startCommand('Implement new feature @myApp +code ~3h', {});
+        reopenDb();
+
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        expect(sessions).toHaveLength(1);
+        expect(sessions[0].description).toBe('Implement new feature');
+        expect(sessions[0].project).toBe('myApp');
+        expect(sessions[0].estimateMinutes).toBe(180);
+
+        const tags = db.getSessionTags(sessions[0].id!);
+        expect(tags).toEqual(['code']);
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    it('should allow command-line options to override inline notation', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        startCommand('Task description @inlineProject +inlineTag', {
+          project: 'commandProject',
+          tags: 'commandTag'
+        });
+        reopenDb();
+
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        expect(sessions).toHaveLength(1);
+        expect(sessions[0].description).toBe('Task description');
+        // Command-line options should override inline notation
+        expect(sessions[0].project).toBe('commandProject');
+
+        const tags = db.getSessionTags(sessions[0].id!);
+        expect(tags).toEqual(['commandTag']);
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    it('should not use timestamp from dummy parsing', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        const beforeTime = new Date();
+        startCommand('Work on feature @myApp +code', {});
+        reopenDb();
+
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        expect(sessions).toHaveLength(1);
+
+        // Start time should be current time, not 00:00
+        const startTime = new Date(sessions[0].startTime);
+        const afterTime = new Date();
+
+        // Should be between beforeTime and afterTime (i.e., approximately now)
+        expect(startTime.getTime()).toBeGreaterThanOrEqual(beforeTime.getTime());
+        expect(startTime.getTime()).toBeLessThanOrEqual(afterTime.getTime());
+
+        // Should NOT be at midnight
+        expect(startTime.getHours()).not.toBe(0);
+      } finally {
+        console.log = originalLog;
+      }
+    });
+  });
+
   describe('combining multiple options', () => {
     it('should support combining project with other options', () => {
       const originalLog = console.log;
