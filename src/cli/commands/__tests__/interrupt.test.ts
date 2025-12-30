@@ -311,8 +311,10 @@ describe('interrupt command', () => {
         const diffMinutes = Math.round((now.getTime() - startTime.getTime()) / 60000);
         expect(diffMinutes).toBeCloseTo(30, 0);
 
-        // Also verify it's NOT at 10:00
-        expect(startTime.getHours()).not.toBe(10);
+        // Also verify it's NOT at exactly 10:00:00 (the log notation time)
+        const logNotationTime = new Date();
+        logNotationTime.setHours(10, 0, 0, 0);
+        expect(startTime.getTime()).not.toBe(logNotationTime.getTime());
       } finally {
         console.log = originalLog;
       }

@@ -20,6 +20,21 @@ interface ProcessedLogEntry extends LogEntry {
 }
 
 /**
+ * Find the next entry at the same or lower indent level (skipping children/interruptions)
+ */
+function findNextSiblingOrParent(entries: LogEntry[], currentIndex: number): LogEntry | undefined {
+  const currentIndent = entries[currentIndex].indentLevel;
+
+  for (let i = currentIndex + 1; i < entries.length; i++) {
+    if (entries[i].indentLevel <= currentIndent) {
+      return entries[i];
+    }
+  }
+
+  return undefined;
+}
+
+/**
  * Calculate end times and states for log entries
  * Each entry's end_time is the next entry's start_time (unless explicit duration)
  * State markers (@end, @pause, @abandon) set both end time and state
@@ -29,30 +44,15 @@ function calculateEndTimes(entries: LogEntry[]): ProcessedLogEntry[] {
 
   for (let i = 0; i < entries.length; i++) {
     const entry = entries[i];
-    const nextEntry = entries[i + 1];
 
     // Skip state markers - they don't get inserted into database
     if (entry.description === '__END__' || entry.description === '__PAUSE__' || entry.description === '__ABANDON__') {
       continue;
     }
 
-    // Check if next entry is a state marker
-    const isNextEnd = nextEntry?.description === '__END__';
-    const isNextPause = nextEntry?.description === '__PAUSE__';
-    const isNextAbandon = nextEntry?.description === '__ABANDON__';
-    const isNextStateMarker = isNextEnd || isNextPause || isNextAbandon;
-
-    // If next entry is a state marker, use its timestamp as end time and set state
-    if (isNextStateMarker) {
-      const state = isNextEnd ? 'completed' : isNextPause ? 'paused' : 'abandoned';
-      result.push({
-        ...entry,
-        endTime: nextEntry.timestamp,
-        state,
-      });
-    }
     // If entry has explicit duration, calculate end_time from start_time + duration
-    else if (entry.explicitDurationMinutes) {
+    // This takes precedence over everything else
+    if (entry.explicitDurationMinutes) {
       const endTime = new Date(entry.timestamp);
       endTime.setMinutes(endTime.getMinutes() + entry.explicitDurationMinutes);
 
@@ -61,16 +61,36 @@ function calculateEndTimes(entries: LogEntry[]): ProcessedLogEntry[] {
         endTime,
       });
     }
-    // If there's a next entry at the same or lower indent level, use its start_time
-    else if (nextEntry && nextEntry.indentLevel <= entry.indentLevel) {
-      result.push({
-        ...entry,
-        endTime: nextEntry.timestamp,
-      });
-    }
-    // Otherwise, leave end_time undefined (session is still open or we don't know when it ended)
+    // Otherwise, find the next entry at same or lower indent level (skips over children)
     else {
-      result.push(entry);
+      const nextSiblingOrParent = findNextSiblingOrParent(entries, i);
+
+      // Check if next sibling/parent is a state marker
+      const isNextEnd = nextSiblingOrParent?.description === '__END__';
+      const isNextPause = nextSiblingOrParent?.description === '__PAUSE__';
+      const isNextAbandon = nextSiblingOrParent?.description === '__ABANDON__';
+      const isNextStateMarker = isNextEnd || isNextPause || isNextAbandon;
+
+      // If next sibling/parent is a state marker, use its timestamp as end time and set state
+      if (isNextStateMarker) {
+        const state = isNextEnd ? 'completed' : isNextPause ? 'paused' : 'abandoned';
+        result.push({
+          ...entry,
+          endTime: nextSiblingOrParent!.timestamp,
+          state,
+        });
+      }
+      // If there's a next sibling/parent, use its start_time as end_time
+      else if (nextSiblingOrParent) {
+        result.push({
+          ...entry,
+          endTime: nextSiblingOrParent.timestamp,
+        });
+      }
+      // Otherwise, leave end_time undefined (session is still open or we don't know when it ended)
+      else {
+        result.push(entry);
+      }
     }
   }
 
