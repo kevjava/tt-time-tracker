@@ -83,49 +83,46 @@ function calculateTodaySummary(db: TimeTrackerDB): TodaySummary {
   let longestSessionMinutes = 0;
 
   for (const session of sessions) {
-    // Calculate duration
-    let duration = 0;
-    if (session.explicitDurationMinutes) {
-      duration = session.explicitDurationMinutes;
-    } else if (session.endTime) {
-      duration = Math.floor((session.endTime.getTime() - session.startTime.getTime()) / 60000);
-    } else {
-      // Active session - calculate elapsed time
-      duration = getElapsedMinutes(session.startTime);
-    }
-
-    totalMinutes += duration;
-
-    // Track longest session using net duration (excluding interruptions)
-    if (!session.parentSessionId) {
-      // For completed sessions, use net duration
-      if (session.endTime) {
-        const netDuration = getNetSessionDuration(session, sessions);
-        if (netDuration > longestSessionMinutes) {
-          longestSessionMinutes = netDuration;
-        }
-      } else {
-        // For active sessions, calculate elapsed time minus any interruptions
-        let activeDuration = duration;
-        const interruptions = sessions.filter(s => s.parentSessionId === session.id);
-        for (const interruption of interruptions) {
-          const interruptionDuration = getSessionDuration(interruption);
-          activeDuration = Math.max(0, activeDuration - interruptionDuration);
-        }
-        if (activeDuration > longestSessionMinutes) {
-          longestSessionMinutes = activeDuration;
-        }
-      }
-    }
-
     // Count interruptions
     if (session.parentSessionId) {
       interruptionCount++;
+      continue; // Don't count interruptions in totals (they're part of parent session)
     }
 
-    // Project breakdown
+    // Calculate net duration for top-level sessions
+    let netDuration = 0;
+
+    if (session.endTime) {
+      // Completed session - use net duration (minus interruptions)
+      netDuration = getNetSessionDuration(session, sessions);
+    } else {
+      // Active session - calculate elapsed time minus any interruptions
+      let grossDuration = 0;
+      if (session.explicitDurationMinutes) {
+        grossDuration = session.explicitDurationMinutes;
+      } else {
+        grossDuration = getElapsedMinutes(session.startTime);
+      }
+
+      const interruptions = sessions.filter(s => s.parentSessionId === session.id);
+      let interruptionTime = 0;
+      for (const interruption of interruptions) {
+        interruptionTime += getSessionDuration(interruption);
+      }
+      netDuration = Math.max(0, grossDuration - interruptionTime);
+    }
+
+    // Add to total (only top-level sessions with net duration)
+    totalMinutes += netDuration;
+
+    // Track longest session
+    if (netDuration > longestSessionMinutes) {
+      longestSessionMinutes = netDuration;
+    }
+
+    // Project breakdown (using net duration)
     const project = session.project || '(no project)';
-    projectBreakdown.set(project, (projectBreakdown.get(project) || 0) + duration);
+    projectBreakdown.set(project, (projectBreakdown.get(project) || 0) + netDuration);
   }
 
   return {
