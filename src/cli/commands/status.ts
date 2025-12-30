@@ -83,46 +83,53 @@ function calculateTodaySummary(db: TimeTrackerDB): TodaySummary {
   let longestSessionMinutes = 0;
 
   for (const session of sessions) {
-    // Count interruptions
-    if (session.parentSessionId) {
-      interruptionCount++;
-      continue; // Don't count interruptions in totals (they're part of parent session)
+    // Calculate session duration
+    let sessionDuration = 0;
+    if (session.explicitDurationMinutes) {
+      sessionDuration = session.explicitDurationMinutes;
+    } else if (session.endTime) {
+      sessionDuration = Math.floor((session.endTime.getTime() - session.startTime.getTime()) / 60000);
+    } else {
+      // Active session - calculate elapsed time
+      sessionDuration = getElapsedMinutes(session.startTime);
     }
 
-    // Calculate net duration for top-level sessions
+    // Calculate net duration (handles nested interruptions correctly)
     let netDuration = 0;
-
     if (session.endTime) {
-      // Completed session - use net duration (minus interruptions)
       netDuration = getNetSessionDuration(session, sessions);
     } else {
-      // Active session - calculate elapsed time minus any interruptions
-      let grossDuration = 0;
-      if (session.explicitDurationMinutes) {
-        grossDuration = session.explicitDurationMinutes;
-      } else {
-        grossDuration = getElapsedMinutes(session.startTime);
-      }
-
+      // Active session - subtract interruptions from elapsed time
       const interruptions = sessions.filter(s => s.parentSessionId === session.id);
       let interruptionTime = 0;
       for (const interruption of interruptions) {
         interruptionTime += getSessionDuration(interruption);
       }
-      netDuration = Math.max(0, grossDuration - interruptionTime);
+      netDuration = Math.max(0, sessionDuration - interruptionTime);
     }
 
-    // Add to total (only top-level sessions with net duration)
-    totalMinutes += netDuration;
+    if (session.parentSessionId) {
+      // This is an interruption
+      interruptionCount++;
 
-    // Track longest session
-    if (netDuration > longestSessionMinutes) {
-      longestSessionMinutes = netDuration;
+      // All sessions (including nested interruptions) contribute NET time to their project
+      const project = session.project || '(no project)';
+      projectBreakdown.set(project, (projectBreakdown.get(project) || 0) + netDuration);
+    } else {
+      // This is a top-level session
+
+      // Add gross duration to total time (wall-clock time)
+      totalMinutes += sessionDuration;
+
+      // Track longest session using net duration
+      if (netDuration > longestSessionMinutes) {
+        longestSessionMinutes = netDuration;
+      }
+
+      // All sessions (including top-level) contribute NET time to their project
+      const project = session.project || '(no project)';
+      projectBreakdown.set(project, (projectBreakdown.get(project) || 0) + netDuration);
     }
-
-    // Project breakdown (using net duration)
-    const project = session.project || '(no project)';
-    projectBreakdown.set(project, (projectBreakdown.get(project) || 0) + netDuration);
   }
 
   return {
