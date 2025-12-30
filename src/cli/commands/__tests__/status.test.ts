@@ -678,4 +678,195 @@ describe('status command', () => {
       }
     });
   });
+
+  describe('today\'s summary calculations', () => {
+    it('should use net duration for project breakdown with nested interruptions', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        const now = Date.now();
+        const threeHoursAgo = new Date(now - 3 * 60 * 60 * 1000);
+
+        // Main task @project1: Started 3 hours ago (still active)
+        const mainId = db.insertSession({
+          startTime: threeHoursAgo,
+          description: 'Main task',
+          project: 'project1',
+          state: 'working', // Active session (no endTime)
+        });
+
+        // Interruption A @project2: 30 minutes gross (completed)
+        const interruptionAId = db.insertSession({
+          startTime: new Date(threeHoursAgo.getTime() + 30 * 60 * 1000), // 30 min after main task started
+          endTime: new Date(threeHoursAgo.getTime() + 60 * 60 * 1000), // Ended after 30 min
+          description: 'Interruption A',
+          project: 'project2',
+          parentSessionId: mainId,
+          state: 'completed',
+        });
+
+        // Nested interruption B @project3: 10 minutes (completed)
+        db.insertSession({
+          startTime: new Date(threeHoursAgo.getTime() + 40 * 60 * 1000), // 10 min after interruption A started
+          endTime: new Date(threeHoursAgo.getTime() + 50 * 60 * 1000), // Ended after 10 min
+          description: 'Nested interruption B',
+          project: 'project3',
+          parentSessionId: interruptionAId,
+          state: 'completed',
+        });
+
+        statusCommand({});
+
+        const output = (console.log as jest.Mock).mock.calls.join('\n');
+
+        // Verify total time is ~3h (gross time of top-level session)
+        expect(output).toMatch(/Total time: 3h/);
+
+        // Verify project breakdown uses net duration:
+        // project1: 3h - 30m = 2h 30m net
+        expect(output).toMatch(/project1: 2h 30m/);
+
+        // project2: 30m - 10m = 20m net (NOT 30m gross!)
+        expect(output).toMatch(/project2: 20m/);
+
+        // project3: 10m (no children)
+        expect(output).toMatch(/project3: 10m/);
+
+        // Verify sum: 2h 30m + 20m + 10m = 3h (equals total time, no double counting)
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    it('should use net duration for longest session calculation', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        const now = Date.now();
+
+        // Task started 3h ago with 1h of interruptions = 2h net (still active)
+        const threeHoursAgo = new Date(now - 3 * 60 * 60 * 1000);
+        const longTaskId = db.insertSession({
+          startTime: threeHoursAgo,
+          description: 'Long task',
+          project: 'project1',
+          state: 'working', // Active (no endTime)
+        });
+
+        db.insertSession({
+          startTime: new Date(threeHoursAgo.getTime() + 30 * 60 * 1000),
+          endTime: new Date(threeHoursAgo.getTime() + 90 * 60 * 1000), // 1 hour interruption
+          description: 'Interruption',
+          project: 'project2',
+          parentSessionId: longTaskId,
+          state: 'completed',
+        });
+
+        // Shorter task with no interruptions: started 2h 15m ago
+        const twoHours15MinAgo = new Date(now - 2.25 * 60 * 60 * 1000);
+        db.insertSession({
+          startTime: twoHours15MinAgo,
+          description: 'Shorter uninterrupted task',
+          project: 'project3',
+          state: 'working', // Active (no endTime)
+        });
+
+        statusCommand({});
+
+        const output = (console.log as jest.Mock).mock.calls.join('\n');
+
+        // Longest session should be 2h 15m (uninterrupted), not 2h (long task net)
+        expect(output).toMatch(/Deep work: 2h 15m \(longest session\)/);
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    it('should handle interruptions with same project as parent', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        const now = Date.now();
+
+        // Main task @project1: Started 2h ago (still active)
+        const twoHoursAgo = new Date(now - 2 * 60 * 60 * 1000);
+        const mainId = db.insertSession({
+          startTime: twoHoursAgo,
+          description: 'Main task',
+          project: 'project1',
+          state: 'working', // Active (no endTime)
+        });
+
+        // Interruption also @project1: 30m (completed)
+        db.insertSession({
+          startTime: new Date(twoHoursAgo.getTime() + 30 * 60 * 1000),
+          endTime: new Date(twoHoursAgo.getTime() + 60 * 60 * 1000),
+          description: 'Interruption same project',
+          project: 'project1',
+          parentSessionId: mainId,
+          state: 'completed',
+        });
+
+        statusCommand({});
+
+        const output = (console.log as jest.Mock).mock.calls.join('\n');
+
+        // Total time: 2h (gross of top-level)
+        expect(output).toMatch(/Total time: 2h/);
+
+        // project1 gets: (2h - 30m) + 30m = 2h total
+        // Main contributes 1h 30m net, interruption contributes 30m net
+        expect(output).toMatch(/project1: 2h/);
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    it('should handle active sessions with interruptions correctly', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        const now = Date.now();
+        const twoHoursAgo = new Date(now - 2 * 60 * 60 * 1000);
+        const oneHourAgo = new Date(now - 1 * 60 * 60 * 1000);
+
+        // Active main task started 2h ago
+        const mainId = db.insertSession({
+          startTime: twoHoursAgo,
+          description: 'Active task',
+          project: 'project1',
+          state: 'working',
+        });
+
+        // Completed interruption that lasted 30 min
+        db.insertSession({
+          startTime: oneHourAgo,
+          endTime: new Date(now - 30 * 60 * 1000),
+          description: 'Interruption',
+          project: 'project2',
+          parentSessionId: mainId,
+          state: 'completed',
+        });
+
+        statusCommand({});
+
+        const output = (console.log as jest.Mock).mock.calls.join('\n');
+
+        // Total time should be ~2h (gross of active top-level session)
+        expect(output).toMatch(/Total time: 2h/);
+
+        // project1 should get net time: ~2h - 30m = ~1h 30m
+        expect(output).toMatch(/project1: 1h 30m/);
+
+        // project2 should get interruption time: 30m
+        expect(output).toMatch(/project2: 30m/);
+      } finally {
+        console.log = originalLog;
+      }
+    });
+  });
 });
