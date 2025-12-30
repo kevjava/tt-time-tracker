@@ -176,6 +176,7 @@ export function listCommand(options: ListOptions): void {
       const projectWidth = 15;
       const tagsWidth = 20;
       const durationWidth = 12;
+      const estimateWidth = 12;
 
       // Print header
       const header =
@@ -186,10 +187,11 @@ export function listCommand(options: ListOptions): void {
         pad(chalk.bold('Project'), projectWidth) +
         pad(chalk.bold('Tags'), tagsWidth) +
         pad(chalk.bold('Duration'), durationWidth) +
+        pad(chalk.bold('Estimate'), estimateWidth) +
         chalk.bold('State');
 
       console.log(header);
-      console.log(chalk.gray('─'.repeat(136)));
+      console.log(chalk.gray('─'.repeat(148)));
 
       // Print sessions
       for (const session of sessions) {
@@ -223,6 +225,7 @@ function printSession(session: Session & { tags: string[] }, indentLevel: number
   const projectWidth = 15;
   const tagsWidth = 20;
   const durationWidth = 12;
+  const estimateWidth = 12;
 
   const id = session.id?.toString() || '';
   const date = format(session.startTime, 'EEE, MMM d');
@@ -238,6 +241,7 @@ function printSession(session: Session & { tags: string[] }, indentLevel: number
   const project = session.project || '';
   const tags = session.tags.length > 0 ? session.tags.join(', ') : '';
   const duration = calculateDuration(session);
+  const estimate = session.estimateMinutes ? formatDuration(session.estimateMinutes) : '';
   const state = formatState(session.state);
 
   const row =
@@ -248,6 +252,7 @@ function printSession(session: Session & { tags: string[] }, indentLevel: number
     pad(project, projectWidth) +
     pad(tags, tagsWidth) +
     pad(duration, durationWidth) +
+    pad(estimate, estimateWidth) +
     state;
 
   console.log(row);
