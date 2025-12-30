@@ -240,7 +240,9 @@ TIMESTAMP DESCRIPTION [@PROJECT] [+TAG...] [~ESTIMATE] [(DURATION)] [# REMARK]
 **Interruptions:**
 
 - Indent with spaces to mark interruptions
+- Use explicit duration syntax `(30m)` to specify how long the interruption lasted
 - Parent task resumes when interruption ends
+- Note: When exporting in log format, interruptions automatically include explicit durations
 
 **Resume Markers:**
 
@@ -250,7 +252,9 @@ TIMESTAMP DESCRIPTION [@PROJECT] [+TAG...] [~ESTIMATE] [(DURATION)] [# REMARK]
 **State Markers:**
 
 - `@end` - Mark task as completed
-  - Sets the end time for the previous task
+  - Sets the end time for the previous top-level task
+  - Only use for non-indented (top-level) tasks
+  - Interruptions use explicit durations instead (e.g., `(30m)`)
   - Example: `17:30 @end # done for the day`
 - `@pause` - Mark task as paused (will resume later)
   - Sets the end time and marks task as 'paused'

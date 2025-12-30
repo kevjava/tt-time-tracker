@@ -119,7 +119,9 @@ TIMESTAMP DESCRIPTION [@PROJECT] [+TAG...] [~ESTIMATE] [(DURATION)] [# REMARK]
 
 - Indented lines are interruptions of previous task
 - Any amount of whitespace counts as indentation
+- Use explicit duration syntax `(30m)` to specify interruption length
 - When interruption ends, parent task resumes
+- When exporting to log format, interruptions automatically include explicit durations
 
 **Resume Markers:**
 

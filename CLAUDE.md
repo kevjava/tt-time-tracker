@@ -88,6 +88,7 @@ Database → Query sessions → Calculate metrics → Format output
 - When an interruption ends, the parent task resumes automatically
 - Interruptions can nest arbitrarily deep via indentation level
 - Parent-child relationships are stored via `parent_session_id` in the database
+- When exporting to log format, interruptions automatically include explicit durations `(30m)` for round-trip compatibility
 
 **Resume Markers:**
 
