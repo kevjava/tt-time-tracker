@@ -3,6 +3,7 @@ import { startOfDay, endOfDay } from 'date-fns';
 import { TimeTrackerDB } from '../../db/database';
 import { ensureDataDir, getDatabasePath } from '../../utils/config';
 import { Session } from '../../types/session';
+import { getSessionDuration, getNetSessionDuration } from '../../utils/duration';
 
 interface StatusOptions {
   isDefault?: boolean;
@@ -67,6 +68,7 @@ function getTimeRemaining(session: Session, elapsedMinutes: number): { minutes: 
 
 /**
  * Calculate today's summary statistics
+ * Uses net duration (minus interruptions) for longest session detection
  */
 function calculateTodaySummary(db: TimeTrackerDB): TodaySummary {
   const today = new Date();
@@ -94,9 +96,26 @@ function calculateTodaySummary(db: TimeTrackerDB): TodaySummary {
 
     totalMinutes += duration;
 
-    // Track longest session (excluding interruptions)
-    if (!session.parentSessionId && duration > longestSessionMinutes) {
-      longestSessionMinutes = duration;
+    // Track longest session using net duration (excluding interruptions)
+    if (!session.parentSessionId) {
+      // For completed sessions, use net duration
+      if (session.endTime) {
+        const netDuration = getNetSessionDuration(session, sessions);
+        if (netDuration > longestSessionMinutes) {
+          longestSessionMinutes = netDuration;
+        }
+      } else {
+        // For active sessions, calculate elapsed time minus any interruptions
+        let activeDuration = duration;
+        const interruptions = sessions.filter(s => s.parentSessionId === session.id);
+        for (const interruption of interruptions) {
+          const interruptionDuration = getSessionDuration(interruption);
+          activeDuration = Math.max(0, activeDuration - interruptionDuration);
+        }
+        if (activeDuration > longestSessionMinutes) {
+          longestSessionMinutes = activeDuration;
+        }
+      }
     }
 
     // Count interruptions
