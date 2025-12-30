@@ -156,6 +156,15 @@ export function reportCommand(options: ReportOptions): void {
       }
 
       console.log(output);
+
+      // Check for active sessions and add a note
+      const activeSessions = sessions.filter(s => !s.endTime);
+      if (activeSessions.length > 0) {
+        const sessionWord = activeSessions.length === 1 ? 'session' : 'sessions';
+        console.log();
+        console.log(chalk.yellow(`Note: ${activeSessions.length} active ${sessionWord} excluded from totals.`));
+        console.log(chalk.gray(`      Run 'tt status' to see current activity.`));
+      }
     } finally {
       db.close();
     }
