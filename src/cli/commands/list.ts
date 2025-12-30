@@ -95,6 +95,8 @@ export function listCommand(options: ListOptions): void {
         if (options.from) {
           try {
             start = parseFuzzyDate(options.from);
+            // Set to start of day
+            start.setHours(0, 0, 0, 0);
           } catch (error) {
             console.error(chalk.red(`Error parsing --from date: ${error instanceof Error ? error.message : error}`));
             process.exit(1);
