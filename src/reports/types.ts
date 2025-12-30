@@ -49,6 +49,8 @@ export interface ContextSwitchMetrics {
  */
 export interface EfficiencyMetrics {
   grossMinutes: number;
+  breakMinutes: number;
+  workingMinutes: number;
   interruptionMinutes: number;
   netProductiveMinutes: number;
   efficiencyRatio: number;

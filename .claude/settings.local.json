@@ -12,7 +12,10 @@
       "Bash(tree:*)",
       "Bash(sqlite3:*)",
       "Bash(TT_DATA_DIR=/tmp/* node dist/index.js:*)",
-      "Bash(TT_DATA_DIR=/tmp/tt-report-test node:*)"
+      "Bash(TT_DATA_DIR=/tmp/tt-report-test node:*)",
+      "Bash(TT_DATA_DIR=/tmp/tt-roundtrip-test3 node:*)",
+      "Bash(TT_DATA_DIR=/tmp/tt-demo node:*)",
+      "Bash(TT_DATA_DIR=/tmp/tt-demo sqlite3:*)"
     ]
   }
 }

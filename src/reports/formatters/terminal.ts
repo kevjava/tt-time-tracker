@@ -151,8 +151,10 @@ export function formatTerminalReport(report: WeeklyReport, previousReport?: Week
   // 5. Efficiency
   lines.push(chalk.bold.yellow('⚡ EFFICIENCY'));
   lines.push(chalk.gray('─'.repeat(80)));
-  lines.push(`  Gross Time: ${formatDuration(report.efficiency.grossMinutes)}`);
-  lines.push(`  Interruption Time: ${formatDuration(report.efficiency.interruptionMinutes)}`);
+  lines.push(`  Total Tracked: ${formatDuration(report.efficiency.grossMinutes)}`);
+  lines.push(`  Break Time: ${formatDuration(report.efficiency.breakMinutes)}`);
+  lines.push(`  Working Time: ${chalk.bold.cyan(formatDuration(report.efficiency.workingMinutes))}`);
+  lines.push(`  Interruptions: ${formatDuration(report.efficiency.interruptionMinutes)}`);
   lines.push(`  Net Productive Time: ${chalk.bold.green(formatDuration(report.efficiency.netProductiveMinutes))}`);
   lines.push(`  Efficiency Ratio: ${chalk.bold(formatPercent(report.efficiency.efficiencyRatio * 100))}`);
   lines.push('');
