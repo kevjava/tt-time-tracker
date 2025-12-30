@@ -32,19 +32,30 @@ export function interruptCommand(descriptionArgs: string | string[], options: In
     let parsedAsLogNotation = false;
 
     // Attempt to parse as log notation if it looks like it might be
-    if (fullInput.match(/^\d{1,2}:\d{2}/) || fullInput.match(/^\d{4}-\d{2}-\d{2}/)) {
+    const hasTimestamp = !!(fullInput.match(/^\d{1,2}:\d{2}/) || fullInput.match(/^\d{4}-\d{2}-\d{2}/));
+    const hasProjectOrTags = fullInput.includes('@') || fullInput.includes('+');
+
+    if (hasTimestamp || hasProjectOrTags) {
       logger.debug('Attempting to parse input as log notation');
       try {
-        const parseResult = LogParser.parse(fullInput);
+        // If no timestamp but has project/tags, prepend a dummy timestamp for parsing
+        const inputToParse = hasTimestamp ? fullInput : `00:00 ${fullInput}`;
+        const parseResult = LogParser.parse(inputToParse);
 
         if (parseResult.errors.length === 0 && parseResult.entries.length > 0) {
           const logEntry = parseResult.entries[0];
           logger.debug('Successfully parsed as log notation');
-          parsedAsLogNotation = true;
+
+          // Only treat as log notation with timestamp if it actually had one
+          parsedAsLogNotation = hasTimestamp;
 
           // Use parsed values (command-line options override)
           description = logEntry.description;
-          startTime = logEntry.timestamp;
+
+          // Only use the parsed timestamp if the input actually had one
+          if (hasTimestamp) {
+            startTime = logEntry.timestamp;
+          }
 
           if (!project && logEntry.project) {
             project = logEntry.project;

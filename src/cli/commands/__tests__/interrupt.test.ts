@@ -321,6 +321,138 @@ describe('interrupt command', () => {
     });
   });
 
+  describe('inline notation without timestamp', () => {
+    it('should parse project from description without timestamp', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        interruptCommand('Quick question @meetings', {});
+        reopenDb();
+
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const interruption = sessions.find((s) => s.description === 'Quick question');
+        expect(interruption).toBeDefined();
+        expect(interruption!.project).toBe('meetings');
+        expect(interruption!.parentSessionId).toBeDefined();
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    it('should parse tags from description without timestamp', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        interruptCommand('Quick question +interruption +urgent', {});
+        reopenDb();
+
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const interruption = sessions.find((s) => s.description === 'Quick question');
+        expect(interruption).toBeDefined();
+
+        const tags = db.getSessionTags(interruption!.id!);
+        expect(tags.sort()).toEqual(['interruption', 'urgent'].sort());
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    it('should parse project and tags from description without timestamp', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        interruptCommand('Quick question from colleague @meetings +interruption', {});
+        reopenDb();
+
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const interruption = sessions.find((s) => s.description === 'Quick question from colleague');
+        expect(interruption).toBeDefined();
+        expect(interruption!.project).toBe('meetings');
+
+        const tags = db.getSessionTags(interruption!.id!);
+        expect(tags).toEqual(['interruption']);
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    it('should parse estimate from description without timestamp', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        interruptCommand('Quick call @phone +call ~15m', {});
+        reopenDb();
+
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const interruption = sessions.find((s) => s.description === 'Quick call');
+        expect(interruption).toBeDefined();
+        expect(interruption!.project).toBe('phone');
+        expect(interruption!.estimateMinutes).toBe(15);
+
+        const tags = db.getSessionTags(interruption!.id!);
+        expect(tags).toEqual(['call']);
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    it('should allow command-line options to override inline notation', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        interruptCommand('Task @inlineProject +inlineTag', {
+          project: 'commandProject',
+          tags: 'commandTag'
+        });
+        reopenDb();
+
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const interruption = sessions.find((s) => s.description === 'Task');
+        expect(interruption).toBeDefined();
+        // Command-line options should override inline notation
+        expect(interruption!.project).toBe('commandProject');
+
+        const tags = db.getSessionTags(interruption!.id!);
+        expect(tags).toEqual(['commandTag']);
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    it('should not use timestamp from dummy parsing', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        const beforeTime = new Date();
+        interruptCommand('Quick task @project +tag', {});
+        reopenDb();
+
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const interruption = sessions.find((s) => s.description === 'Quick task');
+        expect(interruption).toBeDefined();
+
+        // Start time should be current time, not 00:00
+        const startTime = new Date(interruption!.startTime);
+        const afterTime = new Date();
+
+        // Should be between beforeTime and afterTime (i.e., approximately now)
+        expect(startTime.getTime()).toBeGreaterThanOrEqual(beforeTime.getTime());
+        expect(startTime.getTime()).toBeLessThanOrEqual(afterTime.getTime());
+
+        // Should NOT be at midnight
+        expect(startTime.getHours()).not.toBe(0);
+      } finally {
+        console.log = originalLog;
+      }
+    });
+  });
+
   describe('combining multiple options', () => {
     it('should support combining project with --at', () => {
       const originalLog = console.log;
