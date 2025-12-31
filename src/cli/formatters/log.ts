@@ -3,6 +3,13 @@ import { Session, SessionState } from '../../types/session';
 import { TimeTrackerDB } from '../../db/database';
 
 /**
+ * Round a timestamp to minute precision (truncate seconds and milliseconds)
+ */
+function roundToMinute(date: Date): number {
+  return Math.floor(date.getTime() / 60000) * 60000;
+}
+
+/**
  * Format duration as ~2h, ~30m, ~1h30m
  */
 function formatDurationString(minutes: number): string {
@@ -125,8 +132,10 @@ function processSession(
   // Only output @end markers for top-level sessions (depth === 0)
   // Interruptions use explicit durations instead
   if (depth === 0 && session.endTime) {
+    // Compare at minute precision since log notation only has minute granularity
+    // This prevents unnecessary @end markers when sessions end/start within the same minute
     const needsEndMarker = !nextSiblingStart ||
-      session.endTime.getTime() !== nextSiblingStart.getTime();
+      roundToMinute(session.endTime) !== roundToMinute(nextSiblingStart);
 
     if (needsEndMarker) {
       // Determine timestamp format for @end marker

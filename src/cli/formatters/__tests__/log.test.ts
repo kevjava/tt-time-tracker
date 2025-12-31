@@ -178,6 +178,69 @@ describe('formatSessionsAsLog', () => {
       expect(output).toBe('2025-12-27 09:00 First task\n10:00 @end');
     });
 
+    it('should not output @end marker when next session starts within same minute', () => {
+      // Simulate real-world scenario where sessions end/start within the same minute
+      // but with different millisecond timestamps
+      db.insertSession({
+        startTime: new Date('2025-12-27T09:00:00.000'),
+        endTime: new Date('2025-12-27T10:00:19.065'),
+        description: 'First task',
+        state: 'completed',
+      });
+
+      db.insertSession({
+        startTime: new Date('2025-12-27T10:00:19.256'),
+        endTime: new Date('2025-12-27T11:00:00.000'),
+        description: 'Second task',
+        state: 'completed',
+      });
+
+      const sessions = db.getSessionsByTimeRange(
+        new Date('2025-12-27T00:00:00'),
+        new Date('2025-12-27T23:59:59')
+      );
+
+      const output = formatSessionsAsLog(sessions, db);
+      const lines = output.split('\n');
+
+      // Should NOT have @end between the sessions since they're in the same minute
+      expect(lines[0]).toBe('2025-12-27 09:00 First task');
+      expect(lines[1]).toBe('10:00 Second task');
+      expect(lines[2]).toBe('11:00 @end');
+      expect(lines.length).toBe(3);
+    });
+
+    it('should output @end marker when sessions have gaps greater than a minute', () => {
+      db.insertSession({
+        startTime: new Date('2025-12-27T09:00:00.000'),
+        endTime: new Date('2025-12-27T10:00:00.000'),
+        description: 'First task',
+        state: 'completed',
+      });
+
+      db.insertSession({
+        startTime: new Date('2025-12-27T10:05:00.000'),
+        endTime: new Date('2025-12-27T11:00:00.000'),
+        description: 'Second task',
+        state: 'completed',
+      });
+
+      const sessions = db.getSessionsByTimeRange(
+        new Date('2025-12-27T00:00:00'),
+        new Date('2025-12-27T23:59:59')
+      );
+
+      const output = formatSessionsAsLog(sessions, db);
+      const lines = output.split('\n');
+
+      // Should have @end since there's a gap
+      expect(lines[0]).toBe('2025-12-27 09:00 First task');
+      expect(lines[1]).toBe('10:00 @end');
+      expect(lines[2]).toBe('10:05 Second task');
+      expect(lines[3]).toBe('11:00 @end');
+      expect(lines.length).toBe(4);
+    });
+
     it('should use time-only timestamp for sessions on same date', () => {
       db.insertSession({
         startTime: new Date('2025-12-27T09:00:00'),
