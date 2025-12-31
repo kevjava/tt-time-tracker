@@ -272,3 +272,126 @@ invalid line
     expect(result.lines[2]).not.toBeNull(); // another task
   });
 });
+
+describe('state suffix tokens', () => {
+  it('should tokenize ->paused suffix', () => {
+    const result = tokenizeLine('09:00 Task one ->paused', 1);
+    expect(result).not.toBeNull();
+    expect(result!.tokens).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: TokenType.TIMESTAMP, value: '09:00' }),
+        expect.objectContaining({ type: TokenType.DESCRIPTION, value: 'Task one' }),
+        expect.objectContaining({ type: TokenType.STATE_SUFFIX, value: 'paused' }),
+      ])
+    );
+  });
+
+  it('should tokenize ->completed suffix', () => {
+    const result = tokenizeLine('09:00 Task two ->completed', 1);
+    expect(result).not.toBeNull();
+    expect(result!.tokens).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: TokenType.STATE_SUFFIX, value: 'completed' }),
+      ])
+    );
+  });
+
+  it('should tokenize ->abandoned suffix', () => {
+    const result = tokenizeLine('09:00 Task three ->abandoned', 1);
+    expect(result).not.toBeNull();
+    expect(result!.tokens).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: TokenType.STATE_SUFFIX, value: 'abandoned' }),
+      ])
+    );
+  });
+
+  it('should tokenize state suffix after explicit duration', () => {
+    const result = tokenizeLine('09:00 Task @project +tag (30m) ->paused', 1);
+    expect(result).not.toBeNull();
+    const tokens = result!.tokens;
+    expect(tokens).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: TokenType.EXPLICIT_DURATION, value: '30m' }),
+        expect.objectContaining({ type: TokenType.STATE_SUFFIX, value: 'paused' }),
+      ])
+    );
+  });
+
+  it('should tokenize state suffix before remark', () => {
+    const result = tokenizeLine('09:00 Task ->paused # comment', 1);
+    expect(result).not.toBeNull();
+    const tokens = result!.tokens;
+    const stateSuffixIdx = tokens.findIndex((t) => t.type === TokenType.STATE_SUFFIX);
+    const remarkIdx = tokens.findIndex((t) => t.type === TokenType.REMARK);
+    expect(stateSuffixIdx).toBeLessThan(remarkIdx);
+  });
+
+  it('should reject invalid state suffix', () => {
+    expect(() => tokenizeLine('09:00 Task ->invalid', 1)).toThrow(ParseError);
+  });
+
+  it('should not include state suffix in description', () => {
+    const result = tokenizeLine('09:00 Task one ->paused', 1);
+    expect(result).not.toBeNull();
+    const descToken = result!.tokens.find((t) => t.type === TokenType.DESCRIPTION);
+    expect(descToken?.value).toBe('Task one');
+    expect(descToken?.value).not.toContain('->');
+  });
+});
+
+describe('@resume keyword', () => {
+  it('should tokenize @resume keyword', () => {
+    const result = tokenizeLine('09:00 @resume', 1);
+    expect(result).not.toBeNull();
+    expect(result!.tokens).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: TokenType.RESUME_MARKER, value: 'resume' }),
+      ])
+    );
+  });
+
+  it('should tokenize @resume with task description', () => {
+    const result = tokenizeLine('09:00 @resume Feature work @project +code', 1);
+    expect(result).not.toBeNull();
+    expect(result!.tokens).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: TokenType.RESUME_MARKER, value: 'resume' }),
+        expect.objectContaining({ type: TokenType.DESCRIPTION, value: 'Feature work' }),
+        expect.objectContaining({ type: TokenType.PROJECT, value: 'project' }),
+        expect.objectContaining({ type: TokenType.TAG, value: 'code' }),
+      ])
+    );
+  });
+
+  it('should tokenize @resume with state suffix', () => {
+    const result = tokenizeLine('09:00 @resume Task @project ->paused', 1);
+    expect(result).not.toBeNull();
+    expect(result!.tokens).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: TokenType.RESUME_MARKER, value: 'resume' }),
+        expect.objectContaining({ type: TokenType.STATE_SUFFIX, value: 'paused' }),
+      ])
+    );
+  });
+
+  it('should still tokenize @prev', () => {
+    const result = tokenizeLine('09:00 @prev', 1);
+    expect(result).not.toBeNull();
+    expect(result!.tokens).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: TokenType.RESUME_MARKER, value: 'prev' }),
+      ])
+    );
+  });
+
+  it('should still tokenize @N', () => {
+    const result = tokenizeLine('09:00 @2', 1);
+    expect(result).not.toBeNull();
+    expect(result!.tokens).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: TokenType.RESUME_MARKER, value: '2' }),
+      ])
+    );
+  });
+});

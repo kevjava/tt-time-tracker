@@ -17,6 +17,7 @@ export interface Session {
   remark?: string;
   state: SessionState;
   parentSessionId?: number;
+  continuesSessionId?: number;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -42,6 +43,8 @@ export interface LogEntry {
   remark?: string;
   indentLevel: number;
   lineNumber: number;
+  state?: SessionState;
+  resumeMarkerValue?: string;
 }
 
 /**

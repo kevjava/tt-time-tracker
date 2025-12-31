@@ -1,5 +1,5 @@
 import { ParseError } from '../types/errors';
-import { LogEntry, ParseResult } from '../types/session';
+import { LogEntry, ParseResult, SessionState } from '../types/session';
 import { tokenizeFile, TokenizedLine, TokenType, Token } from './tokenizer';
 import { parseDuration } from './duration';
 import { parseISO, isValid, differenceInHours, isBefore } from 'date-fns';
@@ -131,20 +131,74 @@ export class LogParser {
 
     const timestamp = this.parseTimestamp(timestampToken.value, lineNumber);
 
+    // Extract state suffix (if present)
+    const stateSuffixToken = this.findToken(tokens, TokenType.STATE_SUFFIX);
+    const state = stateSuffixToken?.value as SessionState | undefined;
+
     // Check for resume marker
     const resumeToken = this.findToken(tokens, TokenType.RESUME_MARKER);
     if (resumeToken) {
-      // Resume marker - find the referenced task
-      const description = this.resolveResumeMarker(resumeToken.value, lineNumber);
+      // Extract additional tokens that can appear with @resume
+      const descToken = this.findToken(tokens, TokenType.DESCRIPTION);
+      const projectToken = this.findToken(tokens, TokenType.PROJECT);
+      const tagTokens = this.findAllTokens(tokens, TokenType.TAG);
+      const estimateToken = this.findToken(tokens, TokenType.ESTIMATE);
+      const durationToken = this.findToken(tokens, TokenType.EXPLICIT_DURATION);
+
+      // Determine description based on resume marker type
+      let description: string;
+      if (resumeToken.value === 'resume') {
+        // @resume keyword - description comes from DESCRIPTION token or will be resolved from database
+        if (!descToken && tagTokens.length === 0 && !projectToken) {
+          // @resume alone - will find most recent paused task
+          description = '';  // Empty signals to log.ts to find paused task
+        } else {
+          // @resume with task specification - use provided description or first tag
+          description = descToken?.value || (tagTokens.length > 0 ? tagTokens[0].value : '');
+        }
+      } else {
+        // @prev or @N - resolve using existing logic
+        description = this.resolveResumeMarker(resumeToken.value, lineNumber);
+      }
+
+      // Parse estimate if present
+      let estimateMinutes: number | undefined;
+      if (estimateToken) {
+        try {
+          estimateMinutes = parseDuration(estimateToken.value);
+        } catch (error) {
+          if (error instanceof ParseError) {
+            throw new ParseError(`Invalid estimate: ${error.message}`, lineNumber);
+          }
+          throw error;
+        }
+      }
+
+      // Parse explicit duration if present
+      let explicitDurationMinutes: number | undefined;
+      if (durationToken) {
+        try {
+          explicitDurationMinutes = parseDuration(durationToken.value);
+        } catch (error) {
+          if (error instanceof ParseError) {
+            throw new ParseError(`Invalid duration: ${error.message}`, lineNumber);
+          }
+          throw error;
+        }
+      }
 
       return {
         timestamp,
         description,
-        tags: [],
+        project: projectToken?.value,
+        tags: tagTokens.map((t) => t.value),
+        estimateMinutes,
+        explicitDurationMinutes,
+        remark: this.findToken(tokens, TokenType.REMARK)?.value,
         indentLevel,
         lineNumber,
-        // Other fields from the resume marker line (remark, etc.)
-        remark: this.findToken(tokens, TokenType.REMARK)?.value,
+        state,
+        resumeMarkerValue: resumeToken.value,
       };
     }
 
@@ -251,6 +305,7 @@ export class LogParser {
       remark,
       indentLevel,
       lineNumber,
+      state,
     };
   }
 

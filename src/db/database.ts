@@ -43,8 +43,8 @@ export class TimeTrackerDB {
         INSERT INTO sessions (
           start_time, end_time, description, project,
           estimate_minutes, explicit_duration_minutes,
-          remark, state, parent_session_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          remark, state, parent_session_id, continues_session_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       const result = stmt.run(
@@ -56,7 +56,8 @@ export class TimeTrackerDB {
         session.explicitDurationMinutes || null,
         session.remark || null,
         session.state,
-        session.parentSessionId || null
+        session.parentSessionId || null,
+        session.continuesSessionId || null
       );
 
       return result.lastInsertRowid as number;
@@ -514,6 +515,96 @@ export class TimeTrackerDB {
   }
 
   /**
+   * Find the most recent paused session matching criteria
+   * Used by @resume to find which session to continue
+   */
+  findPausedSessionToResume(
+    description?: string,
+    project?: string,
+    primaryTag?: string
+  ): (Session & { tags: string[] }) | null {
+    try {
+      let query = `
+        SELECT s.* FROM sessions s
+        WHERE s.state = 'paused'
+      `;
+      const params: any[] = [];
+
+      if (description) {
+        query += ` AND s.description = ?`;
+        params.push(description);
+      }
+      if (project) {
+        query += ` AND s.project = ?`;
+        params.push(project);
+      }
+
+      query += ` ORDER BY s.start_time DESC LIMIT 1`;
+
+      const row = this.db.prepare(query).get(...params) as any;
+      if (!row) return null;
+
+      const tags = this.getSessionTags(row.id);
+
+      // If primaryTag specified, check if it matches
+      if (primaryTag && tags[0] !== primaryTag) {
+        return null;
+      }
+
+      return this.rowToSession(row, tags);
+    } catch (error) {
+      throw new DatabaseError(`Failed to find paused session: ${error}`);
+    }
+  }
+
+  /**
+   * Get all sessions in a continuation chain
+   * Returns sessions in chronological order
+   */
+  getContinuationChain(sessionId: number): (Session & { tags: string[] })[] {
+    try {
+      const chain: (Session & { tags: string[] })[] = [];
+
+      // Walk backward to find start of chain
+      let current = this.getSessionById(sessionId);
+      while (current?.continuesSessionId) {
+        current = this.getSessionById(current.continuesSessionId);
+      }
+
+      // Walk forward from start, collecting all sessions in chain
+      if (current) {
+        chain.push({ ...current, tags: this.getSessionTags(current.id!) });
+
+        // Find sessions that continue from current
+        let next = this.findSessionContinuingFrom(current.id!);
+        while (next) {
+          chain.push({ ...next, tags: this.getSessionTags(next.id!) });
+          next = this.findSessionContinuingFrom(next.id!);
+        }
+      }
+
+      return chain;
+    } catch (error) {
+      throw new DatabaseError(`Failed to get continuation chain: ${error}`);
+    }
+  }
+
+  /**
+   * Find a session that continues from the specified session
+   */
+  private findSessionContinuingFrom(sessionId: number): Session | null {
+    try {
+      const stmt = this.db.prepare(`
+        SELECT * FROM sessions WHERE continues_session_id = ? ORDER BY start_time ASC LIMIT 1
+      `);
+      const row = stmt.get(sessionId) as any;
+      return row ? this.rowToSession(row, []) : null;
+    } catch (error) {
+      throw new DatabaseError(`Failed to find continuing session: ${error}`);
+    }
+  }
+
+  /**
    * Convert database row to Session object
    */
   private rowToSession(row: any, tags: string[]): Session & { tags: string[] } {
@@ -528,6 +619,7 @@ export class TimeTrackerDB {
       remark: row.remark || undefined,
       state: row.state as SessionState,
       parentSessionId: row.parent_session_id || undefined,
+      continuesSessionId: row.continues_session_id || undefined,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
       tags,

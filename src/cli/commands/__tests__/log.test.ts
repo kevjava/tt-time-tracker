@@ -233,6 +233,205 @@ describe('log command', () => {
     });
   });
 
+  describe('continuation chains', () => {
+    it('should store state suffixes correctly in database', async () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        const logFile = path.join(fixturesDir, 'state-suffixes.log');
+        await logCommand(logFile);
+
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 24 * 60 * 60 * 1000));
+
+        // Should have sessions with different states
+        const completedSession = sessions.find(s => s.description === 'Task one');
+        const pausedSession = sessions.find(s => s.description === 'Task two');
+        const abandonedSession = sessions.find(s => s.description === 'Task three');
+        const defaultSession = sessions.find(s => s.description === 'Task four');
+
+        expect(completedSession?.state).toBe('completed');
+        expect(pausedSession?.state).toBe('paused');
+        expect(abandonedSession?.state).toBe('abandoned');
+        expect(defaultSession?.state).toBe('completed'); // Default when has end time
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    it('should link continuation chains via continuesSessionId', async () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        const logFile = path.join(fixturesDir, 'continuations.log');
+        await logCommand(logFile);
+
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 24 * 60 * 60 * 1000));
+
+        // Find the feature work sessions
+        const featureSessions = sessions.filter(s => s.description === 'Feature work');
+
+        // Should have 3 sessions for "Feature work"
+        expect(featureSessions.length).toBe(3);
+
+        // First session should be paused and have no continuesSessionId
+        const firstSession = featureSessions.find(s => !s.continuesSessionId);
+        expect(firstSession).toBeDefined();
+        expect(firstSession?.state).toBe('paused');
+
+        // Second session should continue first session
+        const secondSession = featureSessions.find(s =>
+          s.continuesSessionId === firstSession?.id && s.state === 'paused'
+        );
+        expect(secondSession).toBeDefined();
+
+        // Third session should continue second session and be completed
+        const thirdSession = featureSessions.find(s =>
+          s.continuesSessionId === secondSession?.id && s.state === 'completed'
+        );
+        expect(thirdSession).toBeDefined();
+
+        // Verify the chain can be retrieved
+        if (firstSession?.id) {
+          const chain = db.getContinuationChain(firstSession.id);
+          expect(chain.length).toBe(3);
+          expect(chain[0].id).toBe(firstSession.id);
+          expect(chain[1].id).toBe(secondSession?.id);
+          expect(chain[2].id).toBe(thirdSession?.id);
+        }
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    it('should resume most recent paused task with @resume alone', async () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        // Create a test file with @resume alone
+        const testFile = path.join(testDataDir, 'resume-alone.log');
+        fs.writeFileSync(testFile, `
+08:00 Task A @project +code ~2h ->paused
+09:00 Break +break
+09:15 @resume
+10:00 Done
+`.trim());
+
+        await logCommand(testFile);
+
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 24 * 60 * 60 * 1000));
+
+        // First session should be paused
+        const taskA = sessions.find(s => s.description === 'Task A');
+        expect(taskA?.state).toBe('paused');
+
+        // Second session should continue first session (via @resume)
+        const resumedTask = sessions.find(s =>
+          s.continuesSessionId === taskA?.id
+        );
+        expect(resumedTask).toBeDefined();
+        expect(resumedTask?.description).toBe('Task A'); // Inherits description
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    it('should resume matching paused task with @resume Task @project +tag', async () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        // Create a test file with multiple paused tasks and specific resume
+        const testFile = path.join(testDataDir, 'resume-specific.log');
+        fs.writeFileSync(testFile, `
+08:00 Task A @projectA +code ->paused
+08:30 Task B @projectB +design ->paused
+09:00 Break +break
+09:15 @resume Task B @projectB +design ->completed
+`.trim());
+
+        await logCommand(testFile);
+
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 24 * 60 * 60 * 1000));
+
+        // Task B should have a continuation
+        const taskB = sessions.find(s => s.description === 'Task B' && s.state === 'paused');
+        const resumedTaskB = sessions.find(s =>
+          s.description === 'Task B' &&
+          s.continuesSessionId === taskB?.id &&
+          s.state === 'completed'
+        );
+
+        expect(resumedTaskB).toBeDefined();
+        expect(resumedTaskB?.project).toBe('projectB');
+
+        // Task A should still be paused with no continuation
+        const taskA = sessions.find(s => s.description === 'Task A');
+        expect(taskA?.state).toBe('paused');
+        const resumedTaskA = sessions.find(s => s.continuesSessionId === taskA?.id);
+        expect(resumedTaskA).toBeUndefined();
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    it('should not create continuation link if no matching paused session', async () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        // Create a test file where @resume doesn't match anything
+        const testFile = path.join(testDataDir, 'resume-no-match.log');
+        fs.writeFileSync(testFile, `
+08:00 Task A @project +code ->completed
+09:00 @resume Task B @different +tag
+10:00 Done
+`.trim());
+
+        await logCommand(testFile);
+
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 24 * 60 * 60 * 1000));
+
+        // Task B should exist but have no continuesSessionId
+        const taskB = sessions.find(s => s.description === 'Task B');
+        expect(taskB).toBeDefined();
+        expect(taskB?.continuesSessionId).toBeUndefined();
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    it('should preserve estimate from first session in chain', async () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        const logFile = path.join(fixturesDir, 'continuations.log');
+        await logCommand(logFile);
+
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 24 * 60 * 60 * 1000));
+
+        // First feature work session should have estimate
+        const firstSession = sessions.find(s =>
+          s.description === 'Feature work' && !s.continuesSessionId
+        );
+        expect(firstSession?.estimateMinutes).toBe(240); // 4h from fixture
+
+        // Continuation sessions don't have estimates (only first does)
+        const continuations = sessions.filter(s =>
+          s.description === 'Feature work' && s.continuesSessionId
+        );
+        continuations.forEach(session => {
+          expect(session.estimateMinutes).toBeUndefined();
+        });
+      } finally {
+        console.log = originalLog;
+      }
+    });
+  });
+
   describe('edge cases', () => {
     it('should handle log file with state markers', async () => {
       const originalLog = console.log;

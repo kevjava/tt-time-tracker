@@ -8,7 +8,7 @@ import { LogParser } from '../../parser/grammar';
 import { TimeTrackerDB } from '../../db/database';
 import { ensureDataDir, getDatabasePath } from '../../utils/config';
 import { openInEditor } from '../editor';
-import { LogEntry, Session } from '../../types/session';
+import { LogEntry, Session, SessionState } from '../../types/session';
 import { logger } from '../../utils/logger';
 
 /**
@@ -16,7 +16,7 @@ import { logger } from '../../utils/logger';
  */
 interface ProcessedLogEntry extends LogEntry {
   endTime?: Date;
-  state?: 'completed' | 'paused' | 'abandoned';
+  state?: SessionState;
 }
 
 /**
@@ -161,26 +161,75 @@ function insertEntries(db: TimeTrackerDB, entries: LogEntry[]): { sessions: numb
   for (let i = 0; i < entriesWithEndTimes.length; i++) {
     const entry = entriesWithEndTimes[i];
 
-    // Determine parent session ID
+    // Determine parent session ID (for interruptions)
     const parentEntryIdx = parentMap.get(i);
     const parentSessionId = parentEntryIdx !== undefined ? sessionIds.get(parentEntryIdx) : undefined;
 
-    // Insert session
+    // Determine continuation session ID (for @resume)
+    let continuesSessionId: number | undefined;
+    let inheritedDescription = entry.description;
+    let inheritedProject = entry.project;
+    let inheritedTags = entry.tags;
+
+    if (entry.resumeMarkerValue) {
+      // This entry was created via @resume/@prev/@N marker
+      // Find the paused session to link to
+
+      if (entry.resumeMarkerValue === 'resume') {
+        // @resume keyword (with or without task specification)
+        if (!entry.description && !entry.project && entry.tags.length === 0) {
+          // @resume alone - find most recent paused task and inherit its fields
+          const pausedSession = db.findPausedSessionToResume();
+          if (pausedSession) {
+            continuesSessionId = pausedSession.id;
+            inheritedDescription = pausedSession.description;
+            inheritedProject = pausedSession.project;
+            inheritedTags = pausedSession.tags;
+          }
+        } else {
+          // @resume with task specification - match by description/project/tags
+          const primaryTag = entry.tags[0];
+          const pausedSession = db.findPausedSessionToResume(
+            entry.description || undefined,
+            entry.project,
+            primaryTag
+          );
+          continuesSessionId = pausedSession?.id;
+        }
+      } else if (entry.resumeMarkerValue === 'prev') {
+        // @prev - find most recent paused task
+        const pausedSession = db.findPausedSessionToResume();
+        continuesSessionId = pausedSession?.id;
+      } else if (/^\d+$/.test(entry.resumeMarkerValue)) {
+        // @N - find Nth task from this file and check if it's paused
+        const targetIdx = parseInt(entry.resumeMarkerValue, 10) - 1;
+        const targetEntryDbId = sessionIds.get(targetIdx);
+        if (targetEntryDbId) {
+          const targetSession = db.getSessionById(targetEntryDbId);
+          if (targetSession?.state === 'paused') {
+            continuesSessionId = targetEntryDbId;
+          }
+        }
+      }
+    }
+
+    // Insert session with both parent and continuation links
     const sessionId = db.insertSession({
       startTime: entry.timestamp,
       endTime: entry.endTime,
-      description: entry.description,
-      project: entry.project,
+      description: inheritedDescription,
+      project: inheritedProject,
       estimateMinutes: entry.estimateMinutes,
       explicitDurationMinutes: entry.explicitDurationMinutes,
       remark: entry.remark,
       state: entry.state || (entry.endTime ? 'completed' : 'working'),
       parentSessionId,
+      continuesSessionId,
     });
 
     // Insert tags
-    if (entry.tags.length > 0) {
-      db.insertSessionTags(sessionId, entry.tags);
+    if (inheritedTags.length > 0) {
+      db.insertSessionTags(sessionId, inheritedTags);
     }
 
     // Store session ID for parent mapping

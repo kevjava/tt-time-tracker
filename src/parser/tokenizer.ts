@@ -15,6 +15,7 @@ export enum TokenType {
   END_MARKER = 'END_MARKER',
   PAUSE_MARKER = 'PAUSE_MARKER',
   ABANDON_MARKER = 'ABANDON_MARKER',
+  STATE_SUFFIX = 'STATE_SUFFIX',
 }
 
 /**
@@ -99,8 +100,9 @@ export function tokenizeLine(line: string, lineNumber: number): TokenizedLine | 
   position += timestampMatch[0].length;
   remaining = remaining.slice(timestampMatch[0].length).trim();
 
-  // 2. Check for resume marker (@prev or @N) or state markers (@end, @pause, @abandon)
+  // 2. Check for resume marker (@prev, @N, or @resume) or state markers (@end, @pause, @abandon)
   const resumeMatch = remaining.match(/^@(prev|\d+)(?:\s|$)/);
+  const resumeKeywordMatch = remaining.match(/^@resume(?:\s|$)/);
   const endMatch = remaining.match(/^@end(?:\s|$)/);
   const pauseMatch = remaining.match(/^@pause(?:\s|$)/);
   const abandonMatch = remaining.match(/^@abandon(?:\s|$)/);
@@ -114,6 +116,15 @@ export function tokenizeLine(line: string, lineNumber: number): TokenizedLine | 
 
     position += resumeMatch[0].length;
     remaining = remaining.slice(resumeMatch[0].length).trim();
+  } else if (resumeKeywordMatch) {
+    tokens.push({
+      type: TokenType.RESUME_MARKER,
+      value: 'resume',  // Special value to indicate @resume keyword
+      position,
+    });
+
+    position += resumeKeywordMatch[0].length;
+    remaining = remaining.slice(resumeKeywordMatch[0].length).trim();
   } else if (endMatch) {
     tokens.push({
       type: TokenType.END_MARKER,
@@ -141,9 +152,11 @@ export function tokenizeLine(line: string, lineNumber: number): TokenizedLine | 
 
     position += abandonMatch[0].length;
     remaining = remaining.slice(abandonMatch[0].length).trim();
-  } else {
-    // 3. Extract description (everything before special markers)
-    // Build description by consuming tokens until we hit a special marker or end of line
+  }
+
+  // 3. Extract description (everything before special markers)
+  // This happens after checking for special markers, so it works with @resume too
+  if (remaining.length > 0 && !remaining.match(/^[@+~(#-]/)) {
     let description = '';
     let descPosition = position;
 
@@ -154,6 +167,7 @@ export function tokenizeLine(line: string, lineNumber: number): TokenizedLine | 
         remaining.match(/^\+[a-zA-Z0-9_-]+/) || // tag
         remaining.match(/^~\d/) || // estimate
         remaining.match(/^\(\d/) || // explicit duration
+        remaining.startsWith('->') || // state suffix
         remaining.match(/^#\s/) // remark (must have space)
       ) {
         break;
@@ -260,6 +274,21 @@ export function tokenizeLine(line: string, lineNumber: number): TokenizedLine | 
 
       position += durationMatch[0].length;
       remaining = remaining.slice(durationMatch[0].length).trim();
+    } else if (remaining.startsWith('->')) {
+      // State suffix (->paused, ->completed, ->abandoned)
+      const stateSuffixMatch = remaining.match(/^->(paused|completed|abandoned)(?:\s|$)/);
+      if (!stateSuffixMatch) {
+        throw new ParseError('Invalid state suffix format (must be ->paused, ->completed, or ->abandoned)', lineNumber);
+      }
+
+      tokens.push({
+        type: TokenType.STATE_SUFFIX,
+        value: stateSuffixMatch[1],
+        position,
+      });
+
+      position += stateSuffixMatch[0].length;
+      remaining = remaining.slice(stateSuffixMatch[0].length).trim();
     } else if (char === '#') {
       // Remark (must have space after)
       if (!remaining.match(/^#\s/)) {

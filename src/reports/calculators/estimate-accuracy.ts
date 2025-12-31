@@ -2,13 +2,57 @@ import { SessionWithTags, EstimateAccuracyMetrics } from '../types';
 import { getNetSessionDuration } from '../../utils/duration';
 
 /**
+ * Group sessions into continuation chains
+ * Sessions with continuesSessionId are grouped with their predecessors
+ */
+function groupByContinuationChain(sessions: SessionWithTags[]): SessionWithTags[][] {
+  const chains: SessionWithTags[][] = [];
+  const processed = new Set<number>();
+
+  for (const session of sessions) {
+    if (!session.id || processed.has(session.id)) continue;
+
+    // Find start of chain (session with no continuesSessionId)
+    let current = session;
+    while (current.continuesSessionId) {
+      const prev = sessions.find((s) => s.id === current.continuesSessionId);
+      if (!prev) break;
+      current = prev;
+    }
+
+    // Build chain forward from start
+    const chain: SessionWithTags[] = [current];
+    processed.add(current.id!);
+
+    let next = sessions.find((s) => s.continuesSessionId === current.id);
+    while (next) {
+      chain.push(next);
+      processed.add(next.id!);
+      current = next;
+      next = sessions.find((s) => s.continuesSessionId === current.id);
+    }
+
+    chains.push(chain);
+  }
+
+  return chains;
+}
+
+/**
  * Calculate estimate accuracy metrics
  * Uses net duration (actual work time minus interruptions) for comparison
+ * Aggregates continuation chains so multi-session tasks are compared against a single estimate
  */
 export function calculateEstimateAccuracy(sessions: SessionWithTags[]): EstimateAccuracyMetrics | null {
-  const estimatedSessions = sessions.filter((s) => s.estimateMinutes && s.endTime);
+  // Group into continuation chains first
+  const chains = groupByContinuationChain(sessions);
 
-  if (estimatedSessions.length === 0) {
+  // Only process chains that have estimates (first session has estimate) and all sessions have end times
+  const estimatedChains = chains.filter(
+    (chain) => chain[0].estimateMinutes && chain.every((s) => s.endTime)
+  );
+
+  if (estimatedChains.length === 0) {
     return null;
   }
 
@@ -23,10 +67,14 @@ export function calculateEstimateAccuracy(sessions: SessionWithTags[]): Estimate
     errorPercent: number;
   }> = [];
 
-  for (const session of estimatedSessions) {
-    const estimateMinutes = session.estimateMinutes!;
-    // Use net duration to compare actual work time vs estimate
-    const actualMinutes = getNetSessionDuration(session, sessions);
+  for (const chain of estimatedChains) {
+    const estimateMinutes = chain[0].estimateMinutes!;  // From first session in chain
+
+    // Sum net duration across all sessions in chain
+    const actualMinutes = chain.reduce(
+      (sum, s) => sum + getNetSessionDuration(s, sessions),
+      0
+    );
 
     totalEstimated += estimateMinutes;
     totalActual += actualMinutes;
@@ -37,14 +85,14 @@ export function calculateEstimateAccuracy(sessions: SessionWithTags[]): Estimate
     totalAbsoluteError += Math.abs(error);
 
     misses.push({
-      session,
+      session: chain[0],  // Report using first session in chain
       estimateMinutes,
       actualMinutes,
       errorPercent: Math.abs(errorPercent),
     });
   }
 
-  const averageError = totalAbsoluteError / estimatedSessions.length;
+  const averageError = totalAbsoluteError / estimatedChains.length;
   const averageErrorPercent = totalEstimated > 0 ? (totalAbsoluteError / totalEstimated) * 100 : 0;
 
   // Sort by error percent and take worst 5

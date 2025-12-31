@@ -389,4 +389,104 @@ invalid line
       expect(result.entries[4].remark).toBe('found the issue, race condition');
     });
   });
+
+  describe('state suffix parsing', () => {
+    it('should parse ->paused state suffix', () => {
+      const content = '09:00 Task one ->paused';
+      const result = LogParser.parse(content);
+      expect(result.entries).toHaveLength(1);
+      expect(result.entries[0].state).toBe('paused');
+    });
+
+    it('should parse ->completed state suffix', () => {
+      const content = '09:00 Task two ->completed';
+      const result = LogParser.parse(content);
+      expect(result.entries).toHaveLength(1);
+      expect(result.entries[0].state).toBe('completed');
+    });
+
+    it('should parse ->abandoned state suffix', () => {
+      const content = '09:00 Task three ->abandoned';
+      const result = LogParser.parse(content);
+      expect(result.entries).toHaveLength(1);
+      expect(result.entries[0].state).toBe('abandoned');
+    });
+
+    it('should parse state suffix with other tokens', () => {
+      const content = '09:00 Feature work @project +code ~2h (30m) ->paused # comment';
+      const result = LogParser.parse(content);
+      expect(result.entries).toHaveLength(1);
+      expect(result.entries[0]).toMatchObject({
+        description: 'Feature work',
+        project: 'project',
+        tags: ['code'],
+        estimateMinutes: 120,
+        explicitDurationMinutes: 30,
+        state: 'paused',
+        remark: 'comment',
+      });
+    });
+
+    it('should not set state if no suffix provided', () => {
+      const content = '09:00 Task without suffix';
+      const result = LogParser.parse(content);
+      expect(result.entries).toHaveLength(1);
+      expect(result.entries[0].state).toBeUndefined();
+    });
+  });
+
+  describe('@resume marker parsing', () => {
+    it('should parse @resume alone', () => {
+      const content = '09:00 @resume';
+      const result = LogParser.parse(content);
+      expect(result.entries).toHaveLength(1);
+      expect(result.entries[0].resumeMarkerValue).toBe('resume');
+      expect(result.entries[0].description).toBe('');
+    });
+
+    it('should parse @resume with task description', () => {
+      const content = '09:00 @resume Feature work @project +code';
+      const result = LogParser.parse(content);
+      expect(result.entries).toHaveLength(1);
+      expect(result.entries[0].resumeMarkerValue).toBe('resume');
+      expect(result.entries[0].description).toBe('Feature work');
+      expect(result.entries[0].project).toBe('project');
+      expect(result.entries[0].tags).toEqual(['code']);
+    });
+
+    it('should parse @resume with state suffix', () => {
+      const content = '09:00 @resume Task name ->paused';
+      const result = LogParser.parse(content);
+      expect(result.entries).toHaveLength(1);
+      expect(result.entries[0].resumeMarkerValue).toBe('resume');
+      expect(result.entries[0].state).toBe('paused');
+    });
+
+    it('should parse @resume with estimate', () => {
+      const content = '09:00 @resume Feature work ~3h';
+      const result = LogParser.parse(content);
+      expect(result.entries).toHaveLength(1);
+      expect(result.entries[0].resumeMarkerValue).toBe('resume');
+      expect(result.entries[0].estimateMinutes).toBe(180);
+    });
+
+    it('should still support @prev', () => {
+      const content = `09:00 coding @projectX +code
+10:00 @prev`;
+      const result = LogParser.parse(content);
+      expect(result.entries).toHaveLength(2);
+      expect(result.entries[1].resumeMarkerValue).toBe('prev');
+      expect(result.entries[1].description).toBe('coding');
+    });
+
+    it('should still support @N', () => {
+      const content = `09:00 task one
+10:00 task two
+11:00 @1`;
+      const result = LogParser.parse(content);
+      expect(result.entries).toHaveLength(3);
+      expect(result.entries[2].resumeMarkerValue).toBe('1');
+      expect(result.entries[2].description).toBe('task one');
+    });
+  });
 });

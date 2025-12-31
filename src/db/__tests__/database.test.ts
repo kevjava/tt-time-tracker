@@ -685,4 +685,212 @@ describe('TimeTrackerDB', () => {
       });
     });
   });
+
+  describe('continuation chains', () => {
+    describe('insertSession with continuesSessionId', () => {
+      it('should insert session with continues_session_id', () => {
+        const session1Id = db.insertSession({
+          startTime: new Date('2024-12-24T09:00:00'),
+          endTime: new Date('2024-12-24T10:00:00'),
+          description: 'Feature work',
+          state: 'paused',
+        });
+
+        const session2Id = db.insertSession({
+          startTime: new Date('2024-12-24T11:00:00'),
+          endTime: new Date('2024-12-24T12:00:00'),
+          description: 'Feature work',
+          state: 'completed',
+          continuesSessionId: session1Id,
+        });
+
+        const session2 = db.getSessionById(session2Id);
+        expect(session2?.continuesSessionId).toBe(session1Id);
+      });
+    });
+
+    describe('findPausedSessionToResume', () => {
+      it('should find most recent paused session with no criteria', () => {
+        db.insertSession({
+          startTime: new Date('2024-12-24T09:00:00'),
+          endTime: new Date('2024-12-24T10:00:00'),
+          description: 'Old task',
+          state: 'paused',
+        });
+
+        const recentId = db.insertSession({
+          startTime: new Date('2024-12-24T11:00:00'),
+          endTime: new Date('2024-12-24T12:00:00'),
+          description: 'Recent task',
+          state: 'paused',
+        });
+
+        const found = db.findPausedSessionToResume();
+        expect(found?.id).toBe(recentId);
+        expect(found?.description).toBe('Recent task');
+      });
+
+      it('should return null when no paused sessions exist', () => {
+        db.insertSession({
+          startTime: new Date('2024-12-24T09:00:00'),
+          endTime: new Date('2024-12-24T10:00:00'),
+          description: 'Completed task',
+          state: 'completed',
+        });
+
+        const found = db.findPausedSessionToResume();
+        expect(found).toBeNull();
+      });
+
+      it('should find paused session by description', () => {
+        db.insertSession({
+          startTime: new Date('2024-12-24T09:00:00'),
+          endTime: new Date('2024-12-24T10:00:00'),
+          description: 'Task A',
+          state: 'paused',
+        });
+
+        const taskBId = db.insertSession({
+          startTime: new Date('2024-12-24T11:00:00'),
+          endTime: new Date('2024-12-24T12:00:00'),
+          description: 'Task B',
+          state: 'paused',
+        });
+
+        const found = db.findPausedSessionToResume('Task B');
+        expect(found?.id).toBe(taskBId);
+      });
+
+      it('should find paused session by description and project', () => {
+        db.insertSession({
+          startTime: new Date('2024-12-24T09:00:00'),
+          endTime: new Date('2024-12-24T10:00:00'),
+          description: 'Feature work',
+          project: 'projectA',
+          state: 'paused',
+        });
+
+        const projectBId = db.insertSession({
+          startTime: new Date('2024-12-24T11:00:00'),
+          endTime: new Date('2024-12-24T12:00:00'),
+          description: 'Feature work',
+          project: 'projectB',
+          state: 'paused',
+        });
+
+        const found = db.findPausedSessionToResume('Feature work', 'projectB');
+        expect(found?.id).toBe(projectBId);
+      });
+
+      it('should find paused session by description, project, and primary tag', () => {
+        const session1Id = db.insertSession({
+          startTime: new Date('2024-12-24T09:00:00'),
+          endTime: new Date('2024-12-24T10:00:00'),
+          description: 'Feature work',
+          project: 'project',
+          state: 'paused',
+        });
+        db.insertSessionTags(session1Id, ['code', 'backend']);
+
+        const session2Id = db.insertSession({
+          startTime: new Date('2024-12-24T11:00:00'),
+          endTime: new Date('2024-12-24T12:00:00'),
+          description: 'Feature work',
+          project: 'project',
+          state: 'paused',
+        });
+        db.insertSessionTags(session2Id, ['design', 'frontend']);
+
+        const found = db.findPausedSessionToResume('Feature work', 'project', 'design');
+        expect(found?.id).toBe(session2Id);
+      });
+
+      it('should return null when primary tag does not match', () => {
+        const sessionId = db.insertSession({
+          startTime: new Date('2024-12-24T09:00:00'),
+          endTime: new Date('2024-12-24T10:00:00'),
+          description: 'Feature work',
+          project: 'project',
+          state: 'paused',
+        });
+        db.insertSessionTags(sessionId, ['code']);
+
+        const found = db.findPausedSessionToResume('Feature work', 'project', 'design');
+        expect(found).toBeNull();
+      });
+    });
+
+    describe('getContinuationChain', () => {
+      it('should return chain in chronological order', () => {
+        const session1Id = db.insertSession({
+          startTime: new Date('2024-12-24T09:00:00'),
+          endTime: new Date('2024-12-24T10:00:00'),
+          description: 'Feature work',
+          state: 'paused',
+        });
+
+        const session2Id = db.insertSession({
+          startTime: new Date('2024-12-24T11:00:00'),
+          endTime: new Date('2024-12-24T12:00:00'),
+          description: 'Feature work',
+          state: 'paused',
+          continuesSessionId: session1Id,
+        });
+
+        const session3Id = db.insertSession({
+          startTime: new Date('2024-12-24T13:00:00'),
+          endTime: new Date('2024-12-24T14:00:00'),
+          description: 'Feature work',
+          state: 'completed',
+          continuesSessionId: session2Id,
+        });
+
+        const chain = db.getContinuationChain(session2Id);
+        expect(chain).toHaveLength(3);
+        expect(chain[0].id).toBe(session1Id);
+        expect(chain[1].id).toBe(session2Id);
+        expect(chain[2].id).toBe(session3Id);
+      });
+
+      it('should return single session if no continuations', () => {
+        const sessionId = db.insertSession({
+          startTime: new Date('2024-12-24T09:00:00'),
+          endTime: new Date('2024-12-24T10:00:00'),
+          description: 'Standalone task',
+          state: 'completed',
+        });
+
+        const chain = db.getContinuationChain(sessionId);
+        expect(chain).toHaveLength(1);
+        expect(chain[0].id).toBe(sessionId);
+      });
+
+      it('should work when called with middle session of chain', () => {
+        const session1Id = db.insertSession({
+          startTime: new Date('2024-12-24T09:00:00'),
+          description: 'Task',
+          state: 'paused',
+        });
+
+        const session2Id = db.insertSession({
+          startTime: new Date('2024-12-24T10:00:00'),
+          description: 'Task',
+          state: 'paused',
+          continuesSessionId: session1Id,
+        });
+
+        const session3Id = db.insertSession({
+          startTime: new Date('2024-12-24T11:00:00'),
+          description: 'Task',
+          state: 'completed',
+          continuesSessionId: session2Id,
+        });
+
+        // Call with middle session
+        const chain = db.getContinuationChain(session2Id);
+        expect(chain).toHaveLength(3);
+        expect(chain.map((s) => s.id)).toEqual([session1Id, session2Id, session3Id]);
+      });
+    });
+  });
 });
