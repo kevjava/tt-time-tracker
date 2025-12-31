@@ -169,10 +169,14 @@ During insertion:
 
 ### Context Switch Classification
 
+Context switches include all focus changes, including interruptions. Each interruption generates two switches: one when switching to the interruption, and one when returning to the parent task.
+
 - **Hard**: Different project AND different primary tag
 - **Medium**: Same project, different primary tag
 - **Soft**: Same project AND same primary tag
 - **Not a switch**: Breaks/lunch (tagged with +lunch, +break, +downtime) don't count
+
+The `buildWorkTimeline()` function in both `context-switches.ts` and `focus-blocks.ts` creates a chronological timeline of active work sessions, tracking when you switch to/from interruptions.
 
 ### Test Organization
 

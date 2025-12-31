@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- **Context switches now include interruptions**: Interruptions are now counted as context switches since they break flow state. Each interruption generates two switches: one when switching to the interruption, and one when returning to the parent task. This provides a more accurate measure of productivity disruption.
+- **Morning Focus metric updated**: Now shows time to first interruption rather than ignoring interruptions entirely. This better reflects actual uninterrupted focus time.
+
 ## [1.0.0] - 2024-12-24
 
 ### Added

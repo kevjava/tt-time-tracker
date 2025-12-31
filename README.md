@@ -905,11 +905,14 @@ Breakdown of time spent per tag (top 10) with percentages.
 
 ### 🔀 Context Switching
 
+Tracks all context switches including interruptions. Each interruption generates two switches: switching away from the parent task and returning to it.
+
 - Total switches with severity breakdown:
   - **Hard**: Different project + different activity
   - **Medium**: Same project, different activity
   - **Soft**: Same project + activity
 - Most fragmented days
+- Breaks and lunch don't count as switches
 
 ### 🧠 Deep Work Sessions
 
@@ -921,7 +924,7 @@ Sessions ≥90 minutes uninterrupted, showing:
 
 ### 🌅 Morning Focus
 
-Time from first task to first context switch each day.
+Time from first task to first context switch (including interruptions) each day. Measures how long you can maintain focus before flow is broken.
 
 ### 📈 Outliers
 

@@ -296,6 +296,8 @@ Stop current active task.
 
 ### Context Switch Classification
 
+Context switches include all changes in focus, including interruptions. When you're interrupted and then return to the parent task, this generates two switches.
+
 **Hard switch** (different project + different activity):
 
 ```
@@ -317,6 +319,14 @@ Stop current active task.
 11:00 fix bug #456 @projectX +code
 ```
 
+**Interruptions count as switches**:
+
+```
+10:00 deep work @projectX +code
+  10:30 quick question @projectX +communication (5m)
+# This generates 2 switches: to interruption and back to deep work
+```
+
 **Not a switch** (break/lunch):
 
 ```
@@ -332,7 +342,7 @@ Stop current active task.
 
 ### Morning Focus
 
-Track time from first work session of day until first context switch.
+Track time from first work session of day until first context switch (including interruptions). This measures how long you can maintain uninterrupted focus before flow is broken.
 
 ## Configuration
 
