@@ -95,6 +95,13 @@ export function formatDetailedSession(
     }
   }
 
+  // Continuation chain context
+  const chain = db.getContinuationChain(session.id!);
+  if (chain.length > 1) {
+    lines.push('');
+    lines.push(chalk.dim(`└─ Part of continuation chain (${chain.length} sessions)`));
+  }
+
   lines.push('');
 
   // Basic info
@@ -168,6 +175,95 @@ export function formatDetailedSession(
     lines.push(chalk.bold.cyan('🔀 Interruptions'));
     lines.push('');
     lines.push(formatInterruptions(children, db, 0));
+  }
+
+  // Continuation chain section
+  if (chain.length > 1) {
+    lines.push('');
+    lines.push(chalk.gray('─'.repeat(80)));
+    lines.push('');
+    lines.push(chalk.bold.cyan('🔗 Continuation Chain'));
+    lines.push('');
+    lines.push(chalk.dim(`This task spans ${chain.length} work sessions:`));
+    lines.push('');
+
+    let chainTotalMinutes = 0;
+    const chainRoot = chain[0];
+
+    for (let i = 0; i < chain.length; i++) {
+      const chainSession = chain[i];
+      const isCurrentSession = chainSession.id === session.id;
+      const sessionDuration = chainSession.endTime ? getSessionDuration(chainSession) : 0;
+      chainTotalMinutes += sessionDuration;
+
+      // Get net duration (excluding interruptions)
+      const sessionChildren = db.getChildSessions(chainSession.id!);
+      const sessionInterruptionMinutes = sessionChildren.reduce(
+        (sum, child) => sum + getSessionDuration(child),
+        0
+      );
+      const sessionNetMinutes = Math.max(0, sessionDuration - sessionInterruptionMinutes);
+
+      const startTimeStr = format(chainSession.startTime, 'MMM d, HH:mm');
+      const endTimeStr = chainSession.endTime
+        ? format(chainSession.endTime, 'HH:mm')
+        : chalk.yellow('(active)');
+
+      const stateIcon = chainSession.state === 'completed' ? chalk.green('✓') :
+                        chainSession.state === 'working' ? chalk.yellow('▶') :
+                        chainSession.state === 'paused' ? chalk.gray('⏸') :
+                        chalk.red('✗');
+
+      const durationDisplay = sessionNetMinutes > 0
+        ? `${formatDuration(sessionNetMinutes)}${sessionInterruptionMinutes > 0 ? chalk.dim(` (${formatDuration(sessionDuration)} gross)`) : ''}`
+        : chalk.dim('(active)');
+
+      const prefix = isCurrentSession ? chalk.cyan('▶ ') : '  ';
+      const sessionLabel = isCurrentSession
+        ? chalk.cyan.bold(`Session ${chainSession.id}`)
+        : chalk.dim(`Session ${chainSession.id}`);
+
+      lines.push(
+        `${prefix}${sessionLabel}: ${startTimeStr} - ${endTimeStr}  ${stateIcon} ${formatState(chainSession.state).replace(/[▶⏸✓✗] /, '')}  ${chalk.dim('│')}  ${durationDisplay}`
+      );
+
+      if (chainSession.remark) {
+        lines.push(`   ${chalk.dim.italic(`"${chainSession.remark}"`)}`);
+      }
+    }
+
+    lines.push('');
+    lines.push(chalk.bold('Chain Summary:'));
+    lines.push(`  Total time: ${chalk.green(formatDuration(chainTotalMinutes))}`);
+
+    if (chainRoot.estimateMinutes) {
+      lines.push(`  Estimate: ${formatDuration(chainRoot.estimateMinutes)}`);
+      const chainDifference = chainTotalMinutes - chainRoot.estimateMinutes;
+      const chainPercentageOff = Math.round((Math.abs(chainDifference) / chainRoot.estimateMinutes) * 100);
+
+      if (Math.abs(chainDifference) < 5) {
+        lines.push(`  ${chalk.green('✓')} Chain is on track (within 5 minutes of estimate)`);
+      } else if (chainDifference > 0) {
+        lines.push(
+          `  ${chalk.yellow('⚠')} Chain is ${formatDuration(chainDifference)} over estimate (${chainPercentageOff}% over)`
+        );
+      } else {
+        lines.push(
+          `  ${chalk.green('✓')} Chain is ${formatDuration(Math.abs(chainDifference))} under estimate (${chainPercentageOff}% under)`
+        );
+      }
+    }
+
+    // Check if chain is complete
+    const chainComplete = chain.every(s => s.state === 'completed' || s.state === 'abandoned');
+    if (!chainComplete) {
+      const incompleteSessions = chain.filter(s => s.state === 'paused' || s.state === 'working');
+      if (incompleteSessions.length === 1 && incompleteSessions[0].state === 'working') {
+        lines.push(`  ${chalk.blue('ℹ')} Chain in progress`);
+      } else {
+        lines.push(`  ${chalk.yellow('⚠')} Chain has ${incompleteSessions.length} incomplete session(s)`);
+      }
+    }
   }
 
   // Insights section

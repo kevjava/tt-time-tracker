@@ -564,4 +564,154 @@ describe('formatDetailedSession', () => {
       expect(output).not.toContain('Efficiency: NaN');
     });
   });
+
+  describe('continuation chains', () => {
+    it('should display continuation chain for session in chain', () => {
+      const session1Id = db.insertSession({
+        startTime: new Date('2025-01-15T08:00:00'),
+        endTime: new Date('2025-01-15T09:00:00'),
+        description: 'Feature work',
+        project: 'project',
+        estimateMinutes: 240,
+        state: 'paused',
+      });
+      db.insertSessionTags(session1Id, ['code']);
+
+      const session2Id = db.insertSession({
+        startTime: new Date('2025-01-15T10:00:00'),
+        endTime: new Date('2025-01-15T12:00:00'),
+        description: 'Feature work',
+        state: 'paused',
+        continuesSessionId: session1Id,
+      });
+      db.insertSessionTags(session2Id, ['code']);
+
+      const session3Id = db.insertSession({
+        startTime: new Date('2025-01-15T13:00:00'),
+        endTime: new Date('2025-01-15T14:30:00'),
+        description: 'Feature work',
+        state: 'completed',
+        continuesSessionId: session1Id,
+      });
+      db.insertSessionTags(session3Id, ['code']);
+
+      const session = db.getSessionById(session2Id);
+      const output = formatDetailedSession(session!, db);
+
+      expect(output).toContain('└─ Part of continuation chain (3 sessions)');
+      expect(output).toContain('🔗 Continuation Chain');
+      expect(output).toContain('This task spans 3 work sessions:');
+      expect(output).toContain('Session 1:');
+      expect(output).toContain('Session 2:');
+      expect(output).toContain('Session 3:');
+      expect(output).toContain('Chain Summary:');
+      expect(output).toContain('Total time: 4h 30m');
+      expect(output).toContain('Estimate: 4h');
+    });
+
+    it('should highlight current session in chain', () => {
+      const session1Id = db.insertSession({
+        startTime: new Date('2025-01-15T08:00:00'),
+        endTime: new Date('2025-01-15T09:00:00'),
+        description: 'Task',
+        state: 'paused',
+      });
+
+      const session2Id = db.insertSession({
+        startTime: new Date('2025-01-15T10:00:00'),
+        endTime: new Date('2025-01-15T11:00:00'),
+        description: 'Task',
+        state: 'completed',
+        continuesSessionId: session1Id,
+      });
+
+      const session = db.getSessionById(session2Id);
+      const output = formatDetailedSession(session!, db);
+
+      expect(output).toContain('▶ Session 2:');
+    });
+
+    it('should not show chain section for standalone session', () => {
+      const sessionId = db.insertSession({
+        startTime: new Date('2025-01-15T09:00:00'),
+        endTime: new Date('2025-01-15T10:00:00'),
+        description: 'Standalone task',
+        state: 'completed',
+      });
+
+      const session = db.getSessionById(sessionId);
+      const output = formatDetailedSession(session!, db);
+
+      expect(output).not.toContain('🔗 Continuation Chain');
+      expect(output).not.toContain('Part of continuation chain');
+    });
+
+    it('should show chain estimate accuracy', () => {
+      const session1Id = db.insertSession({
+        startTime: new Date('2025-01-15T08:00:00'),
+        endTime: new Date('2025-01-15T09:00:00'),
+        description: 'Task',
+        estimateMinutes: 120, // 2h estimate
+        state: 'paused',
+      });
+
+      db.insertSession({
+        startTime: new Date('2025-01-15T10:00:00'),
+        endTime: new Date('2025-01-15T11:30:00'), // 1.5h, total 2.5h
+        description: 'Task',
+        state: 'completed',
+        continuesSessionId: session1Id,
+      });
+
+      const session = db.getSessionById(session1Id);
+      const output = formatDetailedSession(session!, db);
+
+      expect(output).toContain('Total time: 2h 30m');
+      expect(output).toContain('Estimate: 2h');
+      expect(output).toContain('⚠ Chain is 30m over estimate');
+    });
+
+    it('should show incomplete chain status', () => {
+      const session1Id = db.insertSession({
+        startTime: new Date('2025-01-15T08:00:00'),
+        endTime: new Date('2025-01-15T09:00:00'),
+        description: 'Task',
+        state: 'paused',
+      });
+
+      db.insertSession({
+        startTime: new Date('2025-01-15T10:00:00'),
+        endTime: new Date('2025-01-15T11:00:00'),
+        description: 'Task',
+        state: 'paused',
+        continuesSessionId: session1Id,
+      });
+
+      const session = db.getSessionById(session1Id);
+      const output = formatDetailedSession(session!, db);
+
+      expect(output).toContain('⚠ Chain has 2 incomplete session(s)');
+    });
+
+    it('should show in-progress status for active chain', () => {
+      const session1Id = db.insertSession({
+        startTime: new Date('2025-01-15T08:00:00'),
+        endTime: new Date('2025-01-15T09:00:00'),
+        description: 'Task',
+        state: 'completed',
+      });
+
+      db.insertSession({
+        startTime: new Date(),
+        description: 'Task',
+        state: 'working',
+        continuesSessionId: session1Id,
+      });
+
+      const session = db.getSessionById(session1Id);
+      const output = formatDetailedSession(session!, db);
+
+      expect(output).toContain('ℹ Chain in progress');
+    });
+  });
 });
