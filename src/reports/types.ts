@@ -52,7 +52,7 @@ export interface EfficiencyMetrics {
   breakMinutes: number;
   workingMinutes: number;
   interruptionMinutes: number;
-  netProductiveMinutes: number;
+  netUninterruptedMinutes: number;
   efficiencyRatio: number;
 }
 

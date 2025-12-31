@@ -70,9 +70,11 @@ export function formatCsvReport(report: WeeklyReport): string {
   // Efficiency
   lines.push('EFFICIENCY');
   lines.push('Metric,Value');
-  lines.push(`Gross Minutes,${report.efficiency.grossMinutes}`);
+  lines.push(`Total Tracked Minutes,${report.efficiency.grossMinutes}`);
+  lines.push(`Break Minutes,${report.efficiency.breakMinutes}`);
+  lines.push(`Working Minutes,${report.efficiency.workingMinutes}`);
   lines.push(`Interruption Minutes,${report.efficiency.interruptionMinutes}`);
-  lines.push(`Net Productive Minutes,${report.efficiency.netProductiveMinutes}`);
+  lines.push(`Net Uninterrupted Minutes,${report.efficiency.netUninterruptedMinutes}`);
   lines.push(`Efficiency Ratio,${(report.efficiency.efficiencyRatio * 100).toFixed(2)}`);
   lines.push('');
 

@@ -33,8 +33,10 @@ export function formatJsonReport(report: WeeklyReport): string {
     },
     efficiency: {
       grossMinutes: report.efficiency.grossMinutes,
+      breakMinutes: report.efficiency.breakMinutes,
+      workingMinutes: report.efficiency.workingMinutes,
       interruptionMinutes: report.efficiency.interruptionMinutes,
-      netProductiveMinutes: report.efficiency.netProductiveMinutes,
+      netUninterruptedMinutes: report.efficiency.netUninterruptedMinutes,
       efficiencyRatio: report.efficiency.efficiencyRatio,
     },
     focusBlocks: {

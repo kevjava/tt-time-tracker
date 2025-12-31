@@ -7,7 +7,7 @@ import { getSessionDuration } from '../../utils/duration';
  * Break time = all time spent on @break sessions (top-level + interruptions)
  * Working time = gross time - break time
  * Interruption time = time spent on interruptions
- * Net productive time = gross time - interruption time
+ * Net uninterrupted time = gross time - interruption time
  */
 export function calculateEfficiency(sessions: SessionWithTags[]): EfficiencyMetrics {
   let grossMinutes = 0;
@@ -32,15 +32,15 @@ export function calculateEfficiency(sessions: SessionWithTags[]): EfficiencyMetr
   }
 
   const workingMinutes = grossMinutes - breakMinutes;
-  const netProductiveMinutes = grossMinutes - interruptionMinutes;
-  const efficiencyRatio = grossMinutes > 0 ? netProductiveMinutes / grossMinutes : 0;
+  const netUninterruptedMinutes = grossMinutes - interruptionMinutes;
+  const efficiencyRatio = grossMinutes > 0 ? netUninterruptedMinutes / grossMinutes : 0;
 
   return {
     grossMinutes,
     breakMinutes,
     workingMinutes,
     interruptionMinutes,
-    netProductiveMinutes,
+    netUninterruptedMinutes,
     efficiencyRatio,
   };
 }

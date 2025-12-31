@@ -155,7 +155,7 @@ export function formatTerminalReport(report: WeeklyReport, previousReport?: Week
   lines.push(`  Break Time: ${formatDuration(report.efficiency.breakMinutes)}`);
   lines.push(`  Working Time: ${chalk.bold.cyan(formatDuration(report.efficiency.workingMinutes))}`);
   lines.push(`  Interruptions: ${formatDuration(report.efficiency.interruptionMinutes)}`);
-  lines.push(`  Net Productive Time: ${chalk.bold.green(formatDuration(report.efficiency.netProductiveMinutes))}`);
+  lines.push(`  Net Uninterrupted Time: ${chalk.bold.green(formatDuration(report.efficiency.netUninterruptedMinutes))}`);
   lines.push(`  Efficiency Ratio: ${chalk.bold(formatPercent(report.efficiency.efficiencyRatio * 100))}`);
   lines.push('');
 
