@@ -102,6 +102,17 @@ export interface Outlier {
 }
 
 /**
+ * Incomplete continuation chain
+ */
+export interface IncompleteChain {
+  rootSession: SessionWithTags;
+  sessions: SessionWithTags[];
+  totalMinutes: number;
+  estimateMinutes?: number;
+  incompleteSessions: SessionWithTags[];
+}
+
+/**
  * Complete weekly report
  */
 export interface WeeklyReport {
@@ -114,4 +125,5 @@ export interface WeeklyReport {
   focusBlocks: FocusBlockMetrics;
   estimateAccuracy: EstimateAccuracyMetrics | null;
   outliers: Outlier[];
+  incompleteChains: IncompleteChain[];
 }

@@ -3,6 +3,7 @@ import { calculateContextSwitches } from './calculators/context-switches';
 import { calculateEfficiency } from './calculators/efficiency';
 import { calculateFocusBlocks } from './calculators/focus-blocks';
 import { calculateEstimateAccuracy } from './calculators/estimate-accuracy';
+import { calculateIncompleteChains } from './calculators/incomplete-chains';
 import { getSessionDuration, getNetSessionDuration } from '../utils/duration';
 
 /**
@@ -110,6 +111,7 @@ export function generateWeeklyReport(
   const focusBlocks = calculateFocusBlocks(sessions);
   const estimateAccuracy = calculateEstimateAccuracy(sessions);
   const outliers = calculateOutliers(sessions);
+  const incompleteChains = calculateIncompleteChains(sessions);
 
   return {
     weekLabel,
@@ -121,5 +123,6 @@ export function generateWeeklyReport(
     focusBlocks,
     estimateAccuracy,
     outliers,
+    incompleteChains,
   };
 }

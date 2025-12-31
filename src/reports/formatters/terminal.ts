@@ -219,7 +219,49 @@ export function formatTerminalReport(report: WeeklyReport, previousReport?: Week
     lines.push('');
   }
 
-  // 9. Outliers
+  // 9. Incomplete Continuation Chains
+  if (report.incompleteChains.length > 0) {
+    lines.push(chalk.bold.yellow('🔗 INCOMPLETE CONTINUATION CHAINS'));
+    lines.push(chalk.gray('─'.repeat(80)));
+    lines.push(chalk.gray(`  ${report.incompleteChains.length} chain(s) with paused or active sessions:`));
+    lines.push('');
+
+    for (const chain of report.incompleteChains.slice(0, 5)) {
+      const description = chain.rootSession.description.substring(0, 45);
+      const sessionCount = chain.sessions.length;
+      const incompleteCount = chain.incompleteSessions.length;
+
+      lines.push(`  ${chalk.cyan(description)}`);
+      lines.push(`    Sessions: ${sessionCount} (${chalk.yellow(incompleteCount + ' incomplete')})`);
+
+      if (chain.totalMinutes > 0) {
+        lines.push(`    Time logged: ${formatDuration(chain.totalMinutes)}`);
+      }
+
+      if (chain.estimateMinutes) {
+        const remaining = Math.max(0, chain.estimateMinutes - chain.totalMinutes);
+        if (remaining > 0) {
+          lines.push(`    Estimate: ${formatDuration(chain.estimateMinutes)} (${formatDuration(remaining)} remaining)`);
+        } else {
+          const over = chain.totalMinutes - chain.estimateMinutes;
+          lines.push(`    Estimate: ${formatDuration(chain.estimateMinutes)} ${chalk.yellow(`(${formatDuration(over)} over)`)}`);
+        }
+      }
+
+      if (chain.rootSession.project) {
+        lines.push(`    Project: ${chain.rootSession.project}`);
+      }
+
+      lines.push('');
+    }
+
+    if (report.incompleteChains.length > 5) {
+      lines.push(chalk.gray(`  ... and ${report.incompleteChains.length - 5} more`));
+      lines.push('');
+    }
+  }
+
+  // 10. Outliers
   if (report.outliers.length > 0) {
     lines.push(chalk.bold.yellow('📈 OUTLIERS (>2σ from mean)'));
     lines.push(chalk.gray('─'.repeat(80)));
