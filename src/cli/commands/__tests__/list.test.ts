@@ -106,7 +106,7 @@ describe('list command', () => {
           state: 'completed',
         });
 
-        listCommand({ week: 'current' });
+        listCommand(undefined, { week: 'current' });
 
         expect(console.log).toHaveBeenCalled();
         const output = (console.log as jest.Mock).mock.calls.join('\n');
@@ -133,7 +133,7 @@ describe('list command', () => {
           state: 'completed',
         });
 
-        listCommand({ week: 'last' });
+        listCommand(undefined, { week: 'last' });
 
         expect(console.log).toHaveBeenCalled();
         const output = (console.log as jest.Mock).mock.calls.join('\n');
@@ -165,7 +165,7 @@ describe('list command', () => {
           state: 'completed',
         });
 
-        listCommand({ from: '2024-01-15', to: '2024-01-16' });
+        listCommand(undefined, { from: '2024-01-15', to: '2024-01-16' });
 
         expect(console.log).toHaveBeenCalled();
         const output = (console.log as jest.Mock).mock.calls.join('\n');
@@ -196,7 +196,7 @@ describe('list command', () => {
         fromDate.setHours(0, 0, 0, 0);
         const fromStr = fromDate.toISOString().split('T')[0];
 
-        listCommand({ from: fromStr });
+        listCommand(undefined, { from: fromStr });
 
         expect(console.log).toHaveBeenCalled();
         const output = (console.log as jest.Mock).mock.calls.join('\n');
@@ -220,7 +220,7 @@ describe('list command', () => {
           state: 'completed',
         });
 
-        listCommand({ to: 'yesterday' });
+        listCommand(undefined, { to: 'yesterday' });
 
         expect(console.log).toHaveBeenCalled();
         const output = (console.log as jest.Mock).mock.calls.join('\n');
@@ -268,7 +268,7 @@ describe('list command', () => {
       console.log = jest.fn();
 
       try {
-        listCommand({ week: 'current', project: 'projectA' });
+        listCommand(undefined, { week: 'current', project: 'projectA' });
 
         expect(console.log).toHaveBeenCalled();
         const output = (console.log as jest.Mock).mock.calls.join('\n');
@@ -284,7 +284,7 @@ describe('list command', () => {
       console.log = jest.fn();
 
       try {
-        listCommand({ week: 'current', tag: 'meeting' });
+        listCommand(undefined, { week: 'current', tag: 'meeting' });
 
         expect(console.log).toHaveBeenCalled();
         const output = (console.log as jest.Mock).mock.calls.join('\n');
@@ -300,7 +300,7 @@ describe('list command', () => {
       console.log = jest.fn();
 
       try {
-        listCommand({ week: 'current', state: 'completed' });
+        listCommand(undefined, { week: 'current', state: 'completed' });
 
         expect(console.log).toHaveBeenCalled();
         const output = (console.log as jest.Mock).mock.calls.join('\n');
@@ -317,7 +317,7 @@ describe('list command', () => {
       console.log = jest.fn();
 
       try {
-        listCommand({ week: 'current', project: 'projectA', tag: 'code', state: 'completed' });
+        listCommand(undefined, { week: 'current', project: 'projectA', tag: 'code', state: 'completed' });
 
         expect(console.log).toHaveBeenCalled();
         const output = (console.log as jest.Mock).mock.calls.join('\n');
@@ -347,7 +347,7 @@ describe('list command', () => {
       console.log = jest.fn();
 
       try {
-        listCommand({ week: 'current' });
+        listCommand(undefined, { week: 'current' });
 
         expect(console.log).toHaveBeenCalled();
         const output = (console.log as jest.Mock).mock.calls.join('\n');
@@ -367,7 +367,7 @@ describe('list command', () => {
       console.log = jest.fn();
 
       try {
-        listCommand({ week: 'current', format: 'log' });
+        listCommand(undefined, { week: 'current', format: 'log' });
 
         expect(console.log).toHaveBeenCalled();
         const output = (console.log as jest.Mock).mock.calls.join('\n');
@@ -386,7 +386,7 @@ describe('list command', () => {
       console.error = jest.fn();
 
       try {
-        listCommand({ from: 'invalid-date-string' });
+        listCommand(undefined, { from: 'invalid-date-string' });
 
         expect(mockExit).toHaveBeenCalledWith(1);
         expect(console.error).toHaveBeenCalledWith(
@@ -402,7 +402,7 @@ describe('list command', () => {
       console.error = jest.fn();
 
       try {
-        listCommand({ to: 'not-a-real-date' });
+        listCommand(undefined, { to: 'not-a-real-date' });
 
         expect(mockExit).toHaveBeenCalledWith(1);
         expect(console.error).toHaveBeenCalledWith(
@@ -418,7 +418,7 @@ describe('list command', () => {
       console.log = jest.fn();
 
       try {
-        listCommand({ week: 'current' });
+        listCommand(undefined, { week: 'current' });
 
         expect(mockExit).toHaveBeenCalledWith(0);
         expect(console.log).toHaveBeenCalledWith(
@@ -445,7 +445,7 @@ describe('list command', () => {
           state: 'working',
         });
 
-        listCommand({ week: 'current' });
+        listCommand(undefined, { week: 'current' });
 
         expect(console.log).toHaveBeenCalled();
         const output = (console.log as jest.Mock).mock.calls.join('\n');
@@ -480,7 +480,7 @@ describe('list command', () => {
           state: 'completed',
         });
 
-        listCommand({ week: 'current' });
+        listCommand(undefined, { week: 'current' });
 
         expect(console.log).toHaveBeenCalled();
         const output = (console.log as jest.Mock).mock.calls.join('\n');
@@ -506,7 +506,7 @@ describe('list command', () => {
           state: 'completed',
         });
 
-        listCommand({ week: 'current' });
+        listCommand(undefined, { week: 'current' });
 
         expect(console.log).toHaveBeenCalled();
         const output = (console.log as jest.Mock).mock.calls.join('\n');
@@ -534,7 +534,7 @@ describe('list command', () => {
           state: 'completed',
         });
 
-        listCommand({ week: 'current' });
+        listCommand(undefined, { week: 'current' });
 
         expect(console.log).toHaveBeenCalled();
         const output = (console.log as jest.Mock).mock.calls.join('\n');
@@ -562,7 +562,7 @@ describe('list command', () => {
 
         db.insertSessionTags(sessionId, ['tag1', 'tag2', 'tag3']);
 
-        listCommand({ week: 'current' });
+        listCommand(undefined, { week: 'current' });
 
         expect(console.log).toHaveBeenCalled();
         const output = (console.log as jest.Mock).mock.calls.join('\n');
@@ -607,7 +607,7 @@ describe('list command', () => {
           state: 'abandoned',
         });
 
-        listCommand({ week: 'current' });
+        listCommand(undefined, { week: 'current' });
 
         expect(console.log).toHaveBeenCalled();
         const output = (console.log as jest.Mock).mock.calls.join('\n');

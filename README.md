@@ -739,9 +739,13 @@ tt report --format csv > report.csv
   Sessions: 8 ↑ +2
 ```
 
-### `tt list` (alias: `tt ls`)
+### `tt list [session-id]` (alias: `tt ls`)
 
-List individual sessions in tabular or log format.
+List individual sessions in tabular or log format, or show a detailed view of a single session.
+
+**Arguments:**
+
+- `[session-id]` - Optional session ID to show detailed view (e.g., `tt list 42`)
 
 **Options:**
 
@@ -765,6 +769,25 @@ Like the `report` command, `--from` and `--to` support both ISO dates and natura
 - `table` - Columnar display with session details (default)
 - `log` - Log notation format compatible with `tt log` command (enables round-trip export/import)
 
+**Detailed Session View:**
+
+When you provide a session ID, `tt list` displays comprehensive details about that specific session including:
+- Session metadata (description, state, times, project, tags, estimate, remark)
+- Parent context (if it's an interruption)
+- Time breakdown (gross time, interruption time, net time)
+- Full interruption tree with nested children
+- Insights:
+  - Estimation accuracy comparison (if estimate provided)
+  - Interruption statistics and efficiency metrics
+  - Deep work detection (sessions ≥90 minutes)
+  - Active session warnings for long-running tasks
+
+All states are color-coded:
+- ✓ Green for completed
+- ▶ Yellow for working (active)
+- ⏸ Gray for paused
+- ✗ Red for abandoned
+
 **Examples:**
 
 ```bash
@@ -772,6 +795,10 @@ Like the `report` command, `--from` and `--to` support both ISO dates and natura
 tt list
 # or use the shorter alias
 tt ls
+
+# Show detailed view of a specific session
+tt list 42
+tt ls 89
 
 # List with filters
 tt ls --project myApp --tag code
@@ -793,6 +820,45 @@ tt log backup.log
 
 # List only paused tasks
 tt list --state paused
+```
+
+**Example Detailed View Output:**
+
+```
+Session 42
+════════════════════════════════════════════════════════════════════════════════
+
+Description:  Major feature implementation
+State:        ✓ Completed
+Start time:   2025-12-31 10:00:00
+End time:     2025-12-31 14:00:00
+Project:      backend
+Tags:         +code +feature
+Estimate:     3h
+
+────────────────────────────────────────────────────────────────────────────────
+
+⏱  Time Breakdown
+
+Gross time:    4h
+Interruptions: 1h (2 interruptions)
+Net time:      3h
+
+🔀 Interruptions
+
+✓ Team standup (15m)
+✓ Code review request (45m)
+
+────────────────────────────────────────────────────────────────────────────────
+
+📊 Insights
+
+✓ Estimate was accurate (within 5 minutes)
+ℹ Average interruption duration: 30m
+ℹ Efficiency: 75% (3h productive / 4h total)
+✓ Deep work session (≥90 minutes of focused time)
+
+════════════════════════════════════════════════════════════════════════════════
 ```
 
 ### `tt delete [session-ids...]`

@@ -6,6 +6,7 @@ import { getWeekBounds, parseFuzzyDate } from '../../utils/date';
 import { Session } from '../../types/session';
 import { logger } from '../../utils/logger';
 import { formatSessionsAsLog } from '../formatters/log';
+import { formatDetailedSession } from '../formatters/detailed-session';
 import { getSessionDuration } from '../../utils/duration';
 
 interface ListOptions {
@@ -115,12 +116,32 @@ function formatState(state: string): string {
 /**
  * tt list command implementation
  */
-export function listCommand(options: ListOptions): void {
+export function listCommand(sessionIdArg: string | undefined, options: ListOptions): void {
   try {
     ensureDataDir();
     const db = new TimeTrackerDB(getDatabasePath());
 
     try {
+      // If session ID is provided, show detailed view
+      if (sessionIdArg) {
+        const sessionId = parseInt(sessionIdArg, 10);
+        if (isNaN(sessionId)) {
+          console.error(chalk.red(`Error: Invalid session ID: ${sessionIdArg}`));
+          process.exit(1);
+        }
+
+        const session = db.getSessionById(sessionId);
+        if (!session) {
+          console.error(chalk.red(`Error: Session ${sessionId} not found`));
+          process.exit(1);
+        }
+
+        const output = formatDetailedSession(session, db);
+        console.log(output);
+        return;
+      }
+
+      // Otherwise, show list view
       let start: Date;
       let end: Date;
       let label: string;

@@ -82,9 +82,9 @@ program
 
 // List command
 program
-  .command('list')
+  .command('list [session-id]')
   .alias('ls')
-  .description('List sessions in columnar format for specified time range')
+  .description('List sessions in columnar format, or show detailed view of a single session')
   .option('--week <week>', 'Week to list: "current" (default), "last", or ISO week (2024-W51)', 'current')
   .option('--from <date>', 'Start date (YYYY-MM-DD)')
   .option('--to <date>', 'End date (YYYY-MM-DD)')
