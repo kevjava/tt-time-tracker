@@ -739,7 +739,7 @@ tt report --format csv > report.csv
   Sessions: 8 ↑ +2
 ```
 
-### `tt list`
+### `tt list` (alias: `tt ls`)
 
 List individual sessions in tabular or log format.
 
@@ -770,9 +770,11 @@ Like the `report` command, `--from` and `--to` support both ISO dates and natura
 ```bash
 # List current week sessions
 tt list
+# or use the shorter alias
+tt ls
 
 # List with filters
-tt list --project myApp --tag code
+tt ls --project myApp --tag code
 
 # List specific date range (ISO format)
 tt list --from 2024-12-20 --to 2024-12-26

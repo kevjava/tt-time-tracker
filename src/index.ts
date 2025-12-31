@@ -83,6 +83,7 @@ program
 // List command
 program
   .command('list')
+  .alias('ls')
   .description('List sessions in columnar format for specified time range')
   .option('--week <week>', 'Week to list: "current" (default), "last", or ISO week (2024-W51)', 'current')
   .option('--from <date>', 'Start date (YYYY-MM-DD)')
