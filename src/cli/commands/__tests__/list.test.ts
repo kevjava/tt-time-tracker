@@ -16,6 +16,10 @@ jest.mock('chalk', () => {
     gray: mockFn,
     red: mockFn,
     yellow: Object.assign(mockFn, { bold: mockFn }),
+    cyan: mockFn,
+    magenta: mockFn,
+    blue: mockFn,
+    italic: mockFn,
     dim: mockFn,
     bold: Object.assign(mockFn, {
       cyan: mockFn,
@@ -615,6 +619,207 @@ describe('list command', () => {
         expect(output).toContain('Working task');
         expect(output).toContain('Paused task');
         expect(output).toContain('Abandoned task');
+      } finally {
+        console.log = originalLog;
+      }
+    });
+  });
+
+  describe('detailed session view', () => {
+    it('should display detailed view for specific session ID', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        const sessionId = db.insertSession({
+          startTime: new Date('2025-01-15T09:00:00'),
+          endTime: new Date('2025-01-15T11:00:00'),
+          description: 'Test task for details',
+          project: 'testProject',
+          estimateMinutes: 120,
+          state: 'completed',
+        });
+        db.insertSessionTags(sessionId, ['code', 'feature']);
+
+        listCommand(sessionId.toString(), {});
+
+        expect(console.log).toHaveBeenCalled();
+        const output = (console.log as jest.Mock).mock.calls.join('\n');
+        expect(output).toContain(`Session ${sessionId}`);
+        expect(output).toContain('Test task for details');
+        expect(output).toContain('✓ Completed');
+        expect(output).toContain('testProject');
+        expect(output).toContain('+code');
+        expect(output).toContain('+feature');
+        expect(output).toContain('⏱  Time Breakdown');
+        expect(output).toContain('📊 Insights');
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    it('should display detailed view with interruptions', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        const parentId = db.insertSession({
+          startTime: new Date('2025-01-15T09:00:00'),
+          endTime: new Date('2025-01-15T12:00:00'),
+          description: 'Main task',
+          state: 'completed',
+        });
+
+        db.insertSession({
+          startTime: new Date('2025-01-15T10:00:00'),
+          endTime: new Date('2025-01-15T10:30:00'),
+          description: 'Quick meeting',
+          state: 'completed',
+          parentSessionId: parentId,
+        });
+
+        listCommand(parentId.toString(), {});
+
+        expect(console.log).toHaveBeenCalled();
+        const output = (console.log as jest.Mock).mock.calls.join('\n');
+        expect(output).toContain('Main task');
+        expect(output).toContain('Gross time:');
+        expect(output).toContain('Interruptions:');
+        expect(output).toContain('Net time:');
+        expect(output).toContain('🔀 Interruptions');
+        expect(output).toContain('Quick meeting');
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    it('should display parent context for interruption', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        const parentId = db.insertSession({
+          startTime: new Date('2025-01-15T09:00:00'),
+          endTime: new Date('2025-01-15T11:00:00'),
+          description: 'Parent task',
+          state: 'completed',
+        });
+
+        const childId = db.insertSession({
+          startTime: new Date('2025-01-15T10:00:00'),
+          endTime: new Date('2025-01-15T10:15:00'),
+          description: 'Interruption',
+          state: 'completed',
+          parentSessionId: parentId,
+        });
+
+        listCommand(childId.toString(), {});
+
+        expect(console.log).toHaveBeenCalled();
+        const output = (console.log as jest.Mock).mock.calls.join('\n');
+        expect(output).toContain('Interruption of Session');
+        expect(output).toContain('Parent task');
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    it('should error on invalid session ID', () => {
+      const originalError = console.error;
+      console.error = jest.fn();
+
+      try {
+        listCommand('not-a-number', {});
+
+        expect(mockExit).toHaveBeenCalledWith(1);
+        expect(console.error).toHaveBeenCalledWith(
+          expect.stringContaining('Invalid session ID')
+        );
+      } finally {
+        console.error = originalError;
+      }
+    });
+
+    it('should error on session not found', () => {
+      const originalError = console.error;
+      console.error = jest.fn();
+
+      try {
+        listCommand('999', {});
+
+        expect(mockExit).toHaveBeenCalledWith(1);
+        expect(console.error).toHaveBeenCalledWith(
+          expect.stringContaining('Session 999 not found')
+        );
+      } finally {
+        console.error = originalError;
+      }
+    });
+
+    it('should display active session with elapsed time', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        const sessionId = db.insertSession({
+          startTime: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
+          description: 'Active task',
+          state: 'working',
+        });
+
+        listCommand(sessionId.toString(), {});
+
+        expect(console.log).toHaveBeenCalled();
+        const output = (console.log as jest.Mock).mock.calls.join('\n');
+        expect(output).toContain('▶ Working');
+        expect(output).toContain('(active');
+        expect(output).toContain('elapsed)');
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    it('should show estimation insights', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        const sessionId = db.insertSession({
+          startTime: new Date('2025-01-15T09:00:00'),
+          endTime: new Date('2025-01-15T11:00:00'),
+          description: 'Task with estimate',
+          estimateMinutes: 60, // Estimated 1h, took 2h
+          state: 'completed',
+        });
+
+        listCommand(sessionId.toString(), {});
+
+        expect(console.log).toHaveBeenCalled();
+        const output = (console.log as jest.Mock).mock.calls.join('\n');
+        expect(output).toContain('⚠ Task took');
+        expect(output).toContain('longer than estimated');
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    it('should detect deep work session', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        const sessionId = db.insertSession({
+          startTime: new Date('2025-01-15T09:00:00'),
+          endTime: new Date('2025-01-15T11:00:00'), // 120 minutes
+          description: 'Deep work',
+          state: 'completed',
+        });
+
+        listCommand(sessionId.toString(), {});
+
+        expect(console.log).toHaveBeenCalled();
+        const output = (console.log as jest.Mock).mock.calls.join('\n');
+        expect(output).toContain('✓ Deep work session');
       } finally {
         console.log = originalLog;
       }
