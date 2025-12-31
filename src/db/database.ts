@@ -563,24 +563,26 @@ export class TimeTrackerDB {
    */
   getContinuationChain(sessionId: number): (Session & { tags: string[] })[] {
     try {
-      const chain: (Session & { tags: string[] })[] = [];
-
-      // Walk backward to find start of chain
-      let current = this.getSessionById(sessionId);
-      while (current?.continuesSessionId) {
-        current = this.getSessionById(current.continuesSessionId);
+      // Find the root of the chain
+      const root = this.getChainRoot(sessionId);
+      if (!root || !root.id) {
+        return [];
       }
 
-      // Walk forward from start, collecting all sessions in chain
-      if (current) {
-        chain.push({ ...current, tags: this.getSessionTags(current.id!) });
+      // Get all sessions in the chain (root + all sessions that point to root)
+      const stmt = this.db.prepare(`
+        SELECT * FROM sessions
+        WHERE id = ? OR continues_session_id = ?
+        ORDER BY start_time ASC
+      `);
+      const rows = stmt.all(root.id, root.id) as any[];
 
-        // Find sessions that continue from current
-        let next = this.findSessionContinuingFrom(current.id!);
-        while (next) {
-          chain.push({ ...next, tags: this.getSessionTags(next.id!) });
-          next = this.findSessionContinuingFrom(next.id!);
-        }
+      // Convert rows to sessions with tags
+      const chain: (Session & { tags: string[] })[] = [];
+      for (const row of rows) {
+        const session = this.rowToSession(row, []);
+        const tags = this.getSessionTags(row.id);
+        chain.push({ ...session, tags });
       }
 
       return chain;
@@ -590,17 +592,76 @@ export class TimeTrackerDB {
   }
 
   /**
-   * Find a session that continues from the specified session
+   * Find the root of a continuation chain (the first session with no continuesSessionId)
+   * If the session is already the root, returns the session itself
    */
-  private findSessionContinuingFrom(sessionId: number): Session | null {
+  getChainRoot(sessionId: number): Session | null {
+    try {
+      const session = this.getSessionById(sessionId);
+      if (!session) return null;
+
+      // If this session doesn't continue anything, it's the root
+      if (!session.continuesSessionId) {
+        return session;
+      }
+
+      // Otherwise, return the session it continues from (which is the root)
+      return this.getSessionById(session.continuesSessionId);
+    } catch (error) {
+      throw new DatabaseError(`Failed to get chain root: ${error}`);
+    }
+  }
+
+  /**
+   * Check if a continuation chain is complete (all sessions completed or abandoned)
+   */
+  isChainComplete(chainRootId: number): boolean {
     try {
       const stmt = this.db.prepare(`
-        SELECT * FROM sessions WHERE continues_session_id = ? ORDER BY start_time ASC LIMIT 1
+        SELECT COUNT(*) as count
+        FROM sessions
+        WHERE (id = ? OR continues_session_id = ?)
+          AND state IN ('paused', 'working')
       `);
-      const row = stmt.get(sessionId) as any;
-      return row ? this.rowToSession(row, []) : null;
+      const result = stmt.get(chainRootId, chainRootId) as { count: number };
+      return result.count === 0;
     } catch (error) {
-      throw new DatabaseError(`Failed to find continuing session: ${error}`);
+      throw new DatabaseError(`Failed to check chain completion: ${error}`);
+    }
+  }
+
+  /**
+   * Get all incomplete continuation chains (chains with paused or working sessions)
+   * Returns the root session of each incomplete chain
+   */
+  getIncompleteChains(): (Session & { tags: string[] })[] {
+    try {
+      const stmt = this.db.prepare(`
+        SELECT DISTINCT s1.*
+        FROM sessions s1
+        WHERE s1.continues_session_id IS NULL
+          AND (
+            s1.state IN ('paused', 'working')
+            OR EXISTS (
+              SELECT 1 FROM sessions s2
+              WHERE s2.continues_session_id = s1.id
+                AND s2.state IN ('paused', 'working')
+            )
+          )
+        ORDER BY s1.start_time DESC
+      `);
+      const rows = stmt.all() as any[];
+
+      const chains: (Session & { tags: string[] })[] = [];
+      for (const row of rows) {
+        const session = this.rowToSession(row, []);
+        const tags = this.getSessionTags(row.id);
+        chains.push({ ...session, tags });
+      }
+
+      return chains;
+    } catch (error) {
+      throw new DatabaseError(`Failed to get incomplete chains: ${error}`);
     }
   }
 

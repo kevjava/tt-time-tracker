@@ -111,7 +111,7 @@ describe('calculateEstimateAccuracy', () => {
           state: 'completed',
           tags: ['lunch'],
         },
-        // Third session in chain - continues second
+        // Third session in chain - continues first (all point to root)
         {
           id: 5,
           startTime: new Date('2024-01-15T12:00:00'),
@@ -119,7 +119,7 @@ describe('calculateEstimateAccuracy', () => {
           description: 'Feature work',
           project: 'project',
           state: 'completed',
-          continuesSessionId: 3,
+          continuesSessionId: 1,
           tags: ['code'],
         },
       ];

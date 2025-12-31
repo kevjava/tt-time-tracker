@@ -842,7 +842,7 @@ describe('TimeTrackerDB', () => {
           endTime: new Date('2024-12-24T14:00:00'),
           description: 'Feature work',
           state: 'completed',
-          continuesSessionId: session2Id,
+          continuesSessionId: session1Id, // All point to root
         });
 
         const chain = db.getContinuationChain(session2Id);
@@ -883,7 +883,7 @@ describe('TimeTrackerDB', () => {
           startTime: new Date('2024-12-24T11:00:00'),
           description: 'Task',
           state: 'completed',
-          continuesSessionId: session2Id,
+          continuesSessionId: session1Id, // All point to root
         });
 
         // Call with middle session

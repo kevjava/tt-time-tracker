@@ -280,15 +280,15 @@ describe('log command', () => {
         expect(firstSession).toBeDefined();
         expect(firstSession?.state).toBe('paused');
 
-        // Second session should continue first session
+        // Second session should continue first session (root)
         const secondSession = featureSessions.find(s =>
           s.continuesSessionId === firstSession?.id && s.state === 'paused'
         );
         expect(secondSession).toBeDefined();
 
-        // Third session should continue second session and be completed
+        // Third session should also continue first session (all point to root)
         const thirdSession = featureSessions.find(s =>
-          s.continuesSessionId === secondSession?.id && s.state === 'completed'
+          s.continuesSessionId === firstSession?.id && s.state === 'completed'
         );
         expect(thirdSession).toBeDefined();
 

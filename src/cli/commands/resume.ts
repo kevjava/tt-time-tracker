@@ -80,13 +80,16 @@ function resumePausedTask(db: TimeTrackerDB, idArg: string, options: ResumeOptio
   // Determine start time
   const startTime = options.at ? validateStartTime(options.at, db) : new Date();
 
-  // Create new session continuing from the paused one
+  // Find the root of the continuation chain
+  const chainRoot = db.getChainRoot(pausedSession.id!);
+
+  // Create new session continuing from the chain root
   const sessionId = db.insertSession({
     startTime,
     description: pausedSession.description,
     project: pausedSession.project,
     state: 'working',
-    continuesSessionId: pausedSession.id,
+    continuesSessionId: chainRoot?.id,
     remark: options.remark,
   });
 

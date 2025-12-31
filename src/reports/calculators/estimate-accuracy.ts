@@ -3,39 +3,28 @@ import { getNetSessionDuration } from '../../utils/duration';
 
 /**
  * Group sessions into continuation chains
- * Sessions with continuesSessionId are grouped with their predecessors
+ * All sessions in a chain point to the same root (first session with no continuesSessionId)
  */
 function groupByContinuationChain(sessions: SessionWithTags[]): SessionWithTags[][] {
-  const chains: SessionWithTags[][] = [];
-  const processed = new Set<number>();
+  const chainMap = new Map<number, SessionWithTags[]>();
 
   for (const session of sessions) {
-    if (!session.id || processed.has(session.id)) continue;
+    if (!session.id) continue;
 
-    // Find start of chain (session with no continuesSessionId)
-    let current = session;
-    while (current.continuesSessionId) {
-      const prev = sessions.find((s) => s.id === current.continuesSessionId);
-      if (!prev) break;
-      current = prev;
+    // Get the chain root ID (either the session's continuesSessionId, or its own ID if it's a root)
+    const chainRootId = session.continuesSessionId || session.id;
+
+    // Add to the appropriate chain
+    if (!chainMap.has(chainRootId)) {
+      chainMap.set(chainRootId, []);
     }
-
-    // Build chain forward from start
-    const chain: SessionWithTags[] = [current];
-    processed.add(current.id!);
-
-    let next = sessions.find((s) => s.continuesSessionId === current.id);
-    while (next) {
-      chain.push(next);
-      processed.add(next.id!);
-      current = next;
-      next = sessions.find((s) => s.continuesSessionId === current.id);
-    }
-
-    chains.push(chain);
+    chainMap.get(chainRootId)!.push(session);
   }
 
-  return chains;
+  // Convert map to array and sort each chain by start time
+  return Array.from(chainMap.values()).map(chain =>
+    chain.sort((a, b) => a.startTime.getTime() - b.startTime.getTime())
+  );
 }
 
 /**

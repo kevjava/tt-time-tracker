@@ -173,7 +173,7 @@ function insertEntries(db: TimeTrackerDB, entries: LogEntry[]): { sessions: numb
 
     if (entry.resumeMarkerValue) {
       // This entry was created via @resume/@prev/@N marker
-      // Find the paused session to link to
+      // Find the paused session to link to, then find the root of its chain
 
       if (entry.resumeMarkerValue === 'resume') {
         // @resume keyword (with or without task specification)
@@ -181,7 +181,9 @@ function insertEntries(db: TimeTrackerDB, entries: LogEntry[]): { sessions: numb
           // @resume alone - find most recent paused task and inherit its fields
           const pausedSession = db.findPausedSessionToResume();
           if (pausedSession) {
-            continuesSessionId = pausedSession.id;
+            // Find the root of the chain and point to that
+            const chainRoot = db.getChainRoot(pausedSession.id!);
+            continuesSessionId = chainRoot?.id;
             inheritedDescription = pausedSession.description;
             inheritedProject = pausedSession.project;
             inheritedTags = pausedSession.tags;
@@ -194,12 +196,20 @@ function insertEntries(db: TimeTrackerDB, entries: LogEntry[]): { sessions: numb
             entry.project,
             primaryTag
           );
-          continuesSessionId = pausedSession?.id;
+          if (pausedSession) {
+            // Find the root of the chain and point to that
+            const chainRoot = db.getChainRoot(pausedSession.id!);
+            continuesSessionId = chainRoot?.id;
+          }
         }
       } else if (entry.resumeMarkerValue === 'prev') {
         // @prev - find most recent paused task
         const pausedSession = db.findPausedSessionToResume();
-        continuesSessionId = pausedSession?.id;
+        if (pausedSession) {
+          // Find the root of the chain and point to that
+          const chainRoot = db.getChainRoot(pausedSession.id!);
+          continuesSessionId = chainRoot?.id;
+        }
       } else if (/^\d+$/.test(entry.resumeMarkerValue)) {
         // @N - find Nth task from this file and check if it's paused
         const targetIdx = parseInt(entry.resumeMarkerValue, 10) - 1;
@@ -207,7 +217,9 @@ function insertEntries(db: TimeTrackerDB, entries: LogEntry[]): { sessions: numb
         if (targetEntryDbId) {
           const targetSession = db.getSessionById(targetEntryDbId);
           if (targetSession?.state === 'paused') {
-            continuesSessionId = targetEntryDbId;
+            // Find the root of the chain and point to that
+            const chainRoot = db.getChainRoot(targetEntryDbId);
+            continuesSessionId = chainRoot?.id;
           }
         }
       }
