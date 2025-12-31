@@ -103,7 +103,7 @@ describe('resume command', () => {
           parentSessionId: parentId,
         });
 
-        resumeCommand({});
+        resumeCommand(undefined, {});
         reopenDb();
 
         const parent = db.getSessionById(parentId);
@@ -137,7 +137,7 @@ describe('resume command', () => {
           parentSessionId: parentId,
         });
 
-        resumeCommand({ remark: 'Interruption resolved' });
+        resumeCommand(undefined, { remark: 'Interruption resolved' });
         reopenDb();
 
         const interruption = db.getSessionById(interruptionId);
@@ -176,7 +176,7 @@ describe('resume command', () => {
           parentSessionId: interruption1Id,
         });
 
-        resumeCommand({});
+        resumeCommand(undefined, {});
         reopenDb();
 
         const main = db.getSessionById(mainId);
@@ -212,7 +212,7 @@ describe('resume command', () => {
           parentSessionId: parentId,
         });
 
-        resumeCommand({ at: '-30m' });
+        resumeCommand(undefined, { at: '-30m' });
         reopenDb();
 
         const interruption = db.getSessionById(interruptionId);
@@ -256,7 +256,7 @@ describe('resume command', () => {
 
         // Resume at 10:30
         const resumeTimeStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')} 10:30`;
-        resumeCommand({ at: resumeTimeStr });
+        resumeCommand(undefined, { at: resumeTimeStr });
         reopenDb();
 
         const interruptionSession = db.getSessionById(interruptionId);
@@ -288,7 +288,7 @@ describe('resume command', () => {
           parentSessionId: parentId,
         });
 
-        resumeCommand({ at: '-15m', remark: 'Back to main task' });
+        resumeCommand(undefined, { at: '-15m', remark: 'Back to main task' });
         reopenDb();
 
         const interruption = db.getSessionById(interruptionId);
@@ -311,7 +311,7 @@ describe('resume command', () => {
       console.error = jest.fn();
 
       try {
-        resumeCommand({});
+        resumeCommand(undefined, {});
 
         expect(mockExit).toHaveBeenCalledWith(1);
         expect(console.error).toHaveBeenCalledWith(
@@ -334,7 +334,7 @@ describe('resume command', () => {
           state: 'working',
         });
 
-        resumeCommand({});
+        resumeCommand(undefined, {});
 
         expect(mockExit).toHaveBeenCalledWith(1);
         expect(console.error).toHaveBeenCalledWith(
@@ -364,7 +364,7 @@ describe('resume command', () => {
         });
 
         // Try to resume 1 hour ago (before interruption start)
-        resumeCommand({ at: '-1h' });
+        resumeCommand(undefined, { at: '-1h' });
 
         expect(mockExit).toHaveBeenCalledWith(1);
         expect(console.error).toHaveBeenCalledWith(
@@ -395,7 +395,7 @@ describe('resume command', () => {
           parentSessionId: parentId,
         });
 
-        resumeCommand({});
+        resumeCommand(undefined, {});
 
         expect(console.log).toHaveBeenCalledWith(
           expect.stringContaining('✓')
@@ -432,7 +432,7 @@ describe('resume command', () => {
           parentSessionId: parentId,
         });
 
-        resumeCommand({ at: '-30m' });
+        resumeCommand(undefined, { at: '-30m' });
 
         expect(console.log).toHaveBeenCalledWith(
           expect.stringContaining('Resume time:')
@@ -460,7 +460,7 @@ describe('resume command', () => {
           parentSessionId: parentId,
         });
 
-        resumeCommand({ remark: 'Issue resolved' });
+        resumeCommand(undefined, { remark: 'Issue resolved' });
 
         expect(console.log).toHaveBeenCalledWith(
           expect.stringContaining('Remark: Issue resolved')
@@ -491,7 +491,7 @@ describe('resume command', () => {
           parentSessionId: parentId,
         });
 
-        resumeCommand({});
+        resumeCommand(undefined, {});
 
         expect(console.log).toHaveBeenCalledWith(
           expect.stringContaining('Project: myApp')
@@ -524,7 +524,7 @@ describe('resume command', () => {
           parentSessionId: parentId,
         });
 
-        resumeCommand({});
+        resumeCommand(undefined, {});
         reopenDb();
 
         const interruption = db.getSessionById(interruptionId);
@@ -552,11 +552,219 @@ describe('resume command', () => {
           parentSessionId: parentId,
         });
 
-        resumeCommand({});
+        resumeCommand(undefined, {});
         reopenDb();
 
         const parent = db.getSessionById(parentId);
         expect(parent?.state).toBe('working');
+      } finally {
+        console.log = originalLog;
+      }
+    });
+  });
+
+  describe('resume paused task by ID', () => {
+    it('should resume paused task and create continuation', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        // Create paused task
+        const pausedId = db.insertSession({
+          startTime: new Date(Date.now() - 7200000),
+          description: 'Feature work',
+          project: 'myApp',
+          state: 'paused',
+        });
+        db.insertSessionTags(pausedId, ['code', 'feature']);
+
+        resumeCommand(String(pausedId), {});
+        reopenDb();
+
+        // Should create new working session
+        const activeSession = db.getActiveSession();
+        expect(activeSession).toBeDefined();
+        expect(activeSession?.description).toBe('Feature work');
+        expect(activeSession?.project).toBe('myApp');
+        expect(activeSession?.state).toBe('working');
+        expect(activeSession?.continuesSessionId).toBe(pausedId);
+
+        // Tags should be copied
+        expect(activeSession?.tags).toContain('code');
+        expect(activeSession?.tags).toContain('feature');
+
+        // Original should still be paused
+        const original = db.getSessionById(pausedId);
+        expect(original?.state).toBe('paused');
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    it('should resume paused task with remark', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        const pausedId = db.insertSession({
+          startTime: new Date(Date.now() - 3600000),
+          description: 'Bug fix',
+          state: 'paused',
+        });
+
+        resumeCommand(String(pausedId), { remark: 'Continuing after lunch' });
+        reopenDb();
+
+        const activeSession = db.getActiveSession();
+        expect(activeSession?.remark).toBe('Continuing after lunch');
+        expect(activeSession?.continuesSessionId).toBe(pausedId);
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    it('should resume paused task at specific time with --at', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        const pausedId = db.insertSession({
+          startTime: new Date(Date.now() - 7200000),
+          endTime: new Date(Date.now() - 3600000), // Ended 1 hour ago
+          description: 'Task',
+          state: 'paused',
+        });
+
+        resumeCommand(String(pausedId), { at: '-30m' });
+        reopenDb();
+
+        const activeSession = db.getActiveSession();
+        expect(activeSession).toBeDefined();
+
+        const startTime = new Date(activeSession!.startTime);
+        const now = new Date();
+        const diffMinutes = Math.round((now.getTime() - startTime.getTime()) / 60000);
+        expect(diffMinutes).toBeCloseTo(30, 0);
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    it('should error if session ID does not exist', () => {
+      const originalError = console.error;
+      console.error = jest.fn();
+
+      try {
+        resumeCommand('999', {});
+
+        expect(mockExit).toHaveBeenCalledWith(1);
+        expect(console.error).toHaveBeenCalledWith(
+          expect.stringContaining('Session 999 not found')
+        );
+      } finally {
+        console.error = originalError;
+      }
+    });
+
+    it('should error if session ID is invalid', () => {
+      const originalError = console.error;
+      console.error = jest.fn();
+
+      try {
+        resumeCommand('abc', {});
+
+        expect(mockExit).toHaveBeenCalledWith(1);
+        expect(console.error).toHaveBeenCalledWith(
+          expect.stringContaining('Invalid session ID')
+        );
+      } finally {
+        console.error = originalError;
+      }
+    });
+
+    it('should error if session is not paused', () => {
+      const originalError = console.error;
+      console.error = jest.fn();
+
+      try {
+        const completedId = db.insertSession({
+          startTime: new Date(Date.now() - 3600000),
+          endTime: new Date(Date.now() - 1800000),
+          description: 'Completed task',
+          state: 'completed',
+        });
+
+        resumeCommand(String(completedId), {});
+
+        expect(mockExit).toHaveBeenCalledWith(1);
+        expect(console.error).toHaveBeenCalledWith(
+          expect.stringContaining('is not paused')
+        );
+      } finally {
+        console.error = originalError;
+      }
+    });
+
+    it('should error if already tracking another task', () => {
+      const originalError = console.error;
+      console.error = jest.fn();
+
+      try {
+        // Create paused task
+        const pausedId = db.insertSession({
+          startTime: new Date(Date.now() - 7200000),
+          description: 'Paused task',
+          state: 'paused',
+        });
+
+        // Create active task
+        db.insertSession({
+          startTime: new Date(Date.now() - 1800000),
+          description: 'Current task',
+          state: 'working',
+        });
+
+        resumeCommand(String(pausedId), {});
+
+        expect(mockExit).toHaveBeenCalledWith(1);
+        expect(console.error).toHaveBeenCalledWith(
+          expect.stringContaining('Already tracking')
+        );
+      } finally {
+        console.error = originalError;
+      }
+    });
+
+    it('should display confirmation with continuation info', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        const pausedId = db.insertSession({
+          startTime: new Date(Date.now() - 3600000),
+          description: 'Feature work',
+          project: 'myApp',
+          state: 'paused',
+        });
+        db.insertSessionTags(pausedId, ['code']);
+
+        resumeCommand(String(pausedId), {});
+
+        expect(console.log).toHaveBeenCalledWith(
+          expect.stringContaining('▶')
+        );
+        expect(console.log).toHaveBeenCalledWith(
+          expect.stringContaining('Resumed: Feature work')
+        );
+        expect(console.log).toHaveBeenCalledWith(
+          expect.stringContaining('Project: myApp')
+        );
+        expect(console.log).toHaveBeenCalledWith(
+          expect.stringContaining('Tags: code')
+        );
+        expect(console.log).toHaveBeenCalledWith(
+          expect.stringContaining(`Continuing from session ${pausedId}`)
+        );
       } finally {
         console.log = originalLog;
       }

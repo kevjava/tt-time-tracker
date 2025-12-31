@@ -5,6 +5,7 @@ import chalk from 'chalk';
 import { logCommand } from './cli/commands/log';
 import { startCommand } from './cli/commands/start';
 import { nextCommand } from './cli/commands/next';
+import { switchCommand } from './cli/commands/switch';
 import { stopCommand } from './cli/commands/stop';
 import { reportCommand } from './cli/commands/report';
 import { statusCommand } from './cli/commands/status';
@@ -116,6 +117,17 @@ program
   .option('--at <time>', 'Start time (e.g., "15:51", "2025-12-29 15:51", "-30m")')
   .action(nextCommand);
 
+// Switch command
+program
+  .command('switch')
+  .description('Pause current task (if any) and start tracking a new task')
+  .argument('<description...>', 'Task description or log notation (e.g., "09:30 Task name @project +tag ~1h")')
+  .option('-p, --project <project>', 'Project name (overrides log notation)')
+  .option('-t, --tags <tags>', 'Comma-separated tags (overrides log notation)')
+  .option('-e, --estimate <duration>', 'Estimated duration (overrides log notation, e.g., 2h, 30m)')
+  .option('--at <time>', 'Start time (e.g., "15:51", "2025-12-29 15:51", "-30m")')
+  .action(switchCommand);
+
 // Stop command
 program
   .command('stop')
@@ -138,8 +150,9 @@ program
 // Resume command
 program
   .command('resume')
-  .description('Complete current interruption and resume parent task')
-  .option('-r, --remark <remark>', 'Add remark to interruption')
+  .description('Complete current interruption and resume parent task, or resume a paused task by ID')
+  .argument('[id]', 'Session ID to resume (optional, for paused tasks)')
+  .option('-r, --remark <remark>', 'Add remark to interruption or resumed session')
   .option('--at <time>', 'Resume time (e.g., "15:51", "2025-12-29 15:51", "-30m")')
   .action(resumeCommand);
 

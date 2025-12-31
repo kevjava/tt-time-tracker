@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 import { TimeTrackerDB } from '../../db/database';
 import { ensureDataDir, getDatabasePath } from '../../utils/config';
-import { validateResumeTime } from '../../utils/session-validator';
+import { validateResumeTime, validateStartTime } from '../../utils/session-validator';
 
 interface ResumeOptions {
   remark?: string;
@@ -10,85 +10,184 @@ interface ResumeOptions {
 
 /**
  * tt resume command implementation
+ *
+ * Two modes:
+ * 1. Resume from interruption: `tt resume` (no ID)
+ * 2. Resume paused task: `tt resume <id>`
  */
-export function resumeCommand(options: ResumeOptions = {}): void {
+export function resumeCommand(idArg?: string, options: ResumeOptions = {}): void {
   try {
     ensureDataDir();
     const db = new TimeTrackerDB(getDatabasePath());
 
     try {
-      const activeSession = db.getActiveSession();
-
-      if (!activeSession) {
-        console.error(
-          chalk.red('Error: No active task to resume from. Start a task first with: tt start')
-        );
-        process.exit(1);
+      // Mode 1: Resume paused task by ID
+      if (idArg) {
+        resumePausedTask(db, idArg, options);
+        return;
       }
 
-      // Check if current task has a parent
-      if (!activeSession.parentSessionId) {
-        console.error(
-          chalk.red(
-            'Error: Current task is not an interruption. Use `tt stop` to stop the current task.'
-          )
-        );
-        process.exit(1);
-      }
-
-      // Get parent session
-      const parentSession = db.getSessionById(activeSession.parentSessionId);
-
-      if (!parentSession) {
-        console.error(
-          chalk.red('Error: Parent task not found. Database may be corrupted.')
-        );
-        process.exit(1);
-      }
-
-      // Validate and parse resume time (which is the end time for the interruption)
-      const endTime = validateResumeTime(options.at, activeSession);
-
-      db.updateSession(activeSession.id!, {
-        endTime,
-        state: 'completed',
-        remark: options.remark,
-      });
-
-      // Resume parent task
-      db.updateSession(parentSession.id!, {
-        state: 'working',
-      });
-
-      // Display confirmation
-      console.log(
-        chalk.green.bold('✓') + chalk.green(` Completed interruption: ${activeSession.description}`)
-      );
-
-      if (options.at) {
-        console.log(chalk.gray(`  Resume time: ${endTime.toLocaleString()}`));
-      }
-
-      if (options.remark) {
-        console.log(chalk.gray(`  Remark: ${options.remark}`));
-      }
-
-      console.log(
-        chalk.green.bold('▶') + chalk.green(` Resumed: ${parentSession.description}`)
-      );
-
-      if (parentSession.project) {
-        console.log(chalk.gray(`  Project: ${parentSession.project}`));
-      }
-
-      if (parentSession.tags.length > 0) {
-        console.log(chalk.gray(`  Tags: ${parentSession.tags.join(', ')}`));
-      }
+      // Mode 2: End interruption and resume parent (existing behavior)
+      resumeFromInterruption(db, options);
     } finally {
       db.close();
     }
   } catch (error) {
     console.error(chalk.red(`Error: ${error}`));
     process.exit(1);
+  }
+}
+
+/**
+ * Resume a paused task by creating a new session continuing from it
+ */
+function resumePausedTask(db: TimeTrackerDB, idArg: string, options: ResumeOptions): void {
+  // Parse ID
+  const id = parseInt(idArg, 10);
+  if (isNaN(id)) {
+    console.error(chalk.red(`Error: Invalid session ID: ${idArg}`));
+    process.exit(1);
+  }
+
+  // Get the paused session
+  const pausedSession = db.getSessionById(id);
+
+  if (!pausedSession) {
+    console.error(chalk.red(`Error: Session ${id} not found`));
+    process.exit(1);
+  }
+
+  if (pausedSession.state !== 'paused') {
+    console.error(
+      chalk.red(
+        `Error: Session ${id} is not paused (state: ${pausedSession.state}). Only paused tasks can be resumed.`
+      )
+    );
+    process.exit(1);
+  }
+
+  // Check for active session (can't resume if already working on something)
+  const activeSession = db.getActiveSession();
+  if (activeSession) {
+    console.error(
+      chalk.red(
+        `Error: Already tracking "${activeSession.description}". Stop it first with: tt stop`
+      )
+    );
+    process.exit(1);
+  }
+
+  // Determine start time
+  const startTime = options.at ? validateStartTime(options.at, db) : new Date();
+
+  // Create new session continuing from the paused one
+  const sessionId = db.insertSession({
+    startTime,
+    description: pausedSession.description,
+    project: pausedSession.project,
+    state: 'working',
+    continuesSessionId: pausedSession.id,
+    remark: options.remark,
+  });
+
+  // Copy tags from paused session
+  if (pausedSession.tags.length > 0) {
+    db.insertSessionTags(sessionId, pausedSession.tags);
+  }
+
+  // Display confirmation
+  console.log(
+    chalk.green.bold('▶') + chalk.green(` Resumed: ${pausedSession.description}`)
+  );
+
+  if (options.at) {
+    console.log(chalk.gray(`  Start time: ${startTime.toLocaleString()}`));
+  }
+
+  if (pausedSession.project) {
+    console.log(chalk.gray(`  Project: ${pausedSession.project}`));
+  }
+
+  if (pausedSession.tags.length > 0) {
+    console.log(chalk.gray(`  Tags: ${pausedSession.tags.join(', ')}`));
+  }
+
+  if (options.remark) {
+    console.log(chalk.gray(`  Remark: ${options.remark}`));
+  }
+
+  console.log(chalk.gray(`  Continuing from session ${pausedSession.id}`));
+}
+
+/**
+ * End current interruption and resume parent task (original behavior)
+ */
+function resumeFromInterruption(db: TimeTrackerDB, options: ResumeOptions): void {
+  const activeSession = db.getActiveSession();
+
+  if (!activeSession) {
+    console.error(
+      chalk.red('Error: No active task to resume from. Start a task first with: tt start')
+    );
+    process.exit(1);
+  }
+
+  // Check if current task has a parent
+  if (!activeSession.parentSessionId) {
+    console.error(
+      chalk.red(
+        'Error: Current task is not an interruption. Use `tt stop` to stop the current task.'
+      )
+    );
+    process.exit(1);
+  }
+
+  // Get parent session
+  const parentSession = db.getSessionById(activeSession.parentSessionId);
+
+  if (!parentSession) {
+    console.error(
+      chalk.red('Error: Parent task not found. Database may be corrupted.')
+    );
+    process.exit(1);
+  }
+
+  // Validate and parse resume time (which is the end time for the interruption)
+  const endTime = validateResumeTime(options.at, activeSession);
+
+  db.updateSession(activeSession.id!, {
+    endTime,
+    state: 'completed',
+    remark: options.remark,
+  });
+
+  // Resume parent task
+  db.updateSession(parentSession.id!, {
+    state: 'working',
+  });
+
+  // Display confirmation
+  console.log(
+    chalk.green.bold('✓') + chalk.green(` Completed interruption: ${activeSession.description}`)
+  );
+
+  if (options.at) {
+    console.log(chalk.gray(`  Resume time: ${endTime.toLocaleString()}`));
+  }
+
+  if (options.remark) {
+    console.log(chalk.gray(`  Remark: ${options.remark}`));
+  }
+
+  console.log(
+    chalk.green.bold('▶') + chalk.green(` Resumed: ${parentSession.description}`)
+  );
+
+  if (parentSession.project) {
+    console.log(chalk.gray(`  Project: ${parentSession.project}`));
+  }
+
+  if (parentSession.tags.length > 0) {
+    console.log(chalk.gray(`  Tags: ${parentSession.tags.join(', ')}`));
   }
 }
