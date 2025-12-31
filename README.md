@@ -23,6 +23,7 @@ A Unix-philosophy CLI time tracker with low-friction retroactive logging and com
 - [Commands](#commands)
   - [`tt log`](#tt-log-file)
   - [`tt start`](#tt-start-description)
+  - [`tt next`](#tt-next-description)
   - [`tt stop`](#tt-stop)
   - [`tt interrupt`](#tt-interrupt-description)
   - [`tt resume`](#tt-resume)
@@ -361,6 +362,82 @@ tt start "Morning standup" --at "09:00" -p team -t meeting
 
 # Retroactive tracking - started at specific datetime
 tt start "Yesterday's work" --at "2025-12-28 14:00" -p myApp
+```
+
+### `tt next <description>`
+
+Stop the current task (if any) and immediately start tracking a new task. This is a convenience command that combines `tt stop` and `tt start` in a single operation, making it easy to switch between tasks without manually stopping the previous one.
+
+**Options:**
+
+- `-p, --project <project>` - Project name (overrides log notation)
+- `-t, --tags <tags>` - Comma-separated tags (overrides log notation)
+- `-e, --estimate <duration>` - Estimated duration (overrides log notation, e.g., 2h, 30m)
+- `--at <time>` - Time for the task switch (e.g., `15:51`, `2025-12-29 15:51`, `-30m`)
+
+**Log Notation Support:**
+
+Like the `start` command, `next` supports log notation syntax directly:
+
+```bash
+# With timestamp (stops previous task and starts new one at specified time)
+tt next 10:30 code review @myApp +review ~30m
+
+# Without timestamp (stops now and starts new task immediately)
+tt next implement feature @myApp +code +urgent ~1h30m
+
+# Command-line options override log notation values
+tt next 11:00 fix bug @projectA +bugfix -p projectB -t critical
+# Result: Uses projectB and critical tag (overrides inline notation)
+```
+
+**Behavior:**
+
+- If a task is currently active, it will be stopped (with the current time or `--at` time)
+- If no task is active, it simply starts the new task (no error)
+- The new task starts immediately after the previous task stops
+- Perfect for tracking continuous work with frequent context switches
+
+**Retroactive Tracking:**
+
+Use the `--at` flag to log task switches that happened in the past:
+
+```bash
+# You switched tasks 15 minutes ago but forgot to log it
+tt next "Different task" --at "-15m" -p myApp
+
+# Specific time today
+tt next "Afternoon meeting" --at "14:00" -t meeting
+```
+
+**Examples:**
+
+```bash
+# Simple task switch
+tt next "code review" -p myApp -t review
+
+# Using log notation
+tt next 14:30 standup meeting @team +meeting ~15m
+
+# Retroactive task switch - happened 20 minutes ago
+tt next "Bug fix" --at "-20m" -t urgent -p backend
+
+# Mixed notation with option override
+tt next implement auth @projectA +code -p projectB
+
+# When no task is active (behaves like tt start)
+tt next "First task of the day" -p myApp -t planning
+```
+
+**Comparison to Other Commands:**
+
+```bash
+# These two sequences are equivalent:
+tt stop
+tt start "new task" @project +tag
+
+# Is the same as:
+tt next "new task" @project +tag
 ```
 
 ### `tt stop`
@@ -967,10 +1044,14 @@ Default: `vi`
    tt start "review emails" -t admin
    ```
 
-2. **Throughout the day**: Log interruptions or switch tasks
+2. **Throughout the day**: Switch between tasks seamlessly
 
    ```bash
-   tt stop
+   # Quick task switching
+   tt next "code review" -p myProject -t review
+
+   # Or if you want to add a remark to the previous task
+   tt stop -r "feature complete"
    tt start "code review" -p myProject -t review
    ```
 

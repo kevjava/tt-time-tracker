@@ -59,6 +59,7 @@ tt-time-tracker/
 │   │   │   ├── log.ts
 │   │   │   ├── report.ts
 │   │   │   ├── start.ts
+│   │   │   ├── next.ts
 │   │   │   ├── stop.ts
 │   │   │   ├── pause.ts
 │   │   │   ├── resume.ts
@@ -263,12 +264,33 @@ Start tracking a task (live mode).
 - `-p, --project <project>`
 - `-t, --tags <tags>` (comma-separated)
 - `-e, --estimate <duration>`
+- `--at <time>` - Start time (retroactive tracking)
 
 **Behavior:**
 
-- Create new session with start_time = now
+- Create new session with start_time = now (or --at time)
 - Store in DB with state = 'working'
 - Print confirmation with task ID
+- Supports log notation syntax inline
+
+### `tt next <description>`
+
+Stop current task (if any) and start a new task (convenience command).
+
+**Options:**
+
+- `-p, --project <project>`
+- `-t, --tags <tags>` (comma-separated)
+- `-e, --estimate <duration>`
+- `--at <time>` - Time for the task switch
+
+**Behavior:**
+
+- If active session exists, stop it (set end_time, state = 'completed')
+- Create new session with start_time = now (or --at time)
+- Store in DB with state = 'working'
+- Supports log notation syntax inline
+- Equivalent to: `tt stop && tt start <description>`
 
 ### `tt stop`
 
@@ -277,11 +299,12 @@ Stop current active task.
 **Options:**
 
 - `-r, --remark <remark>` - Add remark to task
+- `--at <time>` - Stop time (retroactive tracking)
 
 **Behavior:**
 
 - Find active session (state = 'working', end_time = NULL)
-- Set end_time = now
+- Set end_time = now (or --at time)
 - Set state = 'completed'
 - Update remark if provided
 - Print summary: task description, duration

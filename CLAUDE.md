@@ -221,7 +221,15 @@ Chalk v5 is ESM-only but the project uses CommonJS. The imports work because of 
 1. Create `src/cli/commands/new-command.ts`
 2. Export command handler function
 3. Register in `src/index.ts` using Commander.js
-4. Update README.md with usage examples
+4. Write comprehensive tests in `src/cli/commands/__tests__/new-command.test.ts`
+5. Update README.md with usage examples
+6. Update spec.md to document the command behavior
+
+**Example:** The `next` command (see `src/cli/commands/next.ts`) combines stop and start logic:
+- Stops any active session silently
+- Starts a new session with full log notation support
+- Supports all the same options as `start` command
+- Useful pattern for convenience commands that combine operations
 
 ### Modifying the Log Notation Syntax
 
