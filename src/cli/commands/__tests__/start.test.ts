@@ -228,7 +228,11 @@ describe('start command', () => {
       console.log = jest.fn();
 
       try {
-        startCommand('09:00 Implement auth @myApp +code +backend ~2h', {});
+        // Use a time in the past (1 hour ago) to avoid future timestamp issues
+        const pastTime = new Date(Date.now() - 60 * 60 * 1000);
+        const timeStr = `${String(pastTime.getHours()).padStart(2, '0')}:${String(pastTime.getMinutes()).padStart(2, '0')}`;
+
+        startCommand(`${timeStr} Implement auth @myApp +code +backend ~2h`, {});
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
@@ -241,8 +245,8 @@ describe('start command', () => {
         expect(tags.sort()).toEqual(['backend', 'code'].sort());
 
         const startTime = new Date(sessions[0].startTime);
-        expect(startTime.getHours()).toBe(9);
-        expect(startTime.getMinutes()).toBe(0);
+        expect(startTime.getHours()).toBe(pastTime.getHours());
+        expect(startTime.getMinutes()).toBe(pastTime.getMinutes());
       } finally {
         console.log = originalLog;
       }

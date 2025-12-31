@@ -97,8 +97,8 @@ describe('log command', () => {
         const output = (console.log as jest.Mock).mock.calls.join('\n');
         expect(output).toContain('Logged');
 
-        // Verify sessions were inserted
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        // Verify sessions were inserted (use future end date to catch sessions with future timestamps)
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 24 * 60 * 60 * 1000));
         expect(sessions.length).toBeGreaterThan(0);
       } finally {
         console.log = originalLog;
@@ -119,7 +119,7 @@ describe('log command', () => {
         expect(output).toContain('interruption');
 
         // Verify sessions were inserted with parent-child relationships
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 24 * 60 * 60 * 1000));
         const hasParentChild = sessions.some(s => s.parentSessionId !== null && s.parentSessionId !== undefined);
         expect(hasParentChild).toBe(true);
       } finally {
@@ -154,7 +154,7 @@ describe('log command', () => {
         await logCommand(logFile, { overwrite: true });
 
         expect(console.log).toHaveBeenCalled();
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 24 * 60 * 60 * 1000));
         expect(sessions.length).toBeGreaterThan(0);
       } finally {
         console.log = originalLog;
@@ -225,7 +225,7 @@ describe('log command', () => {
         await logCommand(emptyFile);
 
         // Should complete without crashing - empty files are valid
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 24 * 60 * 60 * 1000));
         expect(sessions.length).toBe(0);
       } finally {
         console.log = originalLog;
@@ -252,7 +252,7 @@ describe('log command', () => {
         expect(console.log).toHaveBeenCalled();
 
         // Verify sessions have correct states
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 24 * 60 * 60 * 1000));
         const hasCompletedSessions = sessions.some(s => s.state === 'completed');
         expect(hasCompletedSessions).toBe(true);
       } finally {
@@ -273,7 +273,7 @@ describe('log command', () => {
         expect(output).toContain('Logged');
 
         // Verify multiple sessions were inserted
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 24 * 60 * 60 * 1000));
         expect(sessions.length).toBeGreaterThan(1);
       } finally {
         console.log = originalLog;
@@ -294,7 +294,7 @@ describe('log command', () => {
 
         await logCommand(testFile);
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 24 * 60 * 60 * 1000));
         const sessionWithMetadata = sessions.find(s => s.description === 'Test task');
 
         expect(sessionWithMetadata).toBeDefined();

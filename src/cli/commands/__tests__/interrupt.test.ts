@@ -72,9 +72,8 @@ describe('interrupt command', () => {
 
     db = new TimeTrackerDB(testDbPath);
 
-    // Create an active session to interrupt at a fixed time in the past (8:00 AM today)
-    const startTime = new Date();
-    startTime.setHours(8, 0, 0, 0);
+    // Create an active session to interrupt - use a time 1 hour ago to ensure it's in the past
+    const startTime = new Date(Date.now() - 60 * 60 * 1000);
 
     const sessionId = db.insertSession({
       startTime,
