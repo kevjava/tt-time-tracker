@@ -53,18 +53,78 @@ function calculateSwitchSeverity(from: SessionWithTags, to: SessionWithTags): Sw
 }
 
 /**
+ * Build a chronological timeline of work sessions including interruptions
+ */
+function buildWorkTimeline(sessions: SessionWithTags[]): SessionWithTags[] {
+  // Create events for session starts and ends
+  type Event = {
+    time: Date;
+    type: 'start' | 'end';
+    session: SessionWithTags;
+  };
+
+  const events: Event[] = [];
+
+  for (const session of sessions) {
+    events.push({ time: session.startTime, type: 'start', session });
+    if (session.endTime) {
+      events.push({ time: session.endTime, type: 'end', session });
+    }
+  }
+
+  // Sort events chronologically
+  events.sort((a, b) => a.time.getTime() - b.time.getTime());
+
+  // Walk through events and build the timeline of active sessions
+  const sessionStack: SessionWithTags[] = [];
+  const timeline: SessionWithTags[] = [];
+  let currentSession: SessionWithTags | null = null;
+
+  for (const event of events) {
+    if (event.type === 'start') {
+      // Starting a new session (could be interruption)
+      sessionStack.push(event.session);
+      const newCurrent = sessionStack[sessionStack.length - 1];
+
+      if (currentSession !== newCurrent) {
+        timeline.push(newCurrent);
+        currentSession = newCurrent;
+      }
+    } else {
+      // Ending a session
+      const index = sessionStack.findIndex((s) => s.id === event.session.id);
+      if (index !== -1) {
+        sessionStack.splice(index, 1);
+      }
+
+      // What are we working on now?
+      const newCurrent = sessionStack.length > 0 ? sessionStack[sessionStack.length - 1] : null;
+
+      if (currentSession !== newCurrent && newCurrent !== null) {
+        timeline.push(newCurrent);
+        currentSession = newCurrent;
+      } else if (newCurrent === null) {
+        currentSession = null;
+      }
+    }
+  }
+
+  return timeline;
+}
+
+/**
  * Calculate context switching metrics
  */
 export function calculateContextSwitches(sessions: SessionWithTags[]): ContextSwitchMetrics {
-  // Filter to only top-level sessions (no interruptions)
-  const topLevelSessions = sessions.filter((s) => !s.parentSessionId);
+  // Build a timeline that includes switches to/from interruptions
+  const timeline = buildWorkTimeline(sessions);
 
   const switches: ContextSwitch[] = [];
   const switchesByDay = new Map<string, number>();
 
-  for (let i = 1; i < topLevelSessions.length; i++) {
-    const from = topLevelSessions[i - 1];
-    const to = topLevelSessions[i];
+  for (let i = 1; i < timeline.length; i++) {
+    const from = timeline[i - 1];
+    const to = timeline[i];
 
     const severity = calculateSwitchSeverity(from, to);
 
