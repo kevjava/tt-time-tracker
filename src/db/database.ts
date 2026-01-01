@@ -693,9 +693,10 @@ export class TimeTrackerDB {
    */
   close(): void {
     // Checkpoint WAL to ensure all data is flushed to main database file
-    // Uses PASSIVE mode to avoid blocking other connections
+    // Uses RESTART mode to handle file system contention (e.g., VS Code extensions)
+    // RESTART waits for locks and ensures complete checkpoint, unlike PASSIVE
     try {
-      this.db.pragma('wal_checkpoint(PASSIVE)');
+      this.db.pragma('wal_checkpoint(RESTART)');
     } catch (error) {
       // Checkpoint might fail if no WAL exists (e.g., :memory: database)
       // Ignore errors - not critical to fail the close operation
