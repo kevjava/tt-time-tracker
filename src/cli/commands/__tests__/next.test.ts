@@ -157,15 +157,22 @@ describe('next command', () => {
       console.log = jest.fn();
 
       try {
-        // First next (no previous task)
-        nextCommand('Task 1', { project: 'ProjectA' });
+        // Start first task
+        db.insertSession({
+          startTime: new Date(),
+          description: 'Task 1',
+          project: 'ProjectA',
+          state: 'working',
+        });
+
+        //Close and reopen to ensure data is committed
         reopenDb();
 
-        // Second next (should stop Task 1)
+        // Use next to switch to Task 2
         nextCommand('Task 2', { project: 'ProjectB' });
         reopenDb();
 
-        // Third next (should stop Task 2)
+        // Use next to switch to Task 3
         nextCommand('Task 3', { project: 'ProjectC' });
         reopenDb();
 
@@ -659,10 +666,15 @@ describe('next command', () => {
       console.log = jest.fn();
 
       try {
-        nextCommand('Task 1', {});
+        // Start first task directly
+        db.insertSession({
+          startTime: new Date(),
+          description: 'Task 1',
+          state: 'working',
+        });
         reopenDb();
 
-        // Call next again immediately
+        // Call next to switch to Task 2
         nextCommand('Task 2', {});
         reopenDb();
 

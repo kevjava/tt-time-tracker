@@ -16,7 +16,8 @@
       "Bash(TT_DATA_DIR=/tmp/tt-roundtrip-test3 node:*)",
       "Bash(TT_DATA_DIR=/tmp/tt-demo node:*)",
       "Bash(TT_DATA_DIR=/tmp/tt-demo sqlite3:*)",
-      "Bash(npm run test:coverage:*)"
+      "Bash(npm run test:coverage:*)",
+      "Bash(git push)"
     ]
   }
 }
