@@ -547,11 +547,19 @@ describe('start command', () => {
   describe('fallback behavior', () => {
     it('should treat malformed log notation as plain description', () => {
       const originalLog = console.log;
+      const originalError = console.error;
       console.log = jest.fn();
+      console.error = jest.fn();
 
       try {
         // This looks like it might be log notation but isn't valid
         startCommand('99:99 Invalid time', {});
+
+        // Check if process.exit was called
+        if (mockExit.mock.calls.length > 0) {
+          fail(`process.exit was called: ${JSON.stringify((console.error as jest.Mock).mock.calls)}`);
+        }
+
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
@@ -560,6 +568,7 @@ describe('start command', () => {
         expect(sessions[0].description).toBe('99:99 Invalid time');
       } finally {
         console.log = originalLog;
+        console.error = originalError;
       }
     });
 
