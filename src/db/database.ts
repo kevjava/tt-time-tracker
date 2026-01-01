@@ -14,6 +14,7 @@ export class TimeTrackerDB {
     try {
       this.db = new Database(dbPath);
       this.db.pragma('journal_mode = WAL');
+      this.db.pragma('synchronous = NORMAL'); // Safe for WAL, faster than FULL
       this.db.pragma('foreign_keys = ON');
       this.initialize();
     } catch (error) {
@@ -691,6 +692,14 @@ export class TimeTrackerDB {
    * Close the database connection
    */
   close(): void {
+    // Checkpoint WAL to ensure all data is flushed to main database file
+    // Uses PASSIVE mode to avoid blocking other connections
+    try {
+      this.db.pragma('wal_checkpoint(PASSIVE)');
+    } catch (error) {
+      // Checkpoint might fail if no WAL exists (e.g., :memory: database)
+      // Ignore errors - not critical to fail the close operation
+    }
     this.db.close();
   }
 }
