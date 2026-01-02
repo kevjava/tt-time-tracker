@@ -644,4 +644,48 @@ describe('log command', () => {
       }
     });
   });
+
+  describe('state suffix preservation', () => {
+    it('should preserve ->paused state even when followed by @end marker', async () => {
+      const testContent = `2025-12-30 12:54 Backend stubs for task. @elms +code ~6h ->paused
+15:42 Another paused task @elms +code ~6h ->paused
+16:32 @end`;
+
+      const testFile = path.join(testDataDir, 'paused-with-end.log');
+      fs.writeFileSync(testFile, testContent, 'utf-8');
+
+      await logCommand(testFile);
+
+      // Verify both sessions are marked as paused, not completed
+      const sessions = db.getSessionsByTimeRange(
+        new Date('2025-12-30T00:00:00'),
+        new Date('2025-12-31T00:00:00')
+      );
+
+      expect(sessions.length).toBe(2);
+      expect(sessions[0].state).toBe('paused');
+      expect(sessions[0].description).toBe('Backend stubs for task.');
+      expect(sessions[1].state).toBe('paused');
+      expect(sessions[1].description).toBe('Another paused task');
+    });
+
+    it('should preserve ->abandoned state even when followed by @end marker', async () => {
+      const testContent = `2025-12-30 14:00 Failed experiment @research +code ->abandoned
+15:00 @end`;
+
+      const testFile = path.join(testDataDir, 'abandoned-with-end.log');
+      fs.writeFileSync(testFile, testContent, 'utf-8');
+
+      await logCommand(testFile);
+
+      const sessions = db.getSessionsByTimeRange(
+        new Date('2025-12-30T00:00:00'),
+        new Date('2025-12-31T00:00:00')
+      );
+
+      expect(sessions.length).toBe(1);
+      expect(sessions[0].state).toBe('abandoned');
+      expect(sessions[0].description).toBe('Failed experiment');
+    });
+  });
 });

@@ -73,11 +73,13 @@ function calculateEndTimes(entries: LogEntry[]): ProcessedLogEntry[] {
 
       // If next sibling/parent is a state marker, use its timestamp as end time and set state
       if (isNextStateMarker) {
-        const state = isNextEnd ? 'completed' : isNextPause ? 'paused' : 'abandoned';
+        const stateFromMarker = isNextEnd ? 'completed' : isNextPause ? 'paused' : 'abandoned';
         result.push({
           ...entry,
           endTime: nextSiblingOrParent!.timestamp,
-          state,
+          // Preserve explicit state suffix (->paused, ->abandoned) if present
+          // Otherwise use the state from the marker
+          state: entry.state || stateFromMarker,
         });
       }
       // If there's a next sibling/parent, use its start_time as end_time
