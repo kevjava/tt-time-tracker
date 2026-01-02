@@ -208,7 +208,27 @@ export function editCommand(
 
       // Start time (process before explicit duration)
       if (options.startTime !== undefined) {
-        const newStartTime = new Date(options.startTime);
+        let newStartTime: Date;
+
+        // Try to parse as full date-time first
+        newStartTime = new Date(options.startTime);
+
+        // If that fails, try to parse as time-only (HH:MM or HH:MM:SS)
+        if (isNaN(newStartTime.getTime())) {
+          const timeMatch = options.startTime.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+          if (timeMatch) {
+            // Preserve the original session's date, only update the time
+            newStartTime = new Date(session.startTime);
+            newStartTime.setHours(parseInt(timeMatch[1], 10));
+            newStartTime.setMinutes(parseInt(timeMatch[2], 10));
+            newStartTime.setSeconds(timeMatch[3] ? parseInt(timeMatch[3], 10) : 0);
+            newStartTime.setMilliseconds(0);
+          } else {
+            console.error(chalk.red(`Error: Invalid start time: ${options.startTime}`));
+            process.exit(1);
+          }
+        }
+
         if (isNaN(newStartTime.getTime())) {
           console.error(chalk.red(`Error: Invalid start time: ${options.startTime}`));
           process.exit(1);
@@ -237,7 +257,28 @@ export function editCommand(
           // Empty string means clear the end time
           updates.endTime = null;
         } else {
-          const newEndTime = new Date(options.endTime);
+          let newEndTime: Date;
+
+          // Try to parse as full date-time first
+          newEndTime = new Date(options.endTime);
+
+          // If that fails, try to parse as time-only (HH:MM or HH:MM:SS)
+          if (isNaN(newEndTime.getTime())) {
+            const timeMatch = options.endTime.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+            if (timeMatch) {
+              // Preserve the original session's date, only update the time
+              const baseDate = updates.startTime || session.startTime;
+              newEndTime = new Date(baseDate);
+              newEndTime.setHours(parseInt(timeMatch[1], 10));
+              newEndTime.setMinutes(parseInt(timeMatch[2], 10));
+              newEndTime.setSeconds(timeMatch[3] ? parseInt(timeMatch[3], 10) : 0);
+              newEndTime.setMilliseconds(0);
+            } else {
+              console.error(chalk.red(`Error: Invalid end time: ${options.endTime}`));
+              process.exit(1);
+            }
+          }
+
           if (isNaN(newEndTime.getTime())) {
             console.error(chalk.red(`Error: Invalid end time: ${options.endTime}`));
             process.exit(1);
