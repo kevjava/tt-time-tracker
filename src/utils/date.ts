@@ -1,4 +1,4 @@
-import { startOfISOWeek, endOfISOWeek, format } from 'date-fns';
+import { startOfISOWeek, endOfISOWeek, format, getISOWeek, getYear } from 'date-fns';
 import * as chrono from 'chrono-node';
 
 /**
@@ -13,13 +13,17 @@ export function getWeekBounds(weekSpec: string, referenceDate: Date = new Date()
   if (weekSpec === 'current') {
     start = startOfISOWeek(referenceDate);
     end = endOfISOWeek(referenceDate);
-    label = `Week of ${format(start, 'MMM d, yyyy')}`;
+    const weekNum = getISOWeek(start);
+    const year = getYear(start);
+    label = `Week of ${format(start, 'MMM d, yyyy')} (${year}-W${weekNum})`;
   } else if (weekSpec === 'last') {
     const lastWeek = new Date(referenceDate);
     lastWeek.setDate(lastWeek.getDate() - 7);
     start = startOfISOWeek(lastWeek);
     end = endOfISOWeek(lastWeek);
-    label = `Week of ${format(start, 'MMM d, yyyy')}`;
+    const weekNum = getISOWeek(start);
+    const year = getYear(start);
+    label = `Week of ${format(start, 'MMM d, yyyy')} (${year}-W${weekNum})`;
   } else if (weekSpec.match(/^\d{4}-W\d{1,2}$/)) {
     // ISO week format: 2024-W51
     const [year, week] = weekSpec.split('-W');
@@ -34,7 +38,7 @@ export function getWeekBounds(weekSpec: string, referenceDate: Date = new Date()
     start = new Date(firstMonday);
     start.setDate(start.getDate() + (weekNum - 1) * 7);
     end = endOfISOWeek(start);
-    label = weekSpec;
+    label = `Week of ${format(start, 'MMM d, yyyy')} (${weekSpec})`;
   } else {
     throw new Error(`Invalid week specification: ${weekSpec}. Use "current", "last", or ISO week format (e.g., "2024-W51")`);
   }
