@@ -102,17 +102,22 @@ function calculateEndTimes(entries: LogEntry[]): ProcessedLogEntry[] {
  * Returns a map of entry index to parent entry index
  */
 function buildParentMap(entries: LogEntry[]): Map<number, number> {
+  // Filter out state markers first to match calculateEndTimes behavior
+  const filteredEntries = entries.filter(
+    e => e.description !== '__END__' && e.description !== '__PAUSE__' && e.description !== '__ABANDON__'
+  );
+
   const parentMap = new Map<number, number>();
   const indentStack: number[] = []; // Stack of indices at each indent level
 
-  for (let i = 0; i < entries.length; i++) {
-    const entry = entries[i];
+  for (let i = 0; i < filteredEntries.length; i++) {
+    const entry = filteredEntries[i];
     const indentLevel = entry.indentLevel;
 
     // Pop stack until we find a parent with lower indent
     while (indentStack.length > 0) {
       const potentialParentIdx = indentStack[indentStack.length - 1];
-      const potentialParent = entries[potentialParentIdx];
+      const potentialParent = filteredEntries[potentialParentIdx];
 
       if (potentialParent.indentLevel < indentLevel) {
         // Found parent
@@ -128,7 +133,7 @@ function buildParentMap(entries: LogEntry[]): Map<number, number> {
     // First, clear any entries at the same or higher indent
     while (indentStack.length > 0) {
       const lastIdx = indentStack[indentStack.length - 1];
-      if (entries[lastIdx].indentLevel >= indentLevel) {
+      if (filteredEntries[lastIdx].indentLevel >= indentLevel) {
         indentStack.pop();
       } else {
         break;

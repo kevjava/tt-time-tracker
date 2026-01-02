@@ -163,6 +163,46 @@ describe('log command', () => {
     });
   });
 
+  describe('interruptions with explicit durations', () => {
+    it('should handle interruptions with explicit durations without overlap errors', async () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        // Regression test for bug where buildParentMap used original indices
+        // but calculateEndTimes filtered out state markers, causing index mismatch
+        const logContent = `2025-12-30 07:02 In, reading emails. @admin
+  07:31 Planning Churn. @churn +plan (1h12m)
+  09:57 Walking the dog @break (27m)
+11:02 Plan the day @admin +plan ~20m
+`;
+        const testFile = path.join(testDataDir, 'explicit-duration-interruptions.log');
+        fs.writeFileSync(testFile, logContent, 'utf-8');
+
+        await logCommand(testFile);
+
+        expect(console.log).toHaveBeenCalled();
+        const output = (console.log as jest.Mock).mock.calls.join('\n');
+        expect(output).toContain('Logged');
+        expect(output).toContain('interruption');
+
+        // Verify parent and child relationships are correct
+        const sessions = db.getSessionsByTimeRange(new Date('2025-12-30'), new Date('2025-12-31'));
+        expect(sessions.length).toBe(4); // 2 top-level + 2 interruptions
+
+        const parent = sessions.find(s => s.description === 'In, reading emails.');
+        expect(parent).toBeDefined();
+        expect(parent?.parentSessionId).toBeFalsy(); // null or undefined
+
+        const interruptions = sessions.filter(s => s.parentSessionId !== null && s.parentSessionId !== undefined);
+        expect(interruptions.length).toBe(2);
+        expect(interruptions.every(i => i.parentSessionId === parent?.id)).toBe(true);
+      } finally {
+        console.log = originalLog;
+      }
+    });
+  });
+
   describe('error handling', () => {
     it('should error if file does not exist', async () => {
       const originalError = console.error;
