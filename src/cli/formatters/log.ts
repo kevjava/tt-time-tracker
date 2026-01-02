@@ -22,12 +22,14 @@ function formatDurationString(minutes: number): string {
 }
 
 /**
- * Determine if state marker should replace description
+ * Get state suffix marker if needed
+ * Only non-default terminal states get explicit markers
  */
-function getStateMarker(state: SessionState): string | null {
-  if (state === 'paused') return '@pause';
-  if (state === 'abandoned') return '@abandon';
-  // Completed and working states use normal description
+function getStateSuffix(state: SessionState): string | null {
+  if (state === 'paused') return '->paused';
+  if (state === 'abandoned') return '->abandoned';
+  // 'completed' and 'working' states don't need explicit markers
+  // (completed is the default terminal state, working is indicated by absence of end time)
   return null;
 }
 
@@ -48,13 +50,8 @@ function formatSessionLine(
     : format(session.startTime, 'HH:mm');
   parts.push(timestamp);
 
-  // 2. State marker or description
-  const stateMarker = getStateMarker(session.state);
-  if (stateMarker) {
-    parts.push(stateMarker);
-  } else {
-    parts.push(session.description);
-  }
+  // 2. Description (always included)
+  parts.push(session.description);
 
   // 3. Project
   if (session.project) {
@@ -85,7 +82,13 @@ function formatSessionLine(
     parts.push(`(${formatDurationString(session.explicitDurationMinutes)})`);
   }
 
-  // 7. Remark (must be last)
+  // 7. State suffix (->paused, ->completed, ->abandoned)
+  const stateSuffix = getStateSuffix(session.state);
+  if (stateSuffix) {
+    parts.push(stateSuffix);
+  }
+
+  // 8. Remark (must be last)
   if (session.remark) {
     parts.push(`# ${session.remark}`);
   }

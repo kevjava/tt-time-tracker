@@ -408,7 +408,7 @@ describe('formatSessionsAsLog', () => {
   });
 
   describe('state markers', () => {
-    it('should output @pause marker for paused sessions', () => {
+    it('should output ->paused suffix for paused sessions', () => {
       db.insertSession({
         startTime: new Date('2025-12-27T09:00:00'),
         description: 'Paused task',
@@ -422,10 +422,10 @@ describe('formatSessionsAsLog', () => {
 
       const output = formatSessionsAsLog(sessions, db);
 
-      expect(output).toBe('2025-12-27 09:00 @pause');
+      expect(output).toBe('2025-12-27 09:00 Paused task ->paused');
     });
 
-    it('should output @abandon marker for abandoned sessions', () => {
+    it('should output ->abandoned suffix for abandoned sessions', () => {
       db.insertSession({
         startTime: new Date('2025-12-27T09:00:00'),
         description: 'Abandoned task',
@@ -439,10 +439,10 @@ describe('formatSessionsAsLog', () => {
 
       const output = formatSessionsAsLog(sessions, db);
 
-      expect(output).toBe('2025-12-27 09:00 @abandon');
+      expect(output).toBe('2025-12-27 09:00 Abandoned task ->abandoned');
     });
 
-    it('should preserve remark with state markers', () => {
+    it('should preserve remark with state suffixes', () => {
       db.insertSession({
         startTime: new Date('2025-12-27T09:00:00'),
         description: 'Paused task',
@@ -457,7 +457,27 @@ describe('formatSessionsAsLog', () => {
 
       const output = formatSessionsAsLog(sessions, db);
 
-      expect(output).toBe('2025-12-27 09:00 @pause # waiting for review');
+      expect(output).toBe('2025-12-27 09:00 Paused task ->paused # waiting for review');
+    });
+
+    it('should preserve description, project, and tags for paused sessions', () => {
+      const sessionId = db.insertSession({
+        startTime: new Date('2025-12-27T12:54:00'),
+        description: 'Working on feature implementation',
+        project: 'myproject',
+        estimateMinutes: 360,
+        state: 'paused',
+      });
+      db.insertSessionTags(sessionId, ['dev']);
+
+      const sessions = db.getSessionsByTimeRange(
+        new Date('2025-12-27T00:00:00'),
+        new Date('2025-12-27T23:59:59')
+      );
+
+      const output = formatSessionsAsLog(sessions, db);
+
+      expect(output).toBe('2025-12-27 12:54 Working on feature implementation @myproject +dev ~6h ->paused');
     });
 
     it('should use normal description for completed sessions', () => {
