@@ -73,6 +73,9 @@ export class TimeTrackerDB {
   insertSessionTags(sessionId: number, tags: string[]): void {
     if (tags.length === 0) return;
 
+    // Deduplicate tags to avoid UNIQUE constraint violations
+    const uniqueTags = [...new Set(tags)];
+
     try {
       const stmt = this.db.prepare(`
         INSERT INTO session_tags (session_id, tag)
@@ -85,7 +88,7 @@ export class TimeTrackerDB {
         }
       });
 
-      insertMany(sessionId, tags);
+      insertMany(sessionId, uniqueTags);
     } catch (error) {
       throw new DatabaseError(`Failed to insert tags: ${error}`);
     }

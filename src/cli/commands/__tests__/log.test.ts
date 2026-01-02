@@ -688,4 +688,29 @@ describe('log command', () => {
       expect(sessions[0].description).toBe('Failed experiment');
     });
   });
+
+  describe('duplicate tags', () => {
+    it('should deduplicate tags when importing log', async () => {
+      const testContent = `2025-12-30 13:53 Duplicated tags. @myproject +tag1 +tag1 +tag2 +tag1`;
+
+      const testFile = path.join(testDataDir, 'duplicate-tags.log');
+      fs.writeFileSync(testFile, testContent, 'utf-8');
+
+      await logCommand(testFile);
+
+      const sessions = db.getSessionsByTimeRange(
+        new Date('2025-12-30T00:00:00'),
+        new Date('2025-12-31T00:00:00')
+      );
+
+      expect(sessions.length).toBe(1);
+      expect(sessions[0].description).toBe('Duplicated tags.');
+      expect(sessions[0].project).toBe('myproject');
+
+      // Should only have 2 unique tags, not 4
+      expect(sessions[0].tags).toHaveLength(2);
+      expect(sessions[0].tags).toContain('tag1');
+      expect(sessions[0].tags).toContain('tag2');
+    });
+  });
 });

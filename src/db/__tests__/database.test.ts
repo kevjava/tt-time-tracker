@@ -137,6 +137,24 @@ describe('TimeTrackerDB', () => {
       // Tags should be gone
       expect(db.getSessionTags(sessionId)).toHaveLength(0);
     });
+
+    it('should deduplicate tags when inserting', () => {
+      const sessionId = db.insertSession({
+        startTime: new Date('2024-12-24T09:00:00'),
+        description: 'task with duplicate tags',
+        state: 'working',
+      });
+
+      // Insert tags with duplicates
+      db.insertSessionTags(sessionId, ['tag1', 'tag2', 'tag1', 'tag3', 'tag2']);
+
+      // Should only insert unique tags
+      const tags = db.getSessionTags(sessionId);
+      expect(tags).toHaveLength(3);
+      expect(tags).toContain('tag1');
+      expect(tags).toContain('tag2');
+      expect(tags).toContain('tag3');
+    });
   });
 
   describe('updateSession', () => {
