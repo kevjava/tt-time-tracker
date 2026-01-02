@@ -47,6 +47,7 @@ export class LogParser {
         0,
         0
       );
+      this.lastTimestamp = parsed;
       return parsed;
     }
 
