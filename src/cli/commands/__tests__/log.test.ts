@@ -17,6 +17,7 @@ jest.mock('chalk', () => {
     gray: mockFn,
     red: Object.assign(mockFn, { bold: mockFn }),
     yellow: Object.assign(mockFn, { bold: mockFn }),
+    blue: Object.assign(mockFn, { bold: mockFn }),
     bold: mockFn,
   };
   return {
@@ -508,6 +509,98 @@ describe('log command', () => {
         }
       } finally {
         console.log = originalLog;
+      }
+    });
+  });
+
+  describe('--dry-run flag', () => {
+    it('should parse and validate without importing when --dry-run is set', async () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        const logFile = path.join(fixturesDir, 'simple.log');
+        await logCommand(logFile, { dryRun: true });
+
+        // Should display dry-run message
+        expect(console.log).toHaveBeenCalledWith(expect.stringContaining('DRY RUN MODE'));
+        expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Would import'));
+
+        // Verify no sessions were inserted
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 24 * 60 * 60 * 1000));
+        expect(sessions.length).toBe(0);
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    it('should count sessions and interruptions correctly in dry-run mode', async () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        const logFile = path.join(fixturesDir, 'interruptions.log');
+        await logCommand(logFile, { dryRun: true });
+
+        expect(console.log).toHaveBeenCalledWith(expect.stringContaining('DRY RUN MODE'));
+        expect(console.log).toHaveBeenCalledWith(expect.stringContaining('session(s)'));
+
+        // Verify no sessions were inserted
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 24 * 60 * 60 * 1000));
+        expect(sessions.length).toBe(0);
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    it('should detect overlaps in dry-run mode without deleting', async () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        // First, import a session normally
+        const logFile = path.join(fixturesDir, 'simple.log');
+        await logCommand(logFile);
+
+        // Clear console mocks
+        (console.log as jest.Mock).mockClear();
+
+        // Now try to import again with dry-run and overwrite
+        await logCommand(logFile, { dryRun: true, overwrite: true });
+
+        expect(console.log).toHaveBeenCalledWith(expect.stringContaining('DRY RUN MODE'));
+        expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Would delete'));
+
+        // Verify original sessions are still there (not deleted)
+        const sessionsAfter = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 24 * 60 * 60 * 1000));
+        expect(sessionsAfter.length).toBeGreaterThan(0);
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    it('should show warnings in dry-run mode', async () => {
+      const originalLog = console.log;
+      const originalWarn = console.warn;
+      console.log = jest.fn();
+      console.warn = jest.fn();
+
+      try {
+        const logFile = path.join(fixturesDir, 'warnings.log');
+        await logCommand(logFile, { dryRun: true });
+
+        // Should display warnings
+        expect(console.warn).toHaveBeenCalled();
+
+        // Should still show dry-run mode message
+        expect(console.log).toHaveBeenCalledWith(expect.stringContaining('DRY RUN MODE'));
+
+        // Verify no sessions were inserted
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 24 * 60 * 60 * 1000));
+        expect(sessions.length).toBe(0);
+      } finally {
+        console.log = originalLog;
+        console.warn = originalWarn;
       }
     });
   });

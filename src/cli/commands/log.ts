@@ -395,6 +395,7 @@ function getAllDescendantIds(db: TimeTrackerDB, sessionId: number): number[] {
 
 interface LogCommandOptions {
   overwrite?: boolean;
+  dryRun?: boolean;
 }
 
 /**
@@ -540,36 +541,54 @@ export async function logCommand(file?: string, options: LogCommandOptions = {})
           overlappingIds.size +
           overlappingSessions.reduce((sum, s) => sum + s.descendants.length, 0);
 
-        const confirmed = await promptConfirmation(
-          chalk.yellow(
-            `This will delete ${totalToDelete} session(s) and replace them with the imported data.\n` +
-              'Are you sure you want to continue? (y/N): '
-          )
-        );
+        if (!options.dryRun) {
+          const confirmed = await promptConfirmation(
+            chalk.yellow(
+              `This will delete ${totalToDelete} session(s) and replace them with the imported data.\n` +
+                'Are you sure you want to continue? (y/N): '
+            )
+          );
 
-        if (!confirmed) {
-          console.log(chalk.gray('Import cancelled.'));
-          process.exit(0);
-        }
+          if (!confirmed) {
+            console.log(chalk.gray('Import cancelled.'));
+            process.exit(0);
+          }
 
-        // Delete overlapping sessions (cascade will handle descendants)
-        logger.debug(`Deleting ${overlappingIds.size} overlapping session(s)...`);
-        for (const id of overlappingIds) {
-          db.deleteSession(id);
+          // Delete overlapping sessions (cascade will handle descendants)
+          logger.debug(`Deleting ${overlappingIds.size} overlapping session(s)...`);
+          for (const id of overlappingIds) {
+            db.deleteSession(id);
+          }
+          console.log(chalk.green(`✓ Deleted ${totalToDelete} session(s)\n`));
+        } else {
+          console.log(chalk.yellow(`\n  Would delete ${totalToDelete} session(s)\n`));
         }
-        console.log(chalk.green(`✓ Deleted ${totalToDelete} session(s)\n`));
       }
 
       // Insert the new entries
-      logger.debug(`Inserting ${parseResult.entries.length} entries into database...`);
-      const { sessions, interruptions } = insertEntries(db, parseResult.entries);
-      logger.debug(`Inserted ${sessions} sessions and ${interruptions} interruptions`);
+      if (options.dryRun) {
+        // Count sessions and interruptions without inserting
+        const sessionsCount = parseResult.entries.filter(e => e.indentLevel === 0).length;
+        const interruptionsCount = parseResult.entries.filter(e => e.indentLevel > 0).length;
 
-      console.log(
-        chalk.green.bold('✓') +
-          chalk.green(` Logged ${sessions} session(s)`) +
-          (interruptions > 0 ? chalk.green(`, ${interruptions} interruption(s)`) : '')
-      );
+        console.log(chalk.blue.bold('🔍 DRY RUN MODE - No sessions were imported'));
+        console.log(
+          chalk.blue(
+            `\n  Would import ${sessionsCount} session(s)` +
+              (interruptionsCount > 0 ? `, ${interruptionsCount} interruption(s)` : '')
+          )
+        );
+      } else {
+        logger.debug(`Inserting ${parseResult.entries.length} entries into database...`);
+        const { sessions, interruptions } = insertEntries(db, parseResult.entries);
+        logger.debug(`Inserted ${sessions} sessions and ${interruptions} interruptions`);
+
+        console.log(
+          chalk.green.bold('✓') +
+            chalk.green(` Logged ${sessions} session(s)`) +
+            (interruptions > 0 ? chalk.green(`, ${interruptions} interruption(s)`) : '')
+        );
+      }
     } finally {
       db.close();
     }

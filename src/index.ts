@@ -66,6 +66,7 @@ program
   .description('Parse and insert time entries from file or stdin')
   .argument('[file]', 'Log file to parse (reads from stdin if not provided)')
   .option('--overwrite', 'Allow overwriting overlapping sessions after confirmation')
+  .option('--dry-run', 'Parse and validate without importing to database')
   .action(logCommand);
 
 // Report command
