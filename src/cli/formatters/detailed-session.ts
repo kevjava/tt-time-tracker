@@ -3,37 +3,8 @@ import { format, differenceInMinutes } from 'date-fns';
 import { Session } from '../../types/session';
 import { TimeTrackerDB } from '../../db/database';
 import { getSessionDuration } from '../../utils/duration';
+import * as theme from '../../utils/theme';
 
-/**
- * Format duration in minutes to human-readable string
- */
-function formatDuration(minutes: number): string {
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-
-  if (hours > 0) {
-    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-  }
-  return `${mins}m`;
-}
-
-/**
- * Format state with color and icon
- */
-function formatState(state: string): string {
-  switch (state) {
-    case 'working':
-      return chalk.yellow('▶ Working');
-    case 'paused':
-      return chalk.gray('⏸ Paused');
-    case 'completed':
-      return chalk.green('✓ Completed');
-    case 'abandoned':
-      return chalk.red('✗ Abandoned');
-    default:
-      return state;
-  }
-}
 
 /**
  * Format interruptions tree recursively
@@ -52,14 +23,11 @@ function formatInterruptions(
 
   for (const child of children) {
     const duration = getSessionDuration(child);
-    const durationStr = formatDuration(duration);
-    const stateIcon = child.state === 'completed' ? chalk.green('✓') :
-                      child.state === 'working' ? chalk.yellow('▶') :
-                      child.state === 'paused' ? chalk.gray('⏸') :
-                      chalk.red('✗');
+    const durationStr = theme.formatDuration(duration);
+    const stateIcon = theme.formatStateIcon(child.state);
 
     lines.push(
-      `${indentStr}${stateIcon} ${chalk.cyan(child.description)} ${chalk.dim(`(${durationStr})`)}`
+      `${indentStr}${stateIcon} ${chalk.bold(child.description)} ${chalk.dim(`(${durationStr})`)}`
     );
 
     // Recursively show nested interruptions
@@ -105,10 +73,10 @@ export function formatDetailedSession(
   lines.push('');
 
   // Basic info
-  lines.push(`${chalk.bold('Description:')}  ${session.description}`);
+  lines.push(`${chalk.bold('Description:')}  ${chalk.bold(session.description)}`);
 
   // State
-  lines.push(`${chalk.bold('State:')}        ${formatState(session.state)}`);
+  lines.push(`${chalk.bold('State:')}        ${theme.formatState(session.state)}`);
 
   // Timestamps
   const startTimeStr = format(session.startTime, 'yyyy-MM-dd HH:mm:ss');
@@ -119,27 +87,27 @@ export function formatDetailedSession(
     lines.push(`${chalk.bold('End time:')}     ${endTimeStr}`);
   } else {
     const elapsed = differenceInMinutes(new Date(), session.startTime);
-    lines.push(`${chalk.bold('End time:')}     ${chalk.yellow(`(active - ${formatDuration(elapsed)} elapsed)`)}`);
+    lines.push(`${chalk.bold('End time:')}     ${chalk.yellow(`(active - ${theme.formatDuration(elapsed)} elapsed)`)}`);
   }
 
   // Project
   if (session.project) {
-    lines.push(`${chalk.bold('Project:')}      ${chalk.cyan(session.project)}`);
+    lines.push(`${chalk.bold('Project:')}      ${theme.formatProject(session.project)}`);
   }
 
   // Tags
   if (session.tags.length > 0) {
-    lines.push(`${chalk.bold('Tags:')}         ${session.tags.map(t => chalk.magenta(`+${t}`)).join(' ')}`);
+    lines.push(`${chalk.bold('Tags:')}         ${theme.formatTags(session.tags)}`);
   }
 
   // Estimate
   if (session.estimateMinutes) {
-    lines.push(`${chalk.bold('Estimate:')}     ${formatDuration(session.estimateMinutes)}`);
+    lines.push(`${chalk.bold('Estimate:')}     ${theme.formatEstimate(session.estimateMinutes)}`);
   }
 
   // Remark
   if (session.remark) {
-    lines.push(`${chalk.bold('Remark:')}       ${chalk.italic(session.remark)}`);
+    lines.push(`${chalk.bold('Remark:')}       ${theme.formatRemark(session.remark)}`);
   }
 
   lines.push('');
@@ -162,11 +130,11 @@ export function formatDetailedSession(
   );
   const netMinutes = Math.max(0, grossMinutes - interruptionMinutes);
 
-  lines.push(`${chalk.bold('Gross time:')}    ${formatDuration(grossMinutes)}`);
+  lines.push(`${chalk.bold('Gross time:')}    ${theme.formatDuration(grossMinutes)}`);
 
   if (children.length > 0) {
-    lines.push(`${chalk.bold('Interruptions:')} ${formatDuration(interruptionMinutes)} ${chalk.dim(`(${children.length} interruption${children.length > 1 ? 's' : ''})`)}`);
-    lines.push(`${chalk.bold('Net time:')}      ${chalk.green(formatDuration(netMinutes))}`);
+    lines.push(`${chalk.bold('Interruptions:')} ${theme.formatDuration(interruptionMinutes)} ${chalk.dim(`(${children.length} interruption${children.length > 1 ? 's' : ''})`)}`);
+    lines.push(`${chalk.bold('Net time:')}      ${chalk.green(theme.formatDuration(netMinutes))}`);
   }
 
   // Interruptions tree
@@ -209,13 +177,10 @@ export function formatDetailedSession(
         ? format(chainSession.endTime, 'HH:mm')
         : chalk.yellow('(active)');
 
-      const stateIcon = chainSession.state === 'completed' ? chalk.green('✓') :
-                        chainSession.state === 'working' ? chalk.yellow('▶') :
-                        chainSession.state === 'paused' ? chalk.gray('⏸') :
-                        chalk.red('✗');
+      const stateIcon = theme.formatStateIcon(chainSession.state);
 
       const durationDisplay = sessionNetMinutes > 0
-        ? `${formatDuration(sessionNetMinutes)}${sessionInterruptionMinutes > 0 ? chalk.dim(` (${formatDuration(sessionDuration)} gross)`) : ''}`
+        ? `${theme.formatDuration(sessionNetMinutes)}${sessionInterruptionMinutes > 0 ? chalk.dim(` (${theme.formatDuration(sessionDuration)} gross)`) : ''}`
         : chalk.dim('(active)');
 
       const prefix = isCurrentSession ? chalk.cyan('▶ ') : '  ';
@@ -224,20 +189,20 @@ export function formatDetailedSession(
         : chalk.dim(`Session ${chainSession.id}`);
 
       lines.push(
-        `${prefix}${sessionLabel}: ${startTimeStr} - ${endTimeStr}  ${stateIcon} ${formatState(chainSession.state).replace(/[▶⏸✓✗] /, '')}  ${chalk.dim('│')}  ${durationDisplay}`
+        `${prefix}${sessionLabel}: ${startTimeStr} - ${endTimeStr}  ${stateIcon} ${theme.formatState(chainSession.state).replace(/[▶⏸✓✗] /, '')}  ${chalk.dim('│')}  ${durationDisplay}`
       );
 
       if (chainSession.remark) {
-        lines.push(`   ${chalk.dim.italic(`"${chainSession.remark}"`)}`);
+        lines.push(`   ${theme.formatRemark(chainSession.remark)}`);
       }
     }
 
     lines.push('');
     lines.push(chalk.bold('Chain Summary:'));
-    lines.push(`  Total time: ${chalk.green(formatDuration(chainTotalMinutes))}`);
+    lines.push(`  Total time: ${chalk.green(theme.formatDuration(chainTotalMinutes))}`);
 
     if (chainRoot.estimateMinutes) {
-      lines.push(`  Estimate: ${formatDuration(chainRoot.estimateMinutes)}`);
+      lines.push(`  Estimate: ${theme.formatEstimate(chainRoot.estimateMinutes)}`);
       const chainDifference = chainTotalMinutes - chainRoot.estimateMinutes;
       const chainPercentageOff = Math.round((Math.abs(chainDifference) / chainRoot.estimateMinutes) * 100);
 
@@ -245,11 +210,11 @@ export function formatDetailedSession(
         lines.push(`  ${chalk.green('✓')} Chain is on track (within 5 minutes of estimate)`);
       } else if (chainDifference > 0) {
         lines.push(
-          `  ${chalk.yellow('⚠')} Chain is ${formatDuration(chainDifference)} over estimate (${chainPercentageOff}% over)`
+          `  ${chalk.yellow('⚠')} Chain is ${theme.formatDuration(chainDifference)} over estimate (${chainPercentageOff}% over)`
         );
       } else {
         lines.push(
-          `  ${chalk.green('✓')} Chain is ${formatDuration(Math.abs(chainDifference))} under estimate (${chainPercentageOff}% under)`
+          `  ${chalk.green('✓')} Chain is ${theme.formatDuration(Math.abs(chainDifference))} under estimate (${chainPercentageOff}% under)`
         );
       }
     }
@@ -286,11 +251,11 @@ export function formatDetailedSession(
       insights.push(`${chalk.green('✓')} Estimate was accurate (within 5 minutes)`);
     } else if (difference > 0) {
       insights.push(
-        `${chalk.yellow('⚠')} Task took ${formatDuration(difference)} longer than estimated (${percentageOff}% over)`
+        `${chalk.yellow('⚠')} Task took ${theme.formatDuration(difference)} longer than estimated (${percentageOff}% over)`
       );
     } else {
       insights.push(
-        `${chalk.green('✓')} Task finished ${formatDuration(Math.abs(difference))} faster than estimated (${percentageOff}% under)`
+        `${chalk.green('✓')} Task finished ${theme.formatDuration(Math.abs(difference))} faster than estimated (${percentageOff}% under)`
       );
     }
   }
@@ -299,7 +264,7 @@ export function formatDetailedSession(
   if (children.length > 0) {
     const avgInterruptionMinutes = Math.round(interruptionMinutes / children.length);
     insights.push(
-      `${chalk.blue('ℹ')} Average interruption duration: ${formatDuration(avgInterruptionMinutes)}`
+      `${chalk.blue('ℹ')} Average interruption duration: ${theme.formatDuration(avgInterruptionMinutes)}`
     );
 
     if (children.length >= 5) {
@@ -317,7 +282,7 @@ export function formatDetailedSession(
         );
       } else {
         insights.push(
-          `${chalk.blue('ℹ')} Efficiency: ${efficiencyPercent}% (${formatDuration(netMinutes)} productive / ${formatDuration(grossMinutes)} total)`
+          `${chalk.blue('ℹ')} Efficiency: ${efficiencyPercent}% (${theme.formatDuration(netMinutes)} productive / ${theme.formatDuration(grossMinutes)} total)`
         );
       }
     }
@@ -337,7 +302,7 @@ export function formatDetailedSession(
     const elapsedMinutes = differenceInMinutes(new Date(), session.startTime);
     if (elapsedMinutes > 180) { // 3 hours
       insights.push(
-        `${chalk.yellow('⚠')} Session has been active for ${formatDuration(elapsedMinutes)} - consider taking a break`
+        `${chalk.yellow('⚠')} Session has been active for ${theme.formatDuration(elapsedMinutes)} - consider taking a break`
       );
     }
   }

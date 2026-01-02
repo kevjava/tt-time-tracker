@@ -13,12 +13,15 @@ jest.mock('chalk', () => {
   const mockFn = (s: string) => s;
   const mockChalk = {
     green: Object.assign(mockFn, { bold: mockFn }),
-    gray: mockFn,
+    gray: Object.assign(mockFn, { italic: mockFn }),
     red: mockFn,
-    yellow: mockFn,
+    yellow: Object.assign(mockFn, { bold: mockFn }),
     cyan: mockFn,
+    magenta: mockFn,
+    blue: mockFn,
     white: mockFn,
-    bold: mockFn,
+    bold: Object.assign(mockFn, { cyan: mockFn }),
+    italic: mockFn,
     dim: mockFn,
   };
   return {
@@ -250,7 +253,7 @@ describe('status command', () => {
         statusCommand({});
 
         expect(console.log).toHaveBeenCalledWith(
-          expect.stringContaining('Project: myApp')
+          expect.stringContaining('Project: @myApp')
         );
       } finally {
         console.log = originalLog;
@@ -273,7 +276,7 @@ describe('status command', () => {
         statusCommand({});
 
         expect(console.log).toHaveBeenCalledWith(
-          expect.stringContaining('Tags: code, feature')
+          expect.stringContaining('Tags: +code +feature')
         );
       } finally {
         console.log = originalLog;
@@ -295,7 +298,7 @@ describe('status command', () => {
         statusCommand({});
 
         expect(console.log).toHaveBeenCalledWith(
-          expect.stringContaining('Estimate: 2h')
+          expect.stringContaining('Estimate: ~2h')
         );
       } finally {
         console.log = originalLog;
@@ -321,9 +324,9 @@ describe('status command', () => {
 
         const output = (console.log as jest.Mock).mock.calls.join('\n');
         expect(output).toContain('Complex task');
-        expect(output).toContain('Project: myProject');
-        expect(output).toContain('Tags: bug, urgent'); // Tags are sorted alphabetically
-        expect(output).toContain('Estimate: 1h 30m');
+        expect(output).toContain('Project: @myProject');
+        expect(output).toContain('Tags: +bug +urgent'); // Tags are sorted alphabetically
+        expect(output).toContain('Estimate: ~1h30m');
         expect(output).toContain('remaining'); // Should show time remaining
       } finally {
         console.log = originalLog;
@@ -650,7 +653,7 @@ describe('status command', () => {
         statusCommand({});
 
         const output = (console.log as jest.Mock).mock.calls.join('\n');
-        expect(output).toContain('Estimate: 1h');
+        expect(output).toContain('Estimate: ~1h');
       } finally {
         console.log = originalLog;
       }
@@ -671,7 +674,7 @@ describe('status command', () => {
         statusCommand({});
 
         const output = (console.log as jest.Mock).mock.calls.join('\n');
-        expect(output).toContain('Estimate: 1h 15m');
+        expect(output).toContain('Estimate: ~1h15m');
         expect(output).toContain('remaining'); // Should show time remaining
       } finally {
         console.log = originalLog;

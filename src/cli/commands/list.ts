@@ -8,6 +8,7 @@ import { logger } from '../../utils/logger';
 import { formatSessionsAsLog } from '../formatters/log';
 import { formatDetailedSession } from '../formatters/detailed-session';
 import { getSessionDuration } from '../../utils/duration';
+import * as theme from '../../utils/theme';
 
 interface ListOptions {
   week?: string;
@@ -17,19 +18,6 @@ interface ListOptions {
   tag?: string;
   state?: string;
   format?: string;
-}
-
-/**
- * Format duration in minutes to human-readable string
- */
-function formatDuration(minutes: number): string {
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-
-  if (hours > 0) {
-    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-  }
-  return `${mins}m`;
 }
 
 /**
@@ -45,7 +33,7 @@ function calculateDuration(session: Session & { tags: string[] }, db: TimeTracke
     const children = session.id ? db.getChildSessions(session.id) : [];
 
     if (children.length === 0) {
-      return formatDuration(grossMinutes);
+      return theme.formatDuration(grossMinutes);
     }
 
     // Calculate interruption time
@@ -55,7 +43,7 @@ function calculateDuration(session: Session & { tags: string[] }, db: TimeTracke
     );
 
     const netMinutes = Math.max(0, grossMinutes - interruptionMinutes);
-    return `${formatDuration(grossMinutes)} ${chalk.dim(`(${formatDuration(netMinutes)} net)`)}`;
+    return `${theme.formatDuration(grossMinutes)} ${chalk.dim(`(${theme.formatDuration(netMinutes)} net)`)}`;
   }
 
   // Active session (no end time and no explicit duration)
@@ -70,7 +58,7 @@ function calculateDuration(session: Session & { tags: string[] }, db: TimeTracke
 
   if (children.length === 0) {
     // No interruptions, just show gross duration
-    return formatDuration(grossMinutes);
+    return theme.formatDuration(grossMinutes);
   }
 
   // Calculate interruption time
@@ -82,7 +70,7 @@ function calculateDuration(session: Session & { tags: string[] }, db: TimeTracke
   const netMinutes = Math.max(0, grossMinutes - interruptionMinutes);
 
   // Show both gross and net: "3h (2h 30m net)"
-  return `${formatDuration(grossMinutes)} ${chalk.dim(`(${formatDuration(netMinutes)} net)`)}`;
+  return `${theme.formatDuration(grossMinutes)} ${chalk.dim(`(${theme.formatDuration(netMinutes)} net)`)}`;
 }
 
 /**
@@ -95,23 +83,6 @@ function pad(str: string, width: number): string {
   return str + ' '.repeat(padding);
 }
 
-/**
- * Format session state
- */
-function formatState(state: string): string {
-  switch (state) {
-    case 'working':
-      return chalk.green('▶ working');
-    case 'paused':
-      return chalk.yellow('⏸ paused');
-    case 'completed':
-      return chalk.gray('✓ completed');
-    case 'abandoned':
-      return chalk.red('✗ abandoned');
-    default:
-      return state;
-  }
-}
 
 /**
  * tt list command implementation
@@ -234,7 +205,7 @@ export function listCommand(sessionIdArg: string | undefined, options: ListOptio
       const descWidth = 40;
       const projectWidth = 15;
       const tagsWidth = 20;
-      const durationWidth = 12;
+      const durationWidth = 24; // Increased to accommodate "3h 30m (2h 15m net)"
       const estimateWidth = 12;
 
       // Print header
@@ -250,7 +221,7 @@ export function listCommand(sessionIdArg: string | undefined, options: ListOptio
         chalk.bold('State');
 
       console.log(header);
-      console.log(chalk.gray('─'.repeat(148)));
+      console.log(chalk.gray('─'.repeat(160)));
 
       // Print sessions
       for (const session of sessions) {
@@ -283,7 +254,7 @@ function printSession(session: Session & { tags: string[] }, indentLevel: number
   const descWidth = 40;
   const projectWidth = 15;
   const tagsWidth = 20;
-  const durationWidth = 12;
+  const durationWidth = 24; // Increased to accommodate "3h 30m (2h 15m net)"
   const estimateWidth = 12;
 
   const id = session.id?.toString() || '';
@@ -297,11 +268,11 @@ function printSession(session: Session & { tags: string[] }, indentLevel: number
     description = description.substring(0, descWidth - indent.length - 5) + '...';
   }
 
-  const project = session.project || '';
-  const tags = session.tags.length > 0 ? session.tags.join(', ') : '';
+  const project = session.project ? theme.formatProject(session.project) : '';
+  const tags = session.tags.length > 0 ? theme.formatTags(session.tags) : '';
   const duration = calculateDuration(session, db);
-  const estimate = session.estimateMinutes ? formatDuration(session.estimateMinutes) : '';
-  const state = formatState(session.state);
+  const estimate = session.estimateMinutes ? theme.formatEstimate(session.estimateMinutes) : '';
+  const state = theme.formatState(session.state);
 
   const row =
     pad(id, idWidth) +

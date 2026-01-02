@@ -4,6 +4,7 @@ import { TimeTrackerDB } from '../../db/database';
 import { ensureDataDir, getDatabasePath } from '../../utils/config';
 import { Session } from '../../types/session';
 import { getSessionDuration, getNetSessionDuration } from '../../utils/duration';
+import * as theme from '../../utils/theme';
 
 interface StatusOptions {
   isDefault?: boolean;
@@ -29,26 +30,7 @@ function getElapsedMinutes(startTime: Date): number {
  */
 function formatElapsedTime(startTime: Date): string {
   const minutes = getElapsedMinutes(startTime);
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-
-  if (hours > 0) {
-    return `${hours}h ${mins}m`;
-  }
-  return `${mins}m`;
-}
-
-/**
- * Format duration in minutes to human-readable string
- */
-function formatDuration(minutes: number): string {
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-
-  if (hours > 0) {
-    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-  }
-  return `${mins}m`;
+  return theme.formatDuration(minutes);
 }
 
 /**
@@ -151,7 +133,7 @@ function displayTodaySummary(summary: TodaySummary): void {
 
   console.log();
   console.log(chalk.bold("Today's Summary:"));
-  console.log(`  Total time: ${chalk.cyan(formatDuration(summary.totalMinutes))}`);
+  console.log(`  Total time: ${theme.formatDuration(summary.totalMinutes)}`);
 
   if (summary.interruptionCount > 0) {
     const interruptionText = summary.interruptionCount === 1 ? 'interruption' : 'interruptions';
@@ -164,12 +146,12 @@ function displayTodaySummary(summary: TodaySummary): void {
     // Sort projects by time (descending)
     const sorted = Array.from(summary.projectBreakdown.entries()).sort((a, b) => b[1] - a[1]);
     for (const [project, minutes] of sorted) {
-      console.log(`    ${project}: ${chalk.cyan(formatDuration(minutes))}`);
+      console.log(`    ${theme.formatProject(project)}: ${theme.formatDuration(minutes)}`);
     }
   }
 
   if (summary.longestSessionMinutes > 0) {
-    console.log(`  Deep work: ${chalk.cyan(formatDuration(summary.longestSessionMinutes))} (longest session)`);
+    console.log(`  Deep work: ${theme.formatDuration(summary.longestSessionMinutes)} (longest session)`);
   }
 
   // Warnings
@@ -278,22 +260,21 @@ function displaySession(
 
   // Details
   if (session.project) {
-    console.log(`${indent}  ${chalk.gray(`Project: ${session.project}`)}`);
+    console.log(`${indent}  ${chalk.gray(`Project: ${theme.formatProject(session.project)}`)}`);
   }
   if (session.tags.length > 0) {
-    console.log(`${indent}  ${chalk.gray(`Tags: ${session.tags.join(', ')}`)}`);
+    console.log(`${indent}  ${chalk.gray(`Tags: ${theme.formatTags(session.tags)}`)}`);
   }
   if (session.estimateMinutes) {
-    const estimateFormatted = formatDuration(session.estimateMinutes);
     const timeRemaining = getTimeRemaining(session, elapsedMinutes);
 
     if (timeRemaining.isOverEstimate) {
       console.log(
-        `${indent}  ${chalk.gray(`Estimate: ${estimateFormatted}`)} ${chalk.yellow(`⚠ Over by ${formatDuration(timeRemaining.minutes)}`)}`
+        `${indent}  ${chalk.gray(`Estimate: ${theme.formatEstimate(session.estimateMinutes)}`)} ${chalk.yellow(`⚠ Over by ${theme.formatDuration(timeRemaining.minutes)}`)}`
       );
     } else {
       console.log(
-        `${indent}  ${chalk.gray(`Estimate: ${estimateFormatted}, ${formatDuration(timeRemaining.minutes)} remaining`)}`
+        `${indent}  ${chalk.gray(`Estimate: ${theme.formatEstimate(session.estimateMinutes)}, ${theme.formatDuration(timeRemaining.minutes)} remaining`)}`
       );
     }
   }

@@ -1,39 +1,13 @@
 import chalk from 'chalk';
 import { WeeklyReport } from '../types';
 import { formatDateRange } from '../../utils/date';
-
-/**
- * Format minutes as hours and minutes
- */
-function formatDuration(minutes: number): string {
-  const hours = Math.floor(minutes / 60);
-  const mins = Math.round(minutes % 60);
-
-  if (hours === 0) {
-    return `${mins}m`;
-  }
-
-  if (mins === 0) {
-    return `${hours}h`;
-  }
-
-  return `${hours}h ${mins}m`;
-}
+import * as theme from '../../utils/theme';
 
 /**
  * Format percentage
  */
 function formatPercent(value: number): string {
   return `${Math.round(value)}%`;
-}
-
-/**
- * Create a progress bar
- */
-function progressBar(percent: number, width: number = 20): string {
-  const filled = Math.round((percent / 100) * width);
-  const empty = width - filled;
-  return chalk.green('█'.repeat(filled)) + chalk.gray('░'.repeat(empty));
 }
 
 /**
@@ -45,7 +19,7 @@ function formatDurationChange(current: number, previous: number): string {
 
   const indicator = delta > 0 ? chalk.green('↑') : chalk.red('↓');
   const sign = delta > 0 ? '+' : '';
-  return ` ${indicator} ${sign}${formatDuration(Math.abs(delta))}`;
+  return ` ${indicator} ${sign}${theme.formatDuration(Math.abs(delta))}`;
 }
 
 /**
@@ -83,7 +57,7 @@ export function formatTerminalReport(report: WeeklyReport, previousReport?: Week
   const totalTimeChange = previousReport
     ? formatDurationChange(report.summary.totalMinutes, previousReport.summary.totalMinutes)
     : '';
-  lines.push(`  Total Time: ${chalk.bold(formatDuration(report.summary.totalMinutes))}${totalTimeChange}`);
+  lines.push(`  Total Time: ${chalk.bold(theme.formatDuration(report.summary.totalMinutes))}${totalTimeChange}`);
   lines.push('');
 
   // 2. By Project
@@ -97,9 +71,9 @@ export function formatTerminalReport(report: WeeklyReport, previousReport?: Week
     for (const [project, minutes] of projectEntries) {
       const percent = (minutes / report.summary.totalMinutes) * 100;
       lines.push(
-        `  ${chalk.bold(project.padEnd(20))} ` +
-        `${formatDuration(minutes).padEnd(10)} ` +
-        `${progressBar(percent)} ${formatPercent(percent)}`
+        `  ${theme.formatProject(project).padEnd(30)} ` +
+        `${theme.formatDuration(minutes).padEnd(10)} ` +
+        `${theme.progressBar(percent)} ${formatPercent(percent)}`
       );
     }
     lines.push('');
@@ -117,9 +91,9 @@ export function formatTerminalReport(report: WeeklyReport, previousReport?: Week
     for (const [tag, minutes] of tagEntries) {
       const percent = (minutes / report.summary.totalMinutes) * 100;
       lines.push(
-        `  ${chalk.bold(tag.padEnd(20))} ` +
-        `${formatDuration(minutes).padEnd(10)} ` +
-        `${progressBar(percent)} ${formatPercent(percent)}`
+        `  ${theme.formatTag(tag).padEnd(30)} ` +
+        `${theme.formatDuration(minutes).padEnd(10)} ` +
+        `${theme.progressBar(percent)} ${formatPercent(percent)}`
       );
     }
     lines.push('');
@@ -129,10 +103,10 @@ export function formatTerminalReport(report: WeeklyReport, previousReport?: Week
   if (report.estimateAccuracy) {
     lines.push(chalk.bold.yellow('🎯 ESTIMATE ACCURACY'));
     lines.push(chalk.gray('─'.repeat(80)));
-    lines.push(`  Average Error: ${chalk.bold(formatDuration(report.estimateAccuracy.averageError))}`);
+    lines.push(`  Average Error: ${chalk.bold(theme.formatDuration(report.estimateAccuracy.averageError))}`);
     lines.push(`  Average Error %: ${chalk.bold(formatPercent(report.estimateAccuracy.averageErrorPercent))}`);
-    lines.push(`  Total Estimated: ${formatDuration(report.estimateAccuracy.totalEstimated)}`);
-    lines.push(`  Total Actual: ${formatDuration(report.estimateAccuracy.totalActual)}`);
+    lines.push(`  Total Estimated: ${theme.formatEstimate(report.estimateAccuracy.totalEstimated)}`);
+    lines.push(`  Total Actual: ${theme.formatDuration(report.estimateAccuracy.totalActual)}`);
 
     if (report.estimateAccuracy.worstMisses.length > 0) {
       lines.push('');
@@ -140,7 +114,7 @@ export function formatTerminalReport(report: WeeklyReport, previousReport?: Week
       for (const miss of report.estimateAccuracy.worstMisses.slice(0, 3)) {
         const overUnder = miss.actualMinutes > miss.estimateMinutes ? 'over' : 'under';
         lines.push(
-          `    ${chalk.cyan(miss.session.description.substring(0, 40))} - ` +
+          `    ${chalk.bold(miss.session.description.substring(0, 40))} - ` +
           `${formatPercent(miss.errorPercent)} ${overUnder}`
         );
       }
@@ -151,11 +125,11 @@ export function formatTerminalReport(report: WeeklyReport, previousReport?: Week
   // 5. Efficiency
   lines.push(chalk.bold.yellow('⚡ EFFICIENCY'));
   lines.push(chalk.gray('─'.repeat(80)));
-  lines.push(`  Total Tracked: ${formatDuration(report.efficiency.grossMinutes)}`);
-  lines.push(`  Break Time: ${formatDuration(report.efficiency.breakMinutes)}`);
-  lines.push(`  Working Time: ${chalk.bold.cyan(formatDuration(report.efficiency.workingMinutes))}`);
-  lines.push(`  Interruptions: ${formatDuration(report.efficiency.interruptionMinutes)}`);
-  lines.push(`  Net Uninterrupted Time: ${chalk.bold.green(formatDuration(report.efficiency.netUninterruptedMinutes))}`);
+  lines.push(`  Total Tracked: ${theme.formatDuration(report.efficiency.grossMinutes)}`);
+  lines.push(`  Break Time: ${theme.formatDuration(report.efficiency.breakMinutes)}`);
+  lines.push(`  Working Time: ${chalk.bold(theme.formatDuration(report.efficiency.workingMinutes))}`);
+  lines.push(`  Interruptions: ${theme.formatDuration(report.efficiency.interruptionMinutes)}`);
+  lines.push(`  Net Uninterrupted Time: ${chalk.bold.green(theme.formatDuration(report.efficiency.netUninterruptedMinutes))}`);
   lines.push(`  Efficiency Ratio: ${chalk.bold(formatPercent(report.efficiency.efficiencyRatio * 100))}`);
   lines.push('');
 
@@ -188,17 +162,17 @@ export function formatTerminalReport(report: WeeklyReport, previousReport?: Week
   const deepWorkSessionsChange = previousReport
     ? formatCountChange(report.focusBlocks.deepWorkSessions.length, previousReport.focusBlocks.deepWorkSessions.length)
     : '';
-  lines.push(`  Total Deep Work: ${chalk.bold.green(formatDuration(report.focusBlocks.totalDeepWorkMinutes))}${deepWorkChange}`);
+  lines.push(`  Total Deep Work: ${chalk.bold.green(theme.formatDuration(report.focusBlocks.totalDeepWorkMinutes))}${deepWorkChange}`);
   lines.push(`  Sessions: ${report.focusBlocks.deepWorkSessions.length}${deepWorkSessionsChange}`);
 
   if (report.focusBlocks.deepWorkSessions.length > 0) {
-    lines.push(`  Average Length: ${formatDuration(report.focusBlocks.averageSessionLength)}`);
+    lines.push(`  Average Length: ${theme.formatDuration(report.focusBlocks.averageSessionLength)}`);
     lines.push('');
     lines.push(chalk.gray('  Deep Work Sessions:'));
     for (const dws of report.focusBlocks.deepWorkSessions) {
       lines.push(
-        `    ${chalk.cyan(dws.session.description.substring(0, 50))} - ` +
-        `${formatDuration(dws.durationMinutes)}`
+        `    ${chalk.bold(dws.session.description.substring(0, 50))} - ` +
+        `${theme.formatDuration(dws.durationMinutes)}`
       );
     }
   }
@@ -214,7 +188,7 @@ export function formatTerminalReport(report: WeeklyReport, previousReport?: Week
       .sort((a, b) => a[0].localeCompare(b[0]));
 
     for (const [date, minutes] of sortedDays) {
-      lines.push(`    ${date}: ${chalk.bold(formatDuration(minutes))}`);
+      lines.push(`    ${date}: ${chalk.bold(theme.formatDuration(minutes))}`);
     }
     lines.push('');
   }
@@ -231,25 +205,25 @@ export function formatTerminalReport(report: WeeklyReport, previousReport?: Week
       const sessionCount = chain.sessions.length;
       const incompleteCount = chain.incompleteSessions.length;
 
-      lines.push(`  ${chalk.cyan(description)}`);
+      lines.push(`  ${chalk.bold(description)}`);
       lines.push(`    Sessions: ${sessionCount} (${chalk.yellow(incompleteCount + ' incomplete')})`);
 
       if (chain.totalMinutes > 0) {
-        lines.push(`    Time logged: ${formatDuration(chain.totalMinutes)}`);
+        lines.push(`    Time logged: ${theme.formatDuration(chain.totalMinutes)}`);
       }
 
       if (chain.estimateMinutes) {
         const remaining = Math.max(0, chain.estimateMinutes - chain.totalMinutes);
         if (remaining > 0) {
-          lines.push(`    Estimate: ${formatDuration(chain.estimateMinutes)} (${formatDuration(remaining)} remaining)`);
+          lines.push(`    Estimate: ${theme.formatEstimate(chain.estimateMinutes)} (${theme.formatDuration(remaining)} remaining)`);
         } else {
           const over = chain.totalMinutes - chain.estimateMinutes;
-          lines.push(`    Estimate: ${formatDuration(chain.estimateMinutes)} ${chalk.yellow(`(${formatDuration(over)} over)`)}`);
+          lines.push(`    Estimate: ${theme.formatEstimate(chain.estimateMinutes)} ${chalk.yellow(`(${theme.formatDuration(over)} over)`)}`);
         }
       }
 
       if (chain.rootSession.project) {
-        lines.push(`    Project: ${chain.rootSession.project}`);
+        lines.push(`    Project: ${theme.formatProject(chain.rootSession.project)}`);
       }
 
       lines.push('');
@@ -267,10 +241,10 @@ export function formatTerminalReport(report: WeeklyReport, previousReport?: Week
     lines.push(chalk.gray('─'.repeat(80)));
 
     for (const outlier of report.outliers.slice(0, 5)) {
-      const remarkText = outlier.session.remark ? ` - ${outlier.session.remark}` : '';
+      const remarkText = outlier.session.remark ? ` - ${theme.formatRemark(outlier.session.remark)}` : '';
       lines.push(
-        `  ${chalk.cyan(outlier.session.description.substring(0, 40))} - ` +
-        `${formatDuration(outlier.durationMinutes)} ` +
+        `  ${chalk.bold(outlier.session.description.substring(0, 40))} - ` +
+        `${theme.formatDuration(outlier.durationMinutes)} ` +
         `(${outlier.deviationFromMean.toFixed(1)}σ)${remarkText}`
       );
     }

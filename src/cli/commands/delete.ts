@@ -5,6 +5,7 @@ import { ensureDataDir, getDatabasePath } from '../../utils/config';
 import { format } from 'date-fns';
 import { parseFuzzyDate } from '../../utils/date';
 import { Session } from '../../types/session';
+import * as theme from '../../utils/theme';
 
 interface DeleteOptions {
   yes?: boolean;
@@ -16,18 +17,6 @@ interface DeleteOptions {
   dryRun?: boolean;
 }
 
-/**
- * Format duration in minutes to human-readable string
- */
-function formatDuration(minutes: number): string {
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-
-  if (hours > 0) {
-    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-  }
-  return `${mins}m`;
-}
 
 /**
  * Calculate total duration for a session
@@ -248,11 +237,11 @@ export async function deleteCommand(
         let sessionLine = `  #${session.id}  ${format(session.startTime, 'EEE MMM d')}  ${timeStr}  ${session.description}`;
 
         if (session.project) {
-          sessionLine += ` ${chalk.cyan('@' + session.project)}`;
+          sessionLine += ` ${theme.formatProject(session.project)}`;
         }
 
         if (session.tags.length > 0) {
-          sessionLine += ` ${chalk.magenta(session.tags.map(t => '+' + t).join(' '))}`;
+          sessionLine += ` ${theme.formatTags(session.tags)}`;
         }
 
         console.log(sessionLine);
@@ -275,12 +264,12 @@ export async function deleteCommand(
 
       console.log(chalk.bold('\nSummary:'));
       console.log(`  Total sessions: ${sessionsToDelete.length}`);
-      console.log(`  Total time: ${formatDuration(totalDuration)}`);
+      console.log(`  Total time: ${theme.formatDuration(totalDuration)}`);
 
       if (projectBreakdown.size > 0) {
         console.log(`  Projects:`);
         for (const [project, duration] of projectBreakdown) {
-          console.log(`    ${project}: ${formatDuration(duration)}`);
+          console.log(`    ${theme.formatProject(project)}: ${theme.formatDuration(duration)}`);
         }
       }
 

@@ -5,6 +5,7 @@ import { parseDuration } from '../../parser/duration';
 import { LogParser } from '../../parser/grammar';
 import { logger } from '../../utils/logger';
 import { validateStartTime } from '../../utils/session-validator';
+import * as theme from '../../utils/theme';
 
 interface StartOptions {
   project?: string;
@@ -144,22 +145,19 @@ export function startCommand(descriptionArgs: string | string[], options: StartO
       }
 
       // Display confirmation
-      console.log(chalk.green.bold('✓') + chalk.green(` Started tracking: ${description}`));
+      console.log(chalk.bold(chalk.green('✓')) + chalk.green(` Started tracking: ${chalk.bold(description)}`));
       console.log(chalk.gray(`  Task ID: ${sessionId}`));
 
       if (project) {
-        console.log(chalk.gray(`  Project: ${project}`));
+        console.log(chalk.gray(`  Project: ${theme.formatProject(project)}`));
       }
 
       if (tags.length > 0) {
-        console.log(chalk.gray(`  Tags: ${tags.join(', ')}`));
+        console.log(chalk.gray(`  Tags: ${theme.formatTags(tags)}`));
       }
 
       if (estimateMinutes) {
-        const hours = Math.floor(estimateMinutes / 60);
-        const mins = estimateMinutes % 60;
-        const estimate = hours > 0 ? `${hours}h${mins > 0 ? `${mins}m` : ''}` : `${mins}m`;
-        console.log(chalk.gray(`  Estimate: ${estimate}`));
+        console.log(chalk.gray(`  Estimate: ${theme.formatEstimate(estimateMinutes)}`));
       }
 
       // Display timestamp if it was parsed from log notation or --at flag

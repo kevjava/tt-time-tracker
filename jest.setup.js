@@ -13,9 +13,9 @@ const originalConsole = {
 // Mock console methods globally
 global.console = {
   ...console,
-  log: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
+  // log: jest.fn(),
+  // warn: jest.fn(),
+  // error: jest.fn(),
 };
 
 // Export originals in case tests need them

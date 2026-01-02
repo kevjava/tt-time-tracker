@@ -5,15 +5,15 @@ jest.mock('chalk', () => {
   const mockFn = (s: string) => s;
   const mockChalk = {
     green: Object.assign(mockFn, { bold: mockFn }),
-    gray: mockFn,
+    gray: Object.assign(mockFn, { italic: mockFn }),
     red: mockFn,
     yellow: Object.assign(mockFn, { bold: mockFn }),
-    blue: mockFn,
     cyan: mockFn,
     magenta: mockFn,
+    blue: mockFn,
+    bold: Object.assign(mockFn, { cyan: mockFn }),
     italic: mockFn,
     dim: mockFn,
-    bold: Object.assign(mockFn, { cyan: mockFn }),
   };
   return {
     default: mockChalk,
@@ -606,7 +606,7 @@ describe('formatDetailedSession', () => {
       expect(output).toContain('Session 3:');
       expect(output).toContain('Chain Summary:');
       expect(output).toContain('Total time: 4h 30m');
-      expect(output).toContain('Estimate: 4h');
+      expect(output).toContain('Estimate: ~4h');
     });
 
     it('should highlight current session in chain', () => {
@@ -667,7 +667,7 @@ describe('formatDetailedSession', () => {
       const output = formatDetailedSession(session!, db);
 
       expect(output).toContain('Total time: 2h 30m');
-      expect(output).toContain('Estimate: 2h');
+      expect(output).toContain('Estimate: ~2h');
       expect(output).toContain('⚠ Chain is 30m over estimate');
     });
 

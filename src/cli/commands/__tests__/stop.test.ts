@@ -13,9 +13,15 @@ jest.mock('chalk', () => {
   const mockFn = (s: string) => s;
   const mockChalk = {
     green: Object.assign(mockFn, { bold: mockFn }),
-    gray: mockFn,
+    gray: Object.assign(mockFn, { italic: mockFn }),
     red: mockFn,
     yellow: Object.assign(mockFn, { bold: mockFn }),
+    cyan: mockFn,
+    magenta: mockFn,
+    blue: mockFn,
+    bold: Object.assign(mockFn, { cyan: mockFn }),
+    italic: mockFn,
+    dim: mockFn,
   };
   return {
     default: mockChalk,
@@ -393,7 +399,7 @@ describe('stop command', () => {
         stopCommand({ remark: 'All done!' });
 
         expect(console.log).toHaveBeenCalledWith(
-          expect.stringContaining('Remark: All done!')
+          expect.stringContaining('Remark: # All done!')
         );
       } finally {
         console.log = originalLog;

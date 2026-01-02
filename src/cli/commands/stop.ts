@@ -3,6 +3,7 @@ import { TimeTrackerDB } from '../../db/database';
 import { ensureDataDir, getDatabasePath } from '../../utils/config';
 import { differenceInMinutes } from 'date-fns';
 import { validateStopTime } from '../../utils/session-validator';
+import * as theme from '../../utils/theme';
 
 interface StopOptions {
   remark?: string;
@@ -37,21 +38,18 @@ export function stopCommand(options: StopOptions): void {
 
       // Calculate duration
       const durationMinutes = differenceInMinutes(endTime, activeSession.startTime);
-      const hours = Math.floor(durationMinutes / 60);
-      const mins = durationMinutes % 60;
-      const duration = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
 
       // Display summary
-      console.log(chalk.green.bold('✓') + chalk.green(' Stopped tracking'));
-      console.log(chalk.gray(`  Task: ${activeSession.description}`));
-      console.log(chalk.gray(`  Duration: ${duration}`));
+      console.log(chalk.bold(chalk.green('✓')) + chalk.green(' Stopped tracking'));
+      console.log(chalk.gray(`  Task: ${chalk.bold(activeSession.description)}`));
+      console.log(chalk.gray(`  Duration: ${theme.formatDuration(durationMinutes)}`));
 
       if (options.at) {
         console.log(chalk.gray(`  Stop time: ${endTime.toLocaleString()}`));
       }
 
       if (options.remark) {
-        console.log(chalk.gray(`  Remark: ${options.remark}`));
+        console.log(chalk.gray(`  Remark: ${theme.formatRemark(options.remark)}`));
       }
     } finally {
       db.close();
