@@ -670,48 +670,5 @@ describe('formatDetailedSession', () => {
       expect(output).toContain('Estimate: ~2h');
       expect(output).toContain('⚠ Chain is 30m over estimate');
     });
-
-    it('should show incomplete chain status', () => {
-      const session1Id = db.insertSession({
-        startTime: new Date('2025-01-15T08:00:00'),
-        endTime: new Date('2025-01-15T09:00:00'),
-        description: 'Task',
-        state: 'paused',
-      });
-
-      db.insertSession({
-        startTime: new Date('2025-01-15T10:00:00'),
-        endTime: new Date('2025-01-15T11:00:00'),
-        description: 'Task',
-        state: 'paused',
-        continuesSessionId: session1Id,
-      });
-
-      const session = db.getSessionById(session1Id);
-      const output = formatDetailedSession(session!, db);
-
-      expect(output).toContain('⚠ Chain has 2 incomplete session(s)');
-    });
-
-    it('should show in-progress status for active chain', () => {
-      const session1Id = db.insertSession({
-        startTime: new Date('2025-01-15T08:00:00'),
-        endTime: new Date('2025-01-15T09:00:00'),
-        description: 'Task',
-        state: 'completed',
-      });
-
-      db.insertSession({
-        startTime: new Date(),
-        description: 'Task',
-        state: 'working',
-        continuesSessionId: session1Id,
-      });
-
-      const session = db.getSessionById(session1Id);
-      const output = formatDetailedSession(session!, db);
-
-      expect(output).toContain('ℹ Chain in progress');
-    });
   });
 });

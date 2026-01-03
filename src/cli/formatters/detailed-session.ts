@@ -218,17 +218,6 @@ export function formatDetailedSession(
         );
       }
     }
-
-    // Check if chain is complete
-    const chainComplete = chain.every(s => s.state === 'completed' || s.state === 'abandoned');
-    if (!chainComplete) {
-      const incompleteSessions = chain.filter(s => s.state === 'paused' || s.state === 'working');
-      if (incompleteSessions.length === 1 && incompleteSessions[0].state === 'working') {
-        lines.push(`  ${chalk.blue('ℹ')} Chain in progress`);
-      } else {
-        lines.push(`  ${chalk.yellow('⚠')} Chain has ${incompleteSessions.length} incomplete session(s)`);
-      }
-    }
   }
 
   // Insights section
