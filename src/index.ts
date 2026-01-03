@@ -17,6 +17,7 @@ import { listCommand } from './cli/commands/list';
 import { deleteCommand } from './cli/commands/delete';
 import { editCommand } from './cli/commands/edit';
 import { configCommand } from './cli/commands/config';
+import { incompleteCommand } from './cli/commands/incomplete';
 import { logger } from './utils/logger';
 
 const program = new Command();
@@ -172,6 +173,15 @@ program
   .option('--reason <reason>', 'Reason for abandoning')
   .option('--at <time>', 'Abandon time (e.g., "15:51", "2025-12-29 15:51", "-30m")')
   .action(abandonCommand);
+
+// Incomplete command
+program
+  .command('incomplete')
+  .description('Review and triage paused (incomplete) sessions')
+  .option('--from <date>', 'Start date for paused sessions (fuzzy date or YYYY-MM-DD)')
+  .option('--to <date>', 'End date for paused sessions (fuzzy date or YYYY-MM-DD)')
+  .option('--all', 'Show all paused sessions (default: last 30 days)')
+  .action(incompleteCommand);
 
 // Delete command
 program
