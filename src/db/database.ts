@@ -404,6 +404,92 @@ export class TimeTrackerDB {
   }
 
   /**
+   * Search sessions by description text with optional filters
+   * Uses case-insensitive substring matching on description
+   */
+  searchSessions(
+    descriptionTerms: string[],
+    options?: {
+      project?: string;
+      tags?: string[];
+      state?: SessionState;
+      startDate?: Date;
+      endDate?: Date;
+    }
+  ): (Session & { tags: string[] })[] {
+    try {
+      let query = `
+        SELECT DISTINCT s.* FROM sessions s
+      `;
+
+      const conditions: string[] = [];
+      const params: any[] = [];
+      let needsGroupBy = false;
+
+      // Add tag join if filtering by tags (AND logic: session must have ALL specified tags)
+      if (options?.tags && options.tags.length > 0) {
+        query += `
+          INNER JOIN session_tags st ON s.id = st.session_id
+        `;
+        conditions.push(`st.tag IN (${options.tags.map(() => '?').join(', ')})`);
+        params.push(...options.tags);
+        needsGroupBy = true;
+      }
+
+      // Description search (case-insensitive, all terms must match)
+      if (descriptionTerms.length > 0) {
+        for (const term of descriptionTerms) {
+          conditions.push('LOWER(s.description) LIKE LOWER(?)');
+          params.push(`%${term}%`);
+        }
+      }
+
+      // Date range filter
+      if (options?.startDate) {
+        conditions.push('s.start_time >= ?');
+        params.push(options.startDate.toISOString());
+      }
+      if (options?.endDate) {
+        conditions.push('s.start_time < ?');
+        params.push(options.endDate.toISOString());
+      }
+
+      // Project filter
+      if (options?.project) {
+        conditions.push('s.project = ?');
+        params.push(options.project);
+      }
+
+      // State filter
+      if (options?.state) {
+        conditions.push('s.state = ?');
+        params.push(options.state);
+      }
+
+      if (conditions.length > 0) {
+        query += ` WHERE ${conditions.join(' AND ')}`;
+      }
+
+      // Add GROUP BY and HAVING for tag filtering with AND logic
+      if (needsGroupBy) {
+        query += ` GROUP BY s.id HAVING COUNT(DISTINCT st.tag) = ${options!.tags!.length}`;
+      }
+
+      query += ' ORDER BY s.start_time DESC';
+
+      const stmt = this.db.prepare(query);
+      const rows = stmt.all(...params) as any[];
+
+      return rows.map((row) => {
+        const tags = this.getSessionTags(row.id);
+        return this.rowToSession(row, tags);
+      });
+    } catch (error) {
+      throw new DatabaseError(`Failed to search sessions: ${error}`);
+    }
+  }
+
+  /**
    * Check if there are any sessions that overlap with the given time range
    * Excludes sessions with the given ID (useful when updating an existing session)
    */

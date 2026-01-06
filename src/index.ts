@@ -14,6 +14,7 @@ import { resumeCommand } from './cli/commands/resume';
 import { pauseCommand } from './cli/commands/pause';
 import { abandonCommand } from './cli/commands/abandon';
 import { listCommand } from './cli/commands/list';
+import { findCommand } from './cli/commands/find';
 import { deleteCommand } from './cli/commands/delete';
 import { editCommand } from './cli/commands/edit';
 import { configCommand } from './cli/commands/config';
@@ -96,6 +97,16 @@ program
   .option('--state <state>', 'Filter by state: working, paused, completed, abandoned')
   .option('--format <format>', 'Output format: "table" (default), "log"', 'table')
   .action(listCommand);
+
+// Find command
+program
+  .command('find')
+  .description('Search sessions by description, project, and tags')
+  .argument('<query>', 'Search query (supports @project +tag syntax)')
+  .option('--from <date>', 'Start date (fuzzy date or YYYY-MM-DD)')
+  .option('--to <date>', 'End date (fuzzy date or YYYY-MM-DD)')
+  .option('--state <state>', 'Filter by state (working, paused, completed, abandoned)')
+  .action(findCommand);
 
 // Start command
 program
