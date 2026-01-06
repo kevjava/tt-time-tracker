@@ -107,6 +107,28 @@ function pad(str: string, width: number): string {
 }
 
 /**
+ * Highlight search terms in text (case-insensitive)
+ */
+function highlightSearchTerms(text: string, searchTerms: string[]): string {
+  if (searchTerms.length === 0) {
+    return text;
+  }
+
+  let result = text;
+
+  // Sort terms by length (longest first) to avoid partial matches
+  const sortedTerms = [...searchTerms].sort((a, b) => b.length - a.length);
+
+  for (const term of sortedTerms) {
+    // Create case-insensitive regex with word boundary considerations
+    const regex = new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    result = result.replace(regex, chalk.cyan('$1'));
+  }
+
+  return result;
+}
+
+/**
  * Truncate string to specified width with ellipsis, preserving ANSI codes
  */
 function truncate(str: string, width: number): string {
@@ -162,7 +184,12 @@ function truncate(str: string, width: number): string {
 /**
  * Print a session and its children
  */
-function printSession(session: Session & { tags: string[] }, indentLevel: number, db: TimeTrackerDB): void {
+function printSession(
+  session: Session & { tags: string[] },
+  indentLevel: number,
+  db: TimeTrackerDB,
+  searchTerms: string[]
+): void {
   const indent = '  '.repeat(indentLevel);
   const idWidth = 6;
   const dateWidth = 16;
@@ -179,8 +206,9 @@ function printSession(session: Session & { tags: string[] }, indentLevel: number
     ? `${format(session.startTime, 'HH:mm')}-${format(session.endTime, 'HH:mm')}`
     : `${format(session.startTime, 'HH:mm')}-     `;
 
-  // Truncate description to fit within column (accounting for indentation)
-  const description = truncate(indent + session.description, descWidth).slice(indent.length);
+  // Highlight search terms in description, then truncate
+  const highlightedDescription = highlightSearchTerms(session.description, searchTerms);
+  const description = truncate(indent + highlightedDescription, descWidth).slice(indent.length);
 
   // Truncate project and tags to fit within their columns
   const project = session.project ? truncate(theme.formatProject(session.project), projectWidth) : '';
@@ -205,7 +233,7 @@ function printSession(session: Session & { tags: string[] }, indentLevel: number
   // Fetch and display child sessions (interruptions)
   const children = db.getChildSessions(session.id!);
   for (const child of children) {
-    printSession(child, indentLevel + 1, db);
+    printSession(child, indentLevel + 1, db, searchTerms);
   }
 }
 
@@ -359,7 +387,7 @@ export function findCommand(queryArg: string, options: FindOptions): void {
           continue;
         }
 
-        printSession(session, 0, db);
+        printSession(session, 0, db, descriptionTerms);
       }
 
       console.log();

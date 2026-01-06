@@ -480,10 +480,32 @@ export class TimeTrackerDB {
       const stmt = this.db.prepare(query);
       const rows = stmt.all(...params) as any[];
 
-      return rows.map((row) => {
+      const sessions = rows.map((row) => {
         const tags = this.getSessionTags(row.id);
         return this.rowToSession(row, tags);
       });
+
+      // If any matching sessions are interruptions (have parent_session_id),
+      // also include their parent sessions so users get full context
+      const sessionIds = new Set(sessions.map(s => s.id));
+      const parentsToAdd: (Session & { tags: string[] })[] = [];
+
+      for (const session of sessions) {
+        if (session.parentSessionId && !sessionIds.has(session.parentSessionId)) {
+          // Fetch the parent session
+          const parent = this.getSessionById(session.parentSessionId);
+          if (parent) {
+            sessionIds.add(parent.id!);
+            parentsToAdd.push(parent);
+          }
+        }
+      }
+
+      // Combine and sort by start time
+      const allSessions = [...sessions, ...parentsToAdd];
+      allSessions.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+
+      return allSessions;
     } catch (error) {
       throw new DatabaseError(`Failed to search sessions: ${error}`);
     }

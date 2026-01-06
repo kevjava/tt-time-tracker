@@ -613,4 +613,83 @@ describe('find command', () => {
       console.log = originalLog;
     });
   });
+
+  describe('interruptions', () => {
+    it('should return parent session when interruption matches search', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      // Create a parent task
+      const parentId = db.insertSession({
+        startTime: new Date('2025-01-01T10:00:00'),
+        endTime: new Date('2025-01-01T12:00:00'),
+        description: 'Working on feature',
+        project: 'projectA',
+        state: 'completed',
+      });
+
+      // Create an interruption with different description
+      db.insertSession({
+        startTime: new Date('2025-01-01T10:30:00'),
+        endTime: new Date('2025-01-01T10:45:00'),
+        description: 'Quick bug fix',
+        project: 'projectB',
+        state: 'completed',
+        parentSessionId: parentId,
+      });
+
+      // Search for "bug" - should find the interruption AND its parent
+      findCommand('bug', {});
+
+      expect(mockExit).not.toHaveBeenCalledWith(1);
+      const output = (console.log as jest.Mock).mock.calls.map((call) => call[0]).join('\n');
+
+      // Should find the interruption
+      expect(output).toContain('Quick bug fix');
+
+      // Should also show the parent for context
+      expect(output).toContain('Working on feature');
+
+      // Should show 2 sessions (parent + interruption)
+      expect(output).toContain('Found 2 sessions');
+
+      console.log = originalLog;
+    });
+
+    it('should highlight search terms in both parent and interruption', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      // Create a parent task with matching term
+      const parentId = db.insertSession({
+        startTime: new Date('2025-01-01T10:00:00'),
+        endTime: new Date('2025-01-01T12:00:00'),
+        description: 'Running performance tests',
+        project: 'projectA',
+        state: 'completed',
+      });
+
+      // Create an interruption with matching term
+      db.insertSession({
+        startTime: new Date('2025-01-01T10:30:00'),
+        endTime: new Date('2025-01-01T10:45:00'),
+        description: 'Running quick check',
+        project: 'projectB',
+        state: 'completed',
+        parentSessionId: parentId,
+      });
+
+      // Search for "running" - should highlight in both
+      findCommand('running', {});
+
+      expect(mockExit).not.toHaveBeenCalledWith(1);
+      const output = (console.log as jest.Mock).mock.calls.map((call) => call[0]).join('\n');
+
+      // Both sessions should appear
+      expect(output).toContain('performance tests');
+      expect(output).toContain('quick check');
+
+      console.log = originalLog;
+    });
+  });
 });
