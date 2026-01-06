@@ -720,4 +720,146 @@ describe('start command', () => {
       }
     });
   });
+
+  describe('session ID as template', () => {
+    it('should duplicate metadata from existing session', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        // Create a template session
+        const startTime = new Date();
+        const endTime = new Date(startTime.getTime() + 3600000); // 1 hour later
+        const templateId = db.insertSession({
+          startTime,
+          endTime,
+          description: 'Daily standup',
+          project: 'team',
+          estimateMinutes: 30,
+          state: 'completed',
+        });
+        db.insertSessionTags(templateId, ['meeting', 'recurring']);
+
+        // Start a new session using the template
+        startCommand([templateId.toString()], {});
+        reopenDb();
+
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        expect(sessions).toHaveLength(2); // Template + new session
+
+        const newSession = sessions.find(s => s.id !== templateId);
+        expect(newSession).toBeDefined();
+        expect(newSession!.description).toBe('Daily standup');
+        expect(newSession!.project).toBe('team');
+        expect(newSession!.estimateMinutes).toBe(30);
+        expect(newSession!.state).toBe('working');
+
+        const tags = db.getSessionTags(newSession!.id!);
+        expect(tags.sort()).toEqual(['meeting', 'recurring'].sort());
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    it('should allow overriding template metadata with options', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        // Create a template session
+        const startTime = new Date();
+        const endTime = new Date(startTime.getTime() + 3600000); // 1 hour later
+        const templateId = db.insertSession({
+          startTime,
+          endTime,
+          description: 'Team meeting',
+          project: 'oldProject',
+          estimateMinutes: 60,
+          state: 'completed',
+        });
+        db.insertSessionTags(templateId, ['meeting']);
+
+        // Start a new session using the template but override some fields
+        startCommand([templateId.toString()], {
+          project: 'newProject',
+          tags: 'standup,quick',
+          estimate: '15m',
+        });
+        reopenDb();
+
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const newSession = sessions.find(s => s.id !== templateId);
+
+        expect(newSession!.description).toBe('Team meeting'); // From template
+        expect(newSession!.project).toBe('newProject'); // Overridden
+        expect(newSession!.estimateMinutes).toBe(15); // Overridden
+
+        const tags = db.getSessionTags(newSession!.id!);
+        expect(tags.sort()).toEqual(['quick', 'standup'].sort()); // Overridden
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    it('should error on non-existent session ID', () => {
+      const originalLog = console.log;
+      const originalError = console.error;
+      console.log = jest.fn();
+      console.error = jest.fn();
+
+      try {
+        startCommand(['9999'], {});
+
+        expect(mockExit).toHaveBeenCalledWith(1);
+        expect(console.error).toHaveBeenCalledWith(
+          expect.stringContaining('Session 9999 not found')
+        );
+      } finally {
+        console.log = originalLog;
+        console.error = originalError;
+      }
+    });
+
+    it('should treat multi-word arguments as description, not session ID', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        // This should be treated as a description, not a session ID
+        startCommand(['123', 'and', 'more', 'words'], {});
+        reopenDb();
+
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        expect(sessions).toHaveLength(1);
+        expect(sessions[0].description).toBe('123 and more words');
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    it('should show template source in output', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        // Create a template session
+        const startTime = new Date();
+        const endTime = new Date(startTime.getTime() + 3600000); // 1 hour later
+        const templateId = db.insertSession({
+          startTime,
+          endTime,
+          description: 'Recurring task',
+          state: 'completed',
+        });
+
+        startCommand([templateId.toString()], {});
+
+        expect(console.log).toHaveBeenCalledWith(
+          expect.stringContaining(`Template: Session ${templateId}`)
+        );
+      } finally {
+        console.log = originalLog;
+      }
+    });
+  });
 });

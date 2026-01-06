@@ -17,12 +17,143 @@ interface StartOptions {
 /**
  * tt start command implementation
  */
-export function startCommand(descriptionArgs: string | string[], options: StartOptions): void {
+export function startCommand(descriptionArgs: string | string[] | undefined, options: StartOptions): void {
   try {
-    // Join description arguments
-    const fullInput = Array.isArray(descriptionArgs)
-      ? descriptionArgs.join(' ')
-      : descriptionArgs;
+    ensureDataDir();
+    const db = new TimeTrackerDB(getDatabasePath());
+
+    try {
+      // Check if first argument is a session ID
+      if (descriptionArgs) {
+        const firstArg = Array.isArray(descriptionArgs) ? descriptionArgs[0] : descriptionArgs;
+        const sessionId = parseInt(firstArg, 10);
+
+        // If it's a valid number, there's only one argument, and it doesn't look like a timestamp
+        // (timestamps contain ":" or "-"), and doesn't contain spaces, treat it as session ID
+        const isSingleArg = Array.isArray(descriptionArgs)
+          ? descriptionArgs.length === 1
+          : !firstArg.includes(' ');
+
+        if (
+          !isNaN(sessionId) &&
+          isSingleArg &&
+          !firstArg.includes(':') &&
+          !firstArg.includes('-')
+        ) {
+          startFromSessionTemplate(db, sessionId, options);
+          return;
+        }
+      }
+
+      // Otherwise, proceed with normal start logic
+      startWithDescription(db, descriptionArgs, options);
+    } finally {
+      db.close();
+    }
+  } catch (error) {
+    console.error(chalk.red(`Error: ${error}`));
+    process.exit(1);
+  }
+}
+
+/**
+ * Start a new session based on an existing session's metadata
+ */
+function startFromSessionTemplate(db: TimeTrackerDB, sessionId: number, options: StartOptions): void {
+  // Fetch the template session
+  const templateSession = db.getSessionById(sessionId);
+
+  if (!templateSession) {
+    console.error(chalk.red(`Error: Session ${sessionId} not found`));
+    process.exit(1);
+  }
+
+  // Use template session metadata, but allow options to override
+  const description = templateSession.description;
+  const project = options.project || templateSession.project;
+  const tags = options.tags
+    ? options.tags.split(',').map((t) => t.trim())
+    : templateSession.tags;
+
+  let estimateMinutes: number | undefined;
+  if (options.estimate) {
+    try {
+      estimateMinutes = parseDuration(options.estimate);
+    } catch (error) {
+      console.error(chalk.red(`Error: Invalid estimate format: ${options.estimate}`));
+      process.exit(1);
+    }
+  } else {
+    estimateMinutes = templateSession.estimateMinutes || undefined;
+  }
+
+  // Determine start time
+  let actualStartTime: Date;
+  if (options.at) {
+    actualStartTime = validateStartTime(options.at, db);
+  } else {
+    // Check for active session
+    const activeSession = db.getActiveSession();
+    if (activeSession) {
+      console.error(
+        chalk.red(
+          `Error: Already tracking "${activeSession.description}". Stop it first with: tt stop`
+        )
+      );
+      process.exit(1);
+    }
+    actualStartTime = new Date();
+  }
+
+  // Create the new session
+  const newSessionId = db.insertSession({
+    startTime: actualStartTime,
+    description,
+    project,
+    estimateMinutes,
+    state: 'working',
+  });
+
+  // Add tags
+  if (tags.length > 0) {
+    db.insertSessionTags(newSessionId, tags);
+  }
+
+  // Display confirmation
+  console.log(chalk.bold(chalk.green('✓')) + chalk.green(` Started tracking: ${chalk.bold(description)}`));
+  console.log(chalk.gray(`  Task ID: ${newSessionId}`));
+  console.log(chalk.gray(`  Template: Session ${sessionId}`));
+
+  if (project) {
+    console.log(chalk.gray(`  Project: ${theme.formatProject(project)}`));
+  }
+
+  if (tags.length > 0) {
+    console.log(chalk.gray(`  Tags: ${theme.formatTags(tags)}`));
+  }
+
+  if (estimateMinutes) {
+    console.log(chalk.gray(`  Estimate: ${theme.formatEstimate(estimateMinutes)}`));
+  }
+
+  if (options.at) {
+    console.log(chalk.gray(`  Start time: ${actualStartTime.toLocaleString()}`));
+  }
+}
+
+/**
+ * Start a new session with description from arguments
+ */
+function startWithDescription(db: TimeTrackerDB, descriptionArgs: string | string[] | undefined, options: StartOptions): void {
+  if (!descriptionArgs) {
+    console.error(chalk.red('Error: Description or session ID required'));
+    process.exit(1);
+  }
+
+  // Join description arguments
+  const fullInput = Array.isArray(descriptionArgs)
+    ? descriptionArgs.join(' ')
+    : descriptionArgs;
 
     // Try to parse as log notation
     let description = fullInput;
@@ -93,82 +224,70 @@ export function startCommand(descriptionArgs: string | string[], options: StartO
       process.exit(1);
     }
 
-    // Check for active session and validate start time
-    ensureDataDir();
-    const db = new TimeTrackerDB(getDatabasePath());
-
-    try {
-      // If --at is provided, override the timestamp (takes precedence)
-      if (options.at && parsedAsLogNotation) {
-        logger.debug('--at flag overrides log notation timestamp');
-        parsedAsLogNotation = false; // Don't show log notation time in output
-      }
-
-      // Determine the actual start time
-      let actualStartTime: Date;
-      if (options.at) {
-        // Use validation function which will parse and validate overlap
-        actualStartTime = validateStartTime(options.at, db);
-      } else if (startTime) {
-        // Use time from log notation
-        actualStartTime = startTime;
-        // Note: We skip overlap validation for log notation timestamps
-        // because they're typically used for backdating entire sessions
-      } else {
-        // Current time - check for active session with friendly error
-        const activeSession = db.getActiveSession();
-
-        if (activeSession) {
-          console.error(
-            chalk.red(
-              `Error: Already tracking "${activeSession.description}". Stop it first with: tt stop`
-            )
-          );
-          process.exit(1);
-        }
-
-        actualStartTime = new Date();
-      }
-
-      // Create session
-      const sessionId = db.insertSession({
-        startTime: actualStartTime,
-        description,
-        project,
-        estimateMinutes,
-        state: 'working',
-      });
-
-      // Add tags
-      if (tags.length > 0) {
-        db.insertSessionTags(sessionId, tags);
-      }
-
-      // Display confirmation
-      console.log(chalk.bold(chalk.green('✓')) + chalk.green(` Started tracking: ${chalk.bold(description)}`));
-      console.log(chalk.gray(`  Task ID: ${sessionId}`));
-
-      if (project) {
-        console.log(chalk.gray(`  Project: ${theme.formatProject(project)}`));
-      }
-
-      if (tags.length > 0) {
-        console.log(chalk.gray(`  Tags: ${theme.formatTags(tags)}`));
-      }
-
-      if (estimateMinutes) {
-        console.log(chalk.gray(`  Estimate: ${theme.formatEstimate(estimateMinutes)}`));
-      }
-
-      // Display timestamp if it was parsed from log notation or --at flag
-      if (parsedAsLogNotation || options.at) {
-        console.log(chalk.gray(`  Start time: ${actualStartTime.toLocaleString()}`));
-      }
-    } finally {
-      db.close();
+    // If --at is provided, override the timestamp (takes precedence)
+    if (options.at && parsedAsLogNotation) {
+      logger.debug('--at flag overrides log notation timestamp');
+      parsedAsLogNotation = false; // Don't show log notation time in output
     }
-  } catch (error) {
-    console.error(chalk.red(`Error: ${error}`));
-    process.exit(1);
-  }
+
+    // Determine the actual start time
+    let actualStartTime: Date;
+    if (options.at) {
+      // Use validation function which will parse and validate overlap
+      actualStartTime = validateStartTime(options.at, db);
+    } else if (startTime) {
+      // Use time from log notation
+      actualStartTime = startTime;
+      // Note: We skip overlap validation for log notation timestamps
+      // because they're typically used for backdating entire sessions
+    } else {
+      // Current time - check for active session with friendly error
+      const activeSession = db.getActiveSession();
+
+      if (activeSession) {
+        console.error(
+          chalk.red(
+            `Error: Already tracking "${activeSession.description}". Stop it first with: tt stop`
+          )
+        );
+        process.exit(1);
+      }
+
+      actualStartTime = new Date();
+    }
+
+    // Create session
+    const sessionId = db.insertSession({
+      startTime: actualStartTime,
+      description,
+      project,
+      estimateMinutes,
+      state: 'working',
+    });
+
+    // Add tags
+    if (tags.length > 0) {
+      db.insertSessionTags(sessionId, tags);
+    }
+
+    // Display confirmation
+    console.log(chalk.bold(chalk.green('✓')) + chalk.green(` Started tracking: ${chalk.bold(description)}`));
+    console.log(chalk.gray(`  Task ID: ${sessionId}`));
+
+    if (project) {
+      console.log(chalk.gray(`  Project: ${theme.formatProject(project)}`));
+    }
+
+    if (tags.length > 0) {
+      console.log(chalk.gray(`  Tags: ${theme.formatTags(tags)}`));
+    }
+
+    if (estimateMinutes) {
+      console.log(chalk.gray(`  Estimate: ${theme.formatEstimate(estimateMinutes)}`));
+    }
+
+    // Display timestamp if it was parsed from log notation or --at flag
+    if (parsedAsLogNotation || options.at) {
+      console.log(chalk.gray(`  Start time: ${actualStartTime.toLocaleString()}`));
+    }
 }

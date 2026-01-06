@@ -577,6 +577,66 @@ describe('list command', () => {
       }
     });
 
+    it('should truncate long tag lists', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        const today = new Date();
+        today.setHours(10, 0, 0, 0);
+
+        const sessionId = db.insertSession({
+          startTime: today,
+          endTime: new Date(today.getTime() + 3600000),
+          description: 'Task with many tags',
+          state: 'completed',
+        });
+
+        // Add many tags that will exceed the column width
+        db.insertSessionTags(sessionId, ['tag1', 'tag2', 'tag3', 'tag4', 'tag5', 'tag6', 'tag7', 'tag8']);
+
+        listCommand(undefined, { week: 'current' });
+
+        expect(console.log).toHaveBeenCalled();
+        const output = (console.log as jest.Mock).mock.calls.join('\n');
+        // Tags should be truncated with ...
+        expect(output).toContain('...');
+        expect(output).toContain('tag1');
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    it('should truncate long project names', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        const today = new Date();
+        today.setHours(10, 0, 0, 0);
+
+        const longProjectName = 'very-long-project-name-that-exceeds-the-column-width';
+
+        db.insertSession({
+          startTime: today,
+          endTime: new Date(today.getTime() + 3600000),
+          description: 'Task with long project',
+          project: longProjectName,
+          state: 'completed',
+        });
+
+        listCommand(undefined, { week: 'current' });
+
+        expect(console.log).toHaveBeenCalled();
+        const output = (console.log as jest.Mock).mock.calls.join('\n');
+        // Project should be truncated with ...
+        expect(output).toContain('...');
+        expect(output).toContain('@very-long-p');
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
     it('should display all session states correctly', () => {
       const originalLog = console.log;
       console.log = jest.fn();

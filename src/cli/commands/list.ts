@@ -83,6 +83,59 @@ function pad(str: string, width: number): string {
   return str + ' '.repeat(padding);
 }
 
+/**
+ * Truncate string to specified width with ellipsis, preserving ANSI codes
+ */
+function truncate(str: string, width: number): string {
+  // Strip ANSI codes for length calculation
+  const cleanStr = str.replace(/\x1b\[[0-9;]*m/g, '');
+
+  // If it fits, return as-is
+  if (cleanStr.length <= width) {
+    return str;
+  }
+
+  // Need to truncate - extract ANSI codes and content separately
+  const ansiRegex = /\x1b\[[0-9;]*m/g;
+  let result = '';
+  let visibleLength = 0;
+  let lastIndex = 0;
+  let match;
+
+  // Build truncated string while preserving ANSI codes
+  while ((match = ansiRegex.exec(str)) !== null) {
+    // Add content before this ANSI code
+    const content = str.slice(lastIndex, match.index);
+    const spaceLeft = width - 3 - visibleLength; // Reserve 3 for "..."
+
+    if (content.length <= spaceLeft) {
+      result += content;
+      visibleLength += content.length;
+    } else {
+      result += content.slice(0, spaceLeft);
+      visibleLength += spaceLeft;
+      result += '...';
+      return result;
+    }
+
+    // Add the ANSI code (doesn't count toward visible length)
+    result += match[0];
+    lastIndex = match.index + match[0].length;
+  }
+
+  // Handle remaining content after last ANSI code
+  const remaining = str.slice(lastIndex);
+  const spaceLeft = width - 3 - visibleLength;
+
+  if (remaining.length <= spaceLeft) {
+    result += remaining + '...';
+  } else {
+    result += remaining.slice(0, spaceLeft) + '...';
+  }
+
+  return result;
+}
+
 
 /**
  * tt list command implementation
@@ -263,13 +316,12 @@ function printSession(session: Session & { tags: string[] }, indentLevel: number
     ? `${format(session.startTime, 'HH:mm')}-${format(session.endTime, 'HH:mm')}`
     : `${format(session.startTime, 'HH:mm')}-     `;
 
-  let description = session.description;
-  if (description.length > descWidth - indent.length - 2) {
-    description = description.substring(0, descWidth - indent.length - 5) + '...';
-  }
+  // Truncate description to fit within column (accounting for indentation)
+  const description = truncate(indent + session.description, descWidth).slice(indent.length);
 
-  const project = session.project ? theme.formatProject(session.project) : '';
-  const tags = session.tags.length > 0 ? theme.formatTags(session.tags) : '';
+  // Truncate project and tags to fit within their columns
+  const project = session.project ? truncate(theme.formatProject(session.project), projectWidth) : '';
+  const tags = session.tags.length > 0 ? truncate(theme.formatTags(session.tags), tagsWidth) : '';
   const duration = calculateDuration(session, db);
   const estimate = session.estimateMinutes ? theme.formatEstimate(session.estimateMinutes) : '';
   const state = theme.formatState(session.state);
