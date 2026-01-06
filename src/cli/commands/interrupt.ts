@@ -5,6 +5,7 @@ import { parseDuration } from '../../parser/duration';
 import { LogParser } from '../../parser/grammar';
 import { logger } from '../../utils/logger';
 import { validateInterruptTime } from '../../utils/session-validator';
+import * as theme from '../../utils/theme';
 
 interface InterruptOptions {
   project?: string;
@@ -18,10 +19,143 @@ interface InterruptOptions {
  */
 export function interruptCommand(descriptionArgs: string | string[], options: InterruptOptions): void {
   try {
-    // Join description arguments
-    const fullInput = Array.isArray(descriptionArgs)
-      ? descriptionArgs.join(' ')
-      : descriptionArgs;
+    ensureDataDir();
+    const db = new TimeTrackerDB(getDatabasePath());
+
+    try {
+      // Check if first argument is a session ID
+      if (descriptionArgs) {
+        const firstArg = Array.isArray(descriptionArgs) ? descriptionArgs[0] : descriptionArgs;
+        const sessionId = parseInt(firstArg, 10);
+
+        // If it's a valid number, there's only one argument, and it doesn't look like a timestamp
+        // (timestamps contain ":" or "-"), and doesn't contain spaces, treat it as session ID
+        const isSingleArg = Array.isArray(descriptionArgs)
+          ? descriptionArgs.length === 1
+          : !firstArg.includes(' ');
+
+        if (
+          !isNaN(sessionId) &&
+          isSingleArg &&
+          !firstArg.includes(':') &&
+          !firstArg.includes('-')
+        ) {
+          interruptFromSessionTemplate(db, sessionId, options);
+          return;
+        }
+      }
+
+      // Otherwise, proceed with normal interrupt logic
+      interruptWithDescription(db, descriptionArgs, options);
+    } finally {
+      db.close();
+    }
+  } catch (error) {
+    console.error(chalk.red(`Error: ${error}`));
+    process.exit(1);
+  }
+}
+
+/**
+ * Interrupt with a new session based on an existing session's metadata
+ */
+function interruptFromSessionTemplate(db: TimeTrackerDB, sessionId: number, options: InterruptOptions): void {
+  // Fetch the template session
+  const templateSession = db.getSessionById(sessionId);
+
+  if (!templateSession) {
+    console.error(chalk.red(`Error: Session ${sessionId} not found`));
+    process.exit(1);
+  }
+
+  // Use template session metadata, but allow options to override
+  const description = templateSession.description;
+  const project = options.project || templateSession.project;
+  const tags = options.tags
+    ? options.tags.split(',').map((t) => t.trim())
+    : templateSession.tags;
+
+  let estimateMinutes: number | undefined;
+  if (options.estimate) {
+    try {
+      estimateMinutes = parseDuration(options.estimate);
+    } catch (error) {
+      console.error(chalk.red(`Error: Invalid estimate format: ${options.estimate}`));
+      process.exit(1);
+    }
+  } else {
+    estimateMinutes = templateSession.estimateMinutes || undefined;
+  }
+
+  // Check for active session
+  const activeSession = db.getActiveSession();
+
+  if (!activeSession) {
+    console.error(
+      chalk.red('Error: No active task to interrupt. Start a task first with: tt start')
+    );
+    process.exit(1);
+  }
+
+  // Determine interrupt time
+  let actualStartTime: Date;
+  if (options.at) {
+    actualStartTime = validateInterruptTime(options.at, activeSession, db);
+  } else {
+    actualStartTime = validateInterruptTime(undefined, activeSession, db);
+  }
+
+  // Update parent session to paused state
+  db.updateSession(activeSession.id!, { state: 'paused' });
+
+  // Create interruption session
+  logger.debug(`Attempting to insert interruption: ${description} at ${actualStartTime.toISOString()}`);
+  const interruptionId = db.insertSession({
+    startTime: actualStartTime,
+    description,
+    project,
+    estimateMinutes,
+    state: 'working',
+    parentSessionId: activeSession.id,
+  });
+  logger.debug(`Interruption created with ID: ${interruptionId}`);
+
+  // Add tags
+  if (tags.length > 0) {
+    db.insertSessionTags(interruptionId, tags);
+  }
+
+  // Display confirmation
+  console.log(chalk.yellow.bold('⏸') + chalk.yellow(` Paused: ${activeSession.description}`));
+  console.log(chalk.green.bold('✓') + chalk.green(` Started interruption: ${description}`));
+  console.log(chalk.gray(`  Interruption ID: ${interruptionId}`));
+  console.log(chalk.gray(`  Template: Session ${sessionId}`));
+
+  if (project) {
+    console.log(chalk.gray(`  Project: ${theme.formatProject(project)}`));
+  }
+
+  if (tags.length > 0) {
+    console.log(chalk.gray(`  Tags: ${theme.formatTags(tags)}`));
+  }
+
+  if (estimateMinutes) {
+    console.log(chalk.gray(`  Estimate: ${theme.formatEstimate(estimateMinutes)}`));
+  }
+
+  if (options.at) {
+    console.log(chalk.gray(`  Start time: ${actualStartTime.toLocaleString()}`));
+  }
+}
+
+/**
+ * Interrupt with description from arguments
+ */
+function interruptWithDescription(db: TimeTrackerDB, descriptionArgs: string | string[], options: InterruptOptions): void {
+  // Join description arguments
+  const fullInput = Array.isArray(descriptionArgs)
+    ? descriptionArgs.join(' ')
+    : descriptionArgs;
 
     // Try to parse as log notation
     let description = fullInput;
@@ -92,88 +226,77 @@ export function interruptCommand(descriptionArgs: string | string[], options: In
       process.exit(1);
     }
 
-    ensureDataDir();
-    const db = new TimeTrackerDB(getDatabasePath());
+  const activeSession = db.getActiveSession();
 
-    try {
-      const activeSession = db.getActiveSession();
-
-      if (!activeSession) {
-        console.error(
-          chalk.red('Error: No active task to interrupt. Start a task first with: tt start')
-        );
-        process.exit(1);
-      }
-
-      // If --at is provided, override the timestamp (takes precedence)
-      if (options.at && parsedAsLogNotation) {
-        logger.debug('--at flag overrides log notation timestamp');
-        parsedAsLogNotation = false; // Don't show log notation time in output
-      }
-
-      // Determine the actual interrupt time
-      let actualStartTime: Date;
-      if (options.at) {
-        // Use validation function which will parse and validate
-        actualStartTime = validateInterruptTime(options.at, activeSession, db);
-      } else if (startTime) {
-        // Use time from log notation, but still validate
-        actualStartTime = startTime;
-        // Note: We skip overlap validation for log notation timestamps
-      } else {
-        // Use current time with validation
-        actualStartTime = validateInterruptTime(undefined, activeSession, db);
-      }
-
-      // Update parent session to paused state
-      db.updateSession(activeSession.id!, { state: 'paused' });
-
-      // Create interruption session
-      logger.debug(`Attempting to insert interruption: ${description} at ${actualStartTime.toISOString()}`);
-      const interruptionId = db.insertSession({
-        startTime: actualStartTime,
-        description,
-        project,
-        estimateMinutes,
-        state: 'working',
-        parentSessionId: activeSession.id,
-      });
-      logger.debug(`Interruption created with ID: ${interruptionId}`);
-
-      // Add tags
-      if (tags.length > 0) {
-        db.insertSessionTags(interruptionId, tags);
-      }
-
-      // Display confirmation
-      console.log(chalk.yellow.bold('⏸') + chalk.yellow(` Paused: ${activeSession.description}`));
-      console.log(chalk.green.bold('✓') + chalk.green(` Started interruption: ${description}`));
-      console.log(chalk.gray(`  Interruption ID: ${interruptionId}`));
-
-      if (project) {
-        console.log(chalk.gray(`  Project: ${project}`));
-      }
-
-      if (tags.length > 0) {
-        console.log(chalk.gray(`  Tags: ${tags.join(', ')}`));
-      }
-
-      if (estimateMinutes) {
-        const hours = Math.floor(estimateMinutes / 60);
-        const mins = estimateMinutes % 60;
-        const estimate = hours > 0 ? `${hours}h${mins > 0 ? `${mins}m` : ''}` : `${mins}m`;
-        console.log(chalk.gray(`  Estimate: ${estimate}`));
-      }
-
-      // Display timestamp if it was parsed from log notation or --at flag
-      if (parsedAsLogNotation || options.at) {
-        console.log(chalk.gray(`  Start time: ${actualStartTime.toLocaleString()}`));
-      }
-    } finally {
-      db.close();
-    }
-  } catch (error) {
-    console.error(chalk.red(`Error: ${error}`));
+  if (!activeSession) {
+    console.error(
+      chalk.red('Error: No active task to interrupt. Start a task first with: tt start')
+    );
     process.exit(1);
+  }
+
+  // If --at is provided, override the timestamp (takes precedence)
+  if (options.at && parsedAsLogNotation) {
+    logger.debug('--at flag overrides log notation timestamp');
+    parsedAsLogNotation = false; // Don't show log notation time in output
+  }
+
+  // Determine the actual interrupt time
+  let actualStartTime: Date;
+  if (options.at) {
+    // Use validation function which will parse and validate
+    actualStartTime = validateInterruptTime(options.at, activeSession, db);
+  } else if (startTime) {
+    // Use time from log notation, but still validate
+    actualStartTime = startTime;
+    // Note: We skip overlap validation for log notation timestamps
+  } else {
+    // Use current time with validation
+    actualStartTime = validateInterruptTime(undefined, activeSession, db);
+  }
+
+  // Update parent session to paused state
+  db.updateSession(activeSession.id!, { state: 'paused' });
+
+  // Create interruption session
+  logger.debug(`Attempting to insert interruption: ${description} at ${actualStartTime.toISOString()}`);
+  const interruptionId = db.insertSession({
+    startTime: actualStartTime,
+    description,
+    project,
+    estimateMinutes,
+    state: 'working',
+    parentSessionId: activeSession.id,
+  });
+  logger.debug(`Interruption created with ID: ${interruptionId}`);
+
+  // Add tags
+  if (tags.length > 0) {
+    db.insertSessionTags(interruptionId, tags);
+  }
+
+  // Display confirmation
+  console.log(chalk.yellow.bold('⏸') + chalk.yellow(` Paused: ${activeSession.description}`));
+  console.log(chalk.green.bold('✓') + chalk.green(` Started interruption: ${description}`));
+  console.log(chalk.gray(`  Interruption ID: ${interruptionId}`));
+
+  if (project) {
+    console.log(chalk.gray(`  Project: ${project}`));
+  }
+
+  if (tags.length > 0) {
+    console.log(chalk.gray(`  Tags: ${tags.join(', ')}`));
+  }
+
+  if (estimateMinutes) {
+    const hours = Math.floor(estimateMinutes / 60);
+    const mins = estimateMinutes % 60;
+    const estimate = hours > 0 ? `${hours}h${mins > 0 ? `${mins}m` : ''}` : `${mins}m`;
+    console.log(chalk.gray(`  Estimate: ${estimate}`));
+  }
+
+  // Display timestamp if it was parsed from log notation or --at flag
+  if (parsedAsLogNotation || options.at) {
+    console.log(chalk.gray(`  Start time: ${actualStartTime.toLocaleString()}`));
   }
 }

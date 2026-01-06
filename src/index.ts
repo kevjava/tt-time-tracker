@@ -134,10 +134,10 @@ program
 program
   .command('switch')
   .description('Pause current task (if any) and start tracking a new task')
-  .argument('<description...>', 'Task description or log notation (e.g., "09:30 Task name @project +tag ~1h")')
-  .option('-p, --project <project>', 'Project name (overrides log notation)')
-  .option('-t, --tags <tags>', 'Comma-separated tags (overrides log notation)')
-  .option('-e, --estimate <duration>', 'Estimated duration (overrides log notation, e.g., 2h, 30m)')
+  .argument('<descriptionOrId...>', 'Task description, session ID to duplicate, or log notation (e.g., "37" or "09:30 Task name @project +tag ~1h")')
+  .option('-p, --project <project>', 'Project name (overrides log notation or template)')
+  .option('-t, --tags <tags>', 'Comma-separated tags (overrides log notation or template)')
+  .option('-e, --estimate <duration>', 'Estimated duration (overrides log notation or template, e.g., 2h, 30m)')
   .option('--at <time>', 'Start time (e.g., "15:51", "2025-12-29 15:51", "-30m")')
   .action(switchCommand);
 
@@ -153,10 +153,10 @@ program
 program
   .command('interrupt')
   .description('Interrupt current task with a new task')
-  .argument('<description...>', 'Interruption description or log notation (e.g., "10:30 Quick fix @project +urgent")')
-  .option('-p, --project <project>', 'Project name (overrides log notation)')
-  .option('-t, --tags <tags>', 'Comma-separated tags (overrides log notation)')
-  .option('-e, --estimate <duration>', 'Estimated duration (overrides log notation, e.g., 2h, 30m)')
+  .argument('<descriptionOrId...>', 'Interruption description, session ID to duplicate, or log notation (e.g., "37" or "10:30 Quick fix @project +urgent")')
+  .option('-p, --project <project>', 'Project name (overrides log notation or template)')
+  .option('-t, --tags <tags>', 'Comma-separated tags (overrides log notation or template)')
+  .option('-e, --estimate <duration>', 'Estimated duration (overrides log notation or template, e.g., 2h, 30m)')
   .option('--at <time>', 'Interrupt time (e.g., "15:51", "2025-12-29 15:51", "-30m")')
   .action(interruptCommand);
 

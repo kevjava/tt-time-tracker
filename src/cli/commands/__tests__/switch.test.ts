@@ -31,6 +31,28 @@ jest.mock('../../../utils/logger', () => ({
   },
 }));
 
+// Mock theme
+jest.mock('../../../utils/theme', () => ({
+  formatProject: (project: string) => `@${project}`,
+  formatTags: (tags: string[]) => tags.map(t => `+${t}`).join(' '),
+  formatDuration: (mins: number) => {
+    const hours = Math.floor(mins / 60);
+    const minutes = mins % 60;
+    if (hours > 0 && minutes > 0) return `${hours}h ${minutes}m`;
+    if (hours > 0) return `${hours}h`;
+    return `${minutes}m`;
+  },
+  formatEstimate: (mins: number) => {
+    const hours = Math.floor(mins / 60);
+    const minutes = mins % 60;
+    if (hours > 0 && minutes > 0) return `~${hours}h${minutes}m`;
+    if (hours > 0) return `~${hours}h`;
+    return `~${minutes}m`;
+  },
+  formatState: (state: string) => state,
+  formatRemark: (remark: string) => `# ${remark}`,
+}));
+
 // Mock config to use test paths
 jest.mock('../../../utils/config', () => {
   const fs = require('fs');
@@ -319,10 +341,10 @@ describe('switch command', () => {
         });
 
         expect(console.log).toHaveBeenCalledWith(
-          expect.stringContaining('Project: myProject')
+          expect.stringContaining('@myProject')
         );
         expect(console.log).toHaveBeenCalledWith(
-          expect.stringContaining('Tags: code, urgent')
+          expect.stringContaining('+code +urgent')
         );
       } finally {
         console.log = originalLog;
@@ -337,7 +359,7 @@ describe('switch command', () => {
         switchCommand('Task', { estimate: '2h30m' });
 
         expect(console.log).toHaveBeenCalledWith(
-          expect.stringContaining('Estimate: 2h30m')
+          expect.stringContaining('~2h30m')
         );
       } finally {
         console.log = originalLog;
