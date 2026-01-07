@@ -234,8 +234,10 @@ function interruptFromScheduledTask(db: TimeTrackerDB, task: ScheduledTask & { t
  * Interrupt with description from arguments
  */
 async function interruptWithDescription(db: TimeTrackerDB, descriptionArgs: string | string[] | undefined, options: InterruptOptions): Promise<void> {
-  // Handle interactive selection if no arguments
-  if (descriptionArgs === undefined) {
+  // Check if no arguments provided (undefined or empty array from Commander.js)
+  const noArgs = descriptionArgs === undefined || (Array.isArray(descriptionArgs) && descriptionArgs.length === 0);
+
+  if (noArgs) {
     // Try interactive selection from scheduled tasks
     const selectedTask = await promptScheduledTaskSelection(db);
 

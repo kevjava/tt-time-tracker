@@ -218,7 +218,10 @@ function nextFromScheduledTask(db: TimeTrackerDB, task: ScheduledTask & { tags: 
  * Start next session with description from arguments
  */
 async function nextWithDescription(db: TimeTrackerDB, descriptionArgs: string | string[] | undefined, options: NextOptions): Promise<void> {
-  if (descriptionArgs === undefined) {
+  // Check if no arguments provided (undefined or empty array from Commander.js)
+  const noArgs = descriptionArgs === undefined || (Array.isArray(descriptionArgs) && descriptionArgs.length === 0);
+
+  if (noArgs) {
     // Try interactive selection from scheduled tasks
     const selectedTask = await promptScheduledTaskSelection(db);
 

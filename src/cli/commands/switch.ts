@@ -235,8 +235,10 @@ async function switchWithDescription(db: TimeTrackerDB, descriptionArgs: string 
     logger.debug(`Paused previous task: ${activeSession.description}`);
   }
 
-  // Step 2: Handle interactive selection if no arguments
-  if (descriptionArgs === undefined) {
+  // Step 2: Check if no arguments provided (undefined or empty array from Commander.js)
+  const noArgs = descriptionArgs === undefined || (Array.isArray(descriptionArgs) && descriptionArgs.length === 0);
+
+  if (noArgs) {
     // Try interactive selection from scheduled tasks
     const selectedTask = await promptScheduledTaskSelection(db);
 
