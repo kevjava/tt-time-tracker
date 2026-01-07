@@ -79,6 +79,21 @@ _tt_states() {
     _describe 'session state' states
 }
 
+_tt_priorities() {
+    local priorities=(
+        '1:Highest priority'
+        '2:Very high priority'
+        '3:High priority'
+        '4:Above normal priority'
+        '5:Normal priority (default)'
+        '6:Below normal priority'
+        '7:Low priority'
+        '8:Very low priority'
+        '9:Lowest priority'
+    )
+    _describe 'priority level' priorities
+}
+
 _tt_report() {
     _arguments \
         '--week[Week to report]:week spec:_tt_week_specs' \
@@ -104,7 +119,33 @@ _tt_list() {
 
 _tt_start() {
     _arguments \
-        '1:description:' \
+        '1:description or session ID:' \
+        '-p[Project name]:project:_tt_recent_projects' \
+        '--project[Project name]:project:_tt_recent_projects' \
+        '-t[Tags (comma-separated)]:tags:_tt_recent_tags' \
+        '--tags[Tags (comma-separated)]:tags:_tt_recent_tags' \
+        '-e[Estimated duration]:duration:_tt_durations' \
+        '--estimate[Estimated duration]:duration:_tt_durations' \
+        '--at[Start time]:time:_tt_relative_times' \
+        '--help[Show help]'
+}
+
+_tt_next() {
+    _arguments \
+        '1:description or session ID:' \
+        '-p[Project name]:project:_tt_recent_projects' \
+        '--project[Project name]:project:_tt_recent_projects' \
+        '-t[Tags (comma-separated)]:tags:_tt_recent_tags' \
+        '--tags[Tags (comma-separated)]:tags:_tt_recent_tags' \
+        '-e[Estimated duration]:duration:_tt_durations' \
+        '--estimate[Estimated duration]:duration:_tt_durations' \
+        '--at[Start time]:time:_tt_relative_times' \
+        '--help[Show help]'
+}
+
+_tt_switch() {
+    _arguments \
+        '1:description or session ID:' \
         '-p[Project name]:project:_tt_recent_projects' \
         '--project[Project name]:project:_tt_recent_projects' \
         '-t[Tags (comma-separated)]:tags:_tt_recent_tags' \
@@ -125,7 +166,7 @@ _tt_stop() {
 
 _tt_interrupt() {
     _arguments \
-        '1:description:' \
+        '1:description or session ID:' \
         '-p[Project name]:project:_tt_recent_projects' \
         '--project[Project name]:project:_tt_recent_projects' \
         '-t[Tags (comma-separated)]:tags:_tt_recent_tags' \
@@ -202,6 +243,105 @@ _tt_log() {
         '--help[Show help]'
 }
 
+_tt_schedule() {
+    local -a subcommands
+    subcommands=(
+        'add:Add a new scheduled task'
+        'list:List all scheduled tasks'
+        'edit:Edit a scheduled task'
+        'remove:Remove a scheduled task'
+    )
+
+    if (( CURRENT == 2 )); then
+        _describe 'schedule subcommand' subcommands
+    else
+        case "$words[2]" in
+            add)
+                _arguments \
+                    '1:description:' \
+                    '-p[Project name]:project:_tt_recent_projects' \
+                    '--project[Project name]:project:_tt_recent_projects' \
+                    '-t[Tags (comma-separated)]:tags:_tt_recent_tags' \
+                    '--tags[Tags (comma-separated)]:tags:_tt_recent_tags' \
+                    '-e[Estimated duration]:duration:_tt_durations' \
+                    '--estimate[Estimated duration]:duration:_tt_durations' \
+                    '--priority[Priority level (1-9)]:priority:_tt_priorities' \
+                    '--scheduled[Scheduled date/time]:datetime:' \
+                    '--help[Show help]'
+                ;;
+            edit)
+                _arguments \
+                    '1:task ID:' \
+                    '*:log notation:' \
+                    '--description[Update description]:description:' \
+                    '-p[Update project]:project:_tt_recent_projects' \
+                    '--project[Update project]:project:_tt_recent_projects' \
+                    '-t[Update tags]:tags:_tt_recent_tags' \
+                    '--tags[Update tags]:tags:_tt_recent_tags' \
+                    '-e[Update estimate]:duration:_tt_durations' \
+                    '--estimate[Update estimate]:duration:_tt_durations' \
+                    '--priority[Update priority]:priority:_tt_priorities' \
+                    '--scheduled[Update scheduled date/time]:datetime:' \
+                    '--help[Show help]'
+                ;;
+            remove)
+                _arguments \
+                    '1:task ID:' \
+                    '--help[Show help]'
+                ;;
+            list)
+                _arguments \
+                    '--help[Show help]'
+                ;;
+        esac
+    fi
+}
+
+_tt_config() {
+    local -a subcommands
+    subcommands=(
+        'get:Get a configuration value'
+        'set:Set a configuration value'
+        'edit:Edit configuration file in $EDITOR'
+        'path:Show path to configuration file'
+    )
+
+    if (( CURRENT == 2 )); then
+        _describe 'config subcommand' subcommands
+    else
+        case "$words[2]" in
+            get|set)
+                local -a config_keys
+                config_keys=(
+                    'weekStartDay:Week start day (0-6, 0=Sunday)'
+                    'reportFormat:Default report format'
+                    'listFormat:Default list format'
+                    'timeFormat:Time format (12h/24h)'
+                    'editor:Preferred editor'
+                )
+                _describe 'config key' config_keys
+                ;;
+            edit|path)
+                _arguments '--help[Show help]'
+                ;;
+        esac
+    fi
+}
+
+_tt_find() {
+    _arguments \
+        '*:search terms:' \
+        '--from[Start date]:date:_tt_fuzzy_dates' \
+        '--to[End date]:date:_tt_fuzzy_dates' \
+        '-p[Filter by project]:project:_tt_recent_projects' \
+        '--project[Filter by project]:project:_tt_recent_projects' \
+        '-t[Filter by tag]:tags:_tt_recent_tags' \
+        '--tag[Filter by tag]:tags:_tt_recent_tags' \
+        '-s[Filter by state]:state:_tt_states' \
+        '--state[Filter by state]:state:_tt_states' \
+        '--help[Show help]'
+}
+
 _tt_status() {
     _arguments \
         '--help[Show help]'
@@ -215,13 +355,18 @@ _tt() {
         'report:Generate time report for a date range'
         'list:List sessions in columnar format'
         'start:Start tracking a task'
+        'next:Stop current task and start a new one'
+        'switch:Pause current task and start a new one'
         'stop:Stop current active task'
         'interrupt:Interrupt current task with a new task'
         'resume:Complete interruption and resume parent'
         'pause:Pause current active task'
         'abandon:Abandon current active task'
+        'schedule:Manage scheduled tasks'
         'delete:Delete one or more sessions'
         'edit:Edit a session by ID'
+        'config:Manage configuration'
+        'find:Search sessions by description'
         'help:Show help information'
     )
 
@@ -241,13 +386,18 @@ _tt() {
                 report) _tt_report ;;
                 list) _tt_list ;;
                 start) _tt_start ;;
+                next) _tt_next ;;
+                switch) _tt_switch ;;
                 stop) _tt_stop ;;
                 interrupt) _tt_interrupt ;;
                 resume) _tt_resume ;;
                 pause) _tt_pause ;;
                 abandon) _tt_abandon ;;
+                schedule) _tt_schedule ;;
                 delete) _tt_delete ;;
                 edit) _tt_edit ;;
+                config) _tt_config ;;
+                find) _tt_find ;;
                 log) _tt_log ;;
                 status) _tt_status ;;
             esac

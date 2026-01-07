@@ -30,6 +30,9 @@ syntax match ttlogTag "\s+[a-zA-Z0-9_-]\+"
 syntax match ttlogEstimate "\s\~\d\+h\d*m\?"
 syntax match ttlogEstimate "\s\~\d\+m"
 
+" Priority - ^N (1-9)
+syntax match ttlogPriority "\s\^[1-9]\>"
+
 " Explicit Durations - (duration) ((2h), (30m), (1h30m))
 syntax match ttlogDuration "(\d\+h\d*m\?)"
 syntax match ttlogDuration "(\d\+m)"
@@ -47,6 +50,7 @@ highlight default link ttlogTimestampFull Number
 highlight default link ttlogProject Identifier
 highlight default link ttlogTag Type
 highlight default link ttlogEstimate Special
+highlight default link ttlogPriority PreProc
 highlight default link ttlogDuration Constant
 highlight default link ttlogRemark Comment
 highlight default link ttlogResumeMarker Keyword

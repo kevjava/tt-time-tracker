@@ -7,7 +7,7 @@ _tt_completion() {
     _init_completion || return
 
     # All available commands
-    local commands="status log report list start stop interrupt resume pause abandon delete edit help"
+    local commands="status log report list start next switch stop interrupt resume pause abandon delete edit schedule config find help"
 
     # Common flags
     local common_flags="-v --verbose --version --help"
@@ -108,7 +108,7 @@ _tt_completion() {
             esac
             ;;
 
-        start|interrupt)
+        start|next|switch|interrupt)
             case "$prev" in
                 -p|--project)
                     if command -v tt-completion-helper >/dev/null 2>&1; then
@@ -213,6 +213,131 @@ _tt_completion() {
                     ;;
                 *)
                     COMPREPLY=($(compgen -W "-d --description -p --project -t --tags -e --estimate -r --remark --start-time --end-time --state --help" -- "$cur"))
+                    ;;
+            esac
+            ;;
+
+        schedule)
+            # Check if there's a subcommand
+            local subcmd=""
+            for ((i=2; i < cword; i++)); do
+                if [[ ${words[i]} != -* ]]; then
+                    subcmd=${words[i]}
+                    break
+                fi
+            done
+
+            if [[ -z $subcmd ]]; then
+                # No subcommand yet, offer subcommands
+                COMPREPLY=($(compgen -W "add list edit remove --help" -- "$cur"))
+            else
+                case "$subcmd" in
+                    add)
+                        case "$prev" in
+                            -p|--project)
+                                if command -v tt-completion-helper >/dev/null 2>&1; then
+                                    COMPREPLY=($(compgen -W "$(tt-completion-helper projects 2>/dev/null)" -- "$cur"))
+                                fi
+                                ;;
+                            -t|--tags)
+                                if command -v tt-completion-helper >/dev/null 2>&1; then
+                                    COMPREPLY=($(compgen -W "$(tt-completion-helper tags 2>/dev/null)" -- "$cur"))
+                                fi
+                                ;;
+                            -e|--estimate)
+                                COMPREPLY=($(compgen -W "15m 30m 1h 1h30m 2h 3h 4h" -- "$cur"))
+                                ;;
+                            --priority)
+                                COMPREPLY=($(compgen -W "1 2 3 4 5 6 7 8 9" -- "$cur"))
+                                ;;
+                            --scheduled)
+                                return
+                                ;;
+                            *)
+                                COMPREPLY=($(compgen -W "-p --project -t --tags -e --estimate --priority --scheduled --help" -- "$cur"))
+                                ;;
+                        esac
+                        ;;
+                    edit)
+                        case "$prev" in
+                            --description)
+                                return
+                                ;;
+                            -p|--project)
+                                if command -v tt-completion-helper >/dev/null 2>&1; then
+                                    COMPREPLY=($(compgen -W "$(tt-completion-helper projects 2>/dev/null)" -- "$cur"))
+                                fi
+                                ;;
+                            -t|--tags)
+                                if command -v tt-completion-helper >/dev/null 2>&1; then
+                                    COMPREPLY=($(compgen -W "$(tt-completion-helper tags 2>/dev/null)" -- "$cur"))
+                                fi
+                                ;;
+                            -e|--estimate)
+                                COMPREPLY=($(compgen -W "15m 30m 1h 1h30m 2h 3h 4h" -- "$cur"))
+                                ;;
+                            --priority)
+                                COMPREPLY=($(compgen -W "1 2 3 4 5 6 7 8 9" -- "$cur"))
+                                ;;
+                            --scheduled)
+                                return
+                                ;;
+                            *)
+                                COMPREPLY=($(compgen -W "--description -p --project -t --tags -e --estimate --priority --scheduled --help" -- "$cur"))
+                                ;;
+                        esac
+                        ;;
+                    list|remove)
+                        COMPREPLY=($(compgen -W "--help" -- "$cur"))
+                        ;;
+                esac
+            fi
+            ;;
+
+        config)
+            # Check for subcommand
+            local subcmd=""
+            for ((i=2; i < cword; i++)); do
+                if [[ ${words[i]} != -* ]]; then
+                    subcmd=${words[i]}
+                    break
+                fi
+            done
+
+            if [[ -z $subcmd ]]; then
+                COMPREPLY=($(compgen -W "get set edit path --help" -- "$cur"))
+            else
+                case "$subcmd" in
+                    get|set)
+                        COMPREPLY=($(compgen -W "weekStartDay reportFormat listFormat timeFormat editor" -- "$cur"))
+                        ;;
+                    edit|path)
+                        COMPREPLY=($(compgen -W "--help" -- "$cur"))
+                        ;;
+                esac
+            fi
+            ;;
+
+        find)
+            case "$prev" in
+                --from|--to)
+                    COMPREPLY=($(compgen -W "yesterday today monday tuesday wednesday thursday friday saturday sunday" -- "$cur"))
+                    ;;
+                -p|--project)
+                    if command -v tt-completion-helper >/dev/null 2>&1; then
+                        COMPREPLY=($(compgen -W "$(tt-completion-helper projects 2>/dev/null)" -- "$cur"))
+                    fi
+                    ;;
+                -t|--tag)
+                    if command -v tt-completion-helper >/dev/null 2>&1; then
+                        COMPREPLY=($(compgen -W "$(tt-completion-helper tags 2>/dev/null)" -- "$cur"))
+                    fi
+                    ;;
+                -s|--state)
+                    COMPREPLY=($(compgen -W "working paused completed abandoned" -- "$cur"))
+                    ;;
+                *)
+                    COMPREPLY=($(compgen -W "--from --to -p --project -t --tag -s --state --help" -- "$cur"))
                     ;;
             esac
             ;;
