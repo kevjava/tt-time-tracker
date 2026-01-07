@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-TT is a Unix-philosophy CLI time tracker written in TypeScript. It supports both retroactive logging via text files and live tracking via start/stop commands. The tool parses a custom log notation, stores sessions in SQLite, and generates comprehensive weekly reports with metrics like context switching, deep work sessions, and estimation accuracy.
+TT is a Unix-philosophy CLI time tracker written in TypeScript. It supports both retroactive logging via text files and live tracking via start/stop commands. The tool parses a custom log notation with priority support (`^N`), stores sessions in SQLite, provides task scheduling with interactive selection, and generates comprehensive weekly reports with metrics like context switching, deep work sessions, and estimation accuracy.
 
 ## Development Commands
 
@@ -111,9 +111,25 @@ Database → Query sessions → Calculate metrics → Format output
 - Uses composite primary key (session_id, tag)
 - CASCADE delete when session is deleted
 
+**scheduled_tasks table:**
+
+- Stores future tasks that act as templates for starting work
+- Has `priority` field (1-9, default 5) for task prioritization
+- `scheduled_date_time` is optional, used to surface tasks on specific dates
+- Tasks are removed from schedule when used via interactive selection
+
+**scheduled_task_tags table:**
+
+- Many-to-many relationship between scheduled tasks and tags
+- Uses composite primary key (scheduled_task_id, tag)
+- CASCADE delete when scheduled task is deleted
+
 **Important indexes:**
 
 - `idx_sessions_time_range` on (start_time, end_time, project) for efficient report queries
+- `idx_scheduled_tasks_priority` for priority-based queries
+- `idx_scheduled_tasks_scheduled_date` for date-based queries
+- `idx_scheduled_tasks_created_at` for chronological ordering
 - Time-range queries are performance-critical for reports
 
 ## Module Organization
@@ -121,8 +137,8 @@ Database → Query sessions → Calculate metrics → Format output
 ### Parser Module (`src/parser/`)
 
 - **duration.ts**: Parses duration strings like `2h30m` into minutes (pure function)
-- **tokenizer.ts**: Converts log lines into token streams, error-resilient
-- **grammar.ts**: `LogParser` class maintains date context, handles time underflow, resolves resume markers
+- **tokenizer.ts**: Converts log lines into token streams including priority (`^N`), error-resilient
+- **grammar.ts**: `LogParser` class maintains date context, handles time underflow, resolves resume markers, parses priority
 
 ### Database Module (`src/db/`)
 
@@ -143,9 +159,12 @@ Database → Query sessions → Calculate metrics → Format output
 
 ### CLI Module (`src/cli/`)
 
-- **commands/**: Each command is a separate module (log.ts, start.ts, stop.ts, report.ts)
+- **commands/**: Each command is a separate module (log.ts, start.ts, stop.ts, report.ts, schedule.ts, etc.)
+- **schedule-*.ts**: Schedule command implementation (add, list, edit, remove, select)
+- **schedule-select.ts**: Interactive selection UI for scheduled tasks (three stanzas: oldest, important, urgent)
 - **editor.ts**: Handles `$EDITOR` integration for fixing parse errors
 - Uses Commander.js for argument parsing
+- start/next/switch/interrupt commands support interactive selection when called without arguments
 
 ## Key Implementation Details
 

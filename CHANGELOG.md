@@ -7,7 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Task Scheduling System** (`tt schedule`): Queue future tasks with priorities and suggested dates
+  - `tt schedule add` - Add tasks with full log notation support including priority (`^N`)
+  - `tt schedule list` - View all scheduled tasks in columnar format
+  - `tt schedule edit` - Update task metadata (description, project, tags, estimate, priority, date)
+  - `tt schedule remove` - Remove tasks from schedule
+  - Interactive selection UI when running `tt start`, `tt next`, `tt switch`, or `tt interrupt` without arguments
+  - Three stanzas for task organization: Oldest (FIFO), Important (priority ≠ 5), Urgent (today/overdue)
+  - Selected tasks automatically removed from schedule and used as templates
+- **Priority Notation** (`^N`): Support for priority levels 1-9 in log notation
+  - Parser recognizes priority token in log format
+  - Priority field (1-9) with 5 as default
+  - Used for task prioritization in scheduling
+- **Session ID Templates**: Reference existing sessions as templates for new tasks
+  - `tt start 42` - Start new task using session 42's metadata (project, tags, estimate)
+  - `tt next 42`, `tt switch 42`, `tt interrupt 42` - Similar support in all relevant commands
+  - Original session not modified, only used as template
+- **Database Schema Updates**:
+  - New `scheduled_tasks` table for future task queue
+  - New `scheduled_task_tags` table for scheduled task tags
+  - Indexes for efficient priority and date-based queries
+
 ### Changed
+- **start/next/switch/interrupt commands**: Made async to support interactive selection
+  - Commands now show interactive menu when called without arguments
+  - Display scheduled tasks organized by oldest, important, and urgent
+  - Session ID template support (e.g., `tt start 42`)
 - **Context switches now include interruptions**: Interruptions are now counted as context switches since they break flow state. Each interruption generates two switches: one when switching to the interruption, and one when returning to the parent task. This provides a more accurate measure of productivity disruption.
 - **Morning Focus metric updated**: Now shows time to first interruption rather than ignoring interruptions entirely. This better reflects actual uninterrupted focus time.
 

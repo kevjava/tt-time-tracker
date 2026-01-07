@@ -63,8 +63,14 @@ tt-time-tracker/
 │   │   │   ├── stop.ts
 │   │   │   ├── pause.ts
 │   │   │   ├── resume.ts
-│   │   │   └── interrupt.ts
-│   │   └── editor.ts               # $EDITOR integration
+│   │   │   ├── interrupt.ts
+│   │   │   ├── schedule.ts           # Schedule command router
+│   │   │   ├── schedule-add.ts       # Add scheduled task
+│   │   │   ├── schedule-list.ts      # List scheduled tasks
+│   │   │   ├── schedule-edit.ts      # Edit scheduled task
+│   │   │   ├── schedule-remove.ts    # Remove scheduled task
+│   │   │   └── schedule-select.ts    # Interactive selection UI
+│   │   └── editor.ts                 # $EDITOR integration
 │   └── utils/
 │       ├── config.ts
 │       └── date.ts
@@ -77,7 +83,7 @@ tt-time-tracker/
 ### Basic Format
 
 ```
-TIMESTAMP DESCRIPTION [@PROJECT] [+TAG...] [~ESTIMATE] [(DURATION)] [# REMARK]
+TIMESTAMP DESCRIPTION [@PROJECT] [+TAG...] [~ESTIMATE] [^PRIORITY] [(DURATION)] [# REMARK]
 ```
 
 ### Components
@@ -103,6 +109,13 @@ TIMESTAMP DESCRIPTION [@PROJECT] [+TAG...] [~ESTIMATE] [(DURATION)] [# REMARK]
 
 - `~DURATION` - Estimated time
 - Examples: `~2h`, `~30m`, `~1h30m`
+
+**Priority:**
+
+- `^N` - Priority level (1-9, default 5)
+- Format: `^[1-9]`
+- Examples: `^1` (highest), `^5` (default), `^9` (lowest)
+- Used with `tt schedule` for task prioritization
 
 **Explicit Duration:**
 
@@ -203,6 +216,25 @@ CREATE TABLE session_tags (
   FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
 );
 
+CREATE TABLE scheduled_tasks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  description TEXT NOT NULL,
+  project TEXT,
+  estimate_minutes INTEGER,
+  priority INTEGER DEFAULT 5,
+  scheduled_date_time DATETIME,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  CHECK (priority >= 1 AND priority <= 9)
+);
+
+CREATE TABLE scheduled_task_tags (
+  scheduled_task_id INTEGER NOT NULL,
+  tag TEXT NOT NULL,
+  PRIMARY KEY (scheduled_task_id, tag),
+  FOREIGN KEY (scheduled_task_id) REFERENCES scheduled_tasks(id) ON DELETE CASCADE
+);
+
 -- Indexes
 CREATE INDEX idx_sessions_start_time ON sessions(start_time);
 CREATE INDEX idx_sessions_end_time ON sessions(end_time);
@@ -211,6 +243,9 @@ CREATE INDEX idx_sessions_state ON sessions(state);
 CREATE INDEX idx_sessions_parent ON sessions(parent_session_id);
 CREATE INDEX idx_sessions_time_range ON sessions(start_time, end_time, project);
 CREATE INDEX idx_session_tags_tag ON session_tags(tag);
+CREATE INDEX idx_scheduled_tasks_priority ON scheduled_tasks(priority ASC);
+CREATE INDEX idx_scheduled_tasks_scheduled_date ON scheduled_tasks(scheduled_date_time ASC);
+CREATE INDEX idx_scheduled_tasks_created_at ON scheduled_tasks(created_at ASC);
 ```
 
 ## CLI Commands

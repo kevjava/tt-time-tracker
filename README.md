@@ -6,6 +6,7 @@ A Unix-philosophy CLI time tracker with low-friction retroactive logging and com
 
 - 📝 **Retroactive Logging** - Log your time using a simple text notation, edit in your favorite editor
 - ⚡ **Live Tracking** - Start/stop tasks in real-time with interruption support
+- 📅 **Task Scheduling** - Queue future tasks with priorities, interactive selection when starting work
 - ⏰ **Retroactive Commands** - Use `--at` flag to backfill forgotten context switches with overlap prevention
 - 📊 **Rich Analytics** - Context switching, deep work sessions, efficiency metrics, and more
 - 🎨 **Multiple Formats** - Terminal, JSON, CSV, and log format output
@@ -29,6 +30,7 @@ A Unix-philosophy CLI time tracker with low-friction retroactive logging and com
   - [`tt resume`](#tt-resume)
   - [`tt pause`](#tt-pause)
   - [`tt abandon`](#tt-abandon)
+  - [`tt schedule`](#tt-schedule)
   - [`tt report`](#tt-report)
   - [`tt list`](#tt-list)
   - [`tt delete`](#tt-delete-session-ids)
@@ -204,7 +206,7 @@ tt report --format json > report.json
 ### Basic Format
 
 ```text
-TIMESTAMP DESCRIPTION [@PROJECT] [+TAG...] [~ESTIMATE] [(DURATION)] [# REMARK]
+TIMESTAMP DESCRIPTION [@PROJECT] [+TAG...] [~ESTIMATE] [^PRIORITY] [(DURATION)] [# REMARK]
 ```
 
 ### Components
@@ -228,6 +230,13 @@ TIMESTAMP DESCRIPTION [@PROJECT] [+TAG...] [~ESTIMATE] [(DURATION)] [# REMARK]
 
 - `~2h` - Estimated duration
 - `~30m` or `~1h30m`
+
+**Priority:**
+
+- `^N` - Priority level (1-9, default 5)
+- `^1` - Highest priority
+- `^9` - Lowest priority
+- Used with `tt schedule` for task prioritization
 
 **Explicit Duration:**
 
@@ -303,9 +312,22 @@ tt log work.log
 cat work.log | tt log
 ```
 
-### `tt start <description>`
+### `tt start [description]`
 
-Start tracking a task. Supports both plain descriptions and log notation syntax.
+Start tracking a task. Supports plain descriptions, log notation syntax, session ID templates, and interactive selection from scheduled tasks.
+
+**Arguments:**
+
+- `[description]` - Task description, log notation, or session ID (optional - shows interactive selection if omitted)
+- `[session-id]` - Use an existing session as a template (e.g., `tt start 42`)
+
+**Interactive Selection:**
+
+When called without arguments, displays an interactive menu of scheduled tasks organized by oldest, important (priority ≠ 5), and urgent (today/overdue). Select a task to use as a template - it will be removed from the schedule and started.
+
+**Session Templates:**
+
+Provide a session ID number to start a new task using that session's metadata (project, tags, estimate) as defaults. The original session is not modified.
 
 **Options:**
 
@@ -364,9 +386,18 @@ tt start "Morning standup" --at "09:00" -p team -t meeting
 tt start "Yesterday's work" --at "2025-12-28 14:00" -p myApp
 ```
 
-### `tt next <description>`
+### `tt next [description]`
 
-Stop the current task (if any) and immediately start tracking a new task. This is a convenience command that combines `tt stop` and `tt start` in a single operation, making it easy to switch between tasks without manually stopping the previous one.
+Stop the current task (if any) and immediately start tracking a new task. Supports plain descriptions, log notation syntax, session ID templates, and interactive selection from scheduled tasks.
+
+**Arguments:**
+
+- `[description]` - Task description, log notation, or session ID (optional - shows interactive selection if omitted)
+- `[session-id]` - Use an existing session as a template (e.g., `tt next 42`)
+
+**Interactive Selection:**
+
+When called without arguments, displays an interactive menu of scheduled tasks. Select a task to use as a template - it will be removed from the schedule, the current task will be stopped, and the new task will start.
 
 **Options:**
 
@@ -465,9 +496,18 @@ tt stop --at "15:51" -r "Completed early"
 tt stop --at "2025-12-29 17:30" -r "End of day"
 ```
 
-### `tt interrupt <description>`
+### `tt interrupt [description]`
 
-Interrupt the current task with a new task. The current task is paused and a new task starts as a child session. Supports log notation syntax.
+Interrupt the current task with a new task. The current task is paused and a new task starts as a child session. Supports plain descriptions, log notation syntax, session ID templates, and interactive selection from scheduled tasks.
+
+**Arguments:**
+
+- `[description]` - Task description, log notation, or session ID (optional - shows interactive selection if omitted)
+- `[session-id]` - Use an existing session as a template (e.g., `tt interrupt 42`)
+
+**Interactive Selection:**
+
+When called without arguments, displays an interactive menu of scheduled tasks. Select a task to use as a template - it will be removed from the schedule, the current task will be paused, and the interruption will start.
 
 **Options:**
 
@@ -583,6 +623,156 @@ tt abandon --at "-30m" --reason "Deprioritized"
 # Abandon at specific time
 tt abandon --at "14:30" --reason "No longer needed"
 ```
+
+### `tt schedule`
+
+Manage a queue of future tasks that act as templates for starting work. Scheduled tasks can have optional priorities and suggested dates, and are automatically removed when used to start a session.
+
+**Subcommands:**
+
+- `tt schedule` or `tt schedule list` - List all scheduled tasks
+- `tt schedule add <description>` - Add a new scheduled task
+- `tt schedule edit <id>` - Edit an existing scheduled task
+- `tt schedule remove <id>` - Remove a scheduled task
+
+**Interactive Selection:**
+
+When you run `tt start`, `tt next`, `tt switch`, or `tt interrupt` without any arguments, an interactive menu displays your scheduled tasks organized into three stanzas:
+
+- **Oldest** - All tasks by creation time (first in, first out)
+- **Important** - Tasks with priority ≠ 5, ordered by priority then creation time
+- **Urgent** - Tasks scheduled for today or overdue, ordered by date
+
+Press Enter to select the first item (from Oldest), or type a number to select any task. The selected task is used as a template and removed from the schedule.
+
+#### `tt schedule add <description>`
+
+Add a new task to your schedule with optional priority, project, tags, estimate, and scheduled date.
+
+**Options:**
+
+- `-p, --project <project>` - Project name (overrides log notation)
+- `-t, --tags <tags>` - Comma-separated tags (overrides log notation)
+- `-e, --estimate <duration>` - Estimated duration (overrides log notation, e.g., 2h, 30m)
+- `--priority <priority>` - Priority level 1-9 (overrides log notation, default: 5)
+- `--scheduled <datetime>` - Suggested date/time to surface the task (ISO format)
+
+**Log Notation Support:**
+
+Like other commands, `schedule add` supports full log notation syntax:
+
+```bash
+# With full metadata inline
+tt schedule add "Implement feature X @backend +code ~2h ^2"
+
+# With scheduled date
+tt schedule add "2026-01-10 09:00 Team meeting @team +meeting ^3"
+
+# Mixed notation with option override
+tt schedule add "Write docs @projectA +docs ^4" -p projectB
+# Result: Uses projectB (overrides projectA)
+```
+
+**Examples:**
+
+```bash
+# Simple task with description only
+tt schedule add "Review pull requests"
+
+# With project and tags
+tt schedule add "Deploy to production" -p backend -t deploy,ops
+
+# With priority (1=highest, 9=lowest)
+tt schedule add "Fix critical bug" -p frontend -t urgent --priority 1
+
+# Using log notation with priority
+tt schedule add "Code review @myApp +review ~30m ^3"
+
+# With scheduled date for future work
+tt schedule add "Q1 planning" -t planning --scheduled "2026-01-15 10:00"
+
+# Full metadata with scheduled date
+tt schedule add "2026-01-12 14:00 Client demo @product +demo ~1h ^2"
+```
+
+#### `tt schedule list`
+
+Display all scheduled tasks in a columnar format showing ID, priority, scheduled date, description, project, tags, and estimate.
+
+**Examples:**
+
+```bash
+# List all scheduled tasks
+tt schedule list
+
+# Or use the shorter form
+tt schedule
+```
+
+**Example Output:**
+
+```
+Scheduled Tasks
+
+ID    Priority  Scheduled          Description                  Project    Tags           Estimate
+─────────────────────────────────────────────────────────────────────────────────────────────────
+1     ^1        2026-01-10 09:00   Fix production bug           backend    +urgent        1h
+2     ^2                           Implement auth feature       backend    +code          3h
+5                                  Write documentation          docs       +writing       2h
+```
+
+#### `tt schedule edit <id> [log-notation...]`
+
+Edit an existing scheduled task by ID using command-line flags or log notation.
+
+**Arguments:**
+
+- `<id>` - ID of the scheduled task to edit (required)
+- `[log-notation...]` - Optional log notation for updates
+
+**Options:**
+
+- `--description <description>` - Update description
+- `-p, --project <project>` - Update project
+- `-t, --tags <tags>` - Update tags (comma-separated)
+- `-e, --estimate <duration>` - Update estimate
+- `--priority <priority>` - Update priority (1-9)
+- `--scheduled <datetime>` - Update scheduled date/time (empty string to clear)
+
+**Examples:**
+
+```bash
+# Edit using command-line flags
+tt schedule edit 1 --priority 1 -t urgent,critical
+
+# Update using log notation
+tt schedule edit 2 "Implement OAuth @backend +code +auth ~4h ^2"
+
+# Update just the priority
+tt schedule edit 3 ^1
+
+# Clear the scheduled date
+tt schedule edit 4 --scheduled ""
+
+# Update estimate and project
+tt schedule edit 5 ~3h @newProject
+```
+
+#### `tt schedule remove <id>`
+
+Remove a scheduled task by ID.
+
+**Examples:**
+
+```bash
+# Remove a single task
+tt schedule remove 1
+
+# Remove a task that's no longer needed
+tt schedule remove 5
+```
+
+**Note:** Tasks are automatically removed from the schedule when you select them via interactive selection in `start`, `next`, `switch`, or `interrupt` commands.
 
 ### `tt status`
 
