@@ -876,14 +876,15 @@ describe('next command', () => {
       }
     });
 
-    it('should stop active session before starting from template', () => {
+    it('should stop active session before starting from template', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        // Create an active session
+        // Create an active session (1 hour ago to avoid timing issues)
+        const activeStartTime = new Date(Date.now() - 3600000); // 1 hour ago
         const activeId = db.insertSession({
-          startTime: new Date(),
+          startTime: activeStartTime,
           description: 'Active task',
           state: 'working',
         });
@@ -900,7 +901,7 @@ describe('next command', () => {
         });
 
         // Use next with template ID
-        nextCommand([templateId.toString()], {});
+        await nextCommand([templateId.toString()], {});
         reopenDb();
 
         // Check that active session was stopped

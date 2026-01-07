@@ -6,6 +6,8 @@ import { LogParser } from '../../parser/grammar';
 import { logger } from '../../utils/logger';
 import { validateStartTime } from '../../utils/session-validator';
 import * as theme from '../../utils/theme';
+import { promptScheduledTaskSelection } from './schedule-select';
+import { ScheduledTask } from '../../types/session';
 
 interface StartOptions {
   project?: string;
@@ -17,7 +19,7 @@ interface StartOptions {
 /**
  * tt start command implementation
  */
-export function startCommand(descriptionArgs: string | string[] | undefined, options: StartOptions): void {
+export async function startCommand(descriptionArgs: string | string[] | undefined, options: StartOptions): Promise<void> {
   try {
     ensureDataDir();
     const db = new TimeTrackerDB(getDatabasePath());
@@ -46,7 +48,7 @@ export function startCommand(descriptionArgs: string | string[] | undefined, opt
       }
 
       // Otherwise, proceed with normal start logic
-      startWithDescription(db, descriptionArgs, options);
+      await startWithDescription(db, descriptionArgs, options);
     } finally {
       db.close();
     }
@@ -142,12 +144,103 @@ function startFromSessionTemplate(db: TimeTrackerDB, sessionId: number, options:
 }
 
 /**
+ * Start a new session based on a scheduled task
+ */
+function startFromScheduledTask(db: TimeTrackerDB, task: ScheduledTask & { tags: string[] }, options: StartOptions): void {
+  // Use scheduled task metadata, but allow options to override
+  const description = task.description;
+  const project = options.project || task.project;
+  const tags = options.tags
+    ? options.tags.split(',').map((t) => t.trim())
+    : task.tags;
+
+  let estimateMinutes: number | undefined;
+  if (options.estimate) {
+    try {
+      estimateMinutes = parseDuration(options.estimate);
+    } catch (error) {
+      console.error(chalk.red(`Error: Invalid estimate format: ${options.estimate}`));
+      process.exit(1);
+    }
+  } else {
+    estimateMinutes = task.estimateMinutes;
+  }
+
+  // Validate and get start time
+  let actualStartTime: Date;
+  if (options.at) {
+    actualStartTime = validateStartTime(options.at, db);
+  } else {
+    // Check if already tracking something
+    const activeSession = db.getActiveSession();
+    if (activeSession) {
+      console.error(
+        chalk.red(
+          `Error: Already tracking "${activeSession.description}". Stop it first with: tt stop`
+        )
+      );
+      process.exit(1);
+    }
+    actualStartTime = new Date();
+  }
+
+  // Create the new session
+  const newSessionId = db.insertSession({
+    startTime: actualStartTime,
+    description,
+    project,
+    estimateMinutes,
+    state: 'working',
+  });
+
+  // Add tags
+  if (tags.length > 0) {
+    db.insertSessionTags(newSessionId, tags);
+  }
+
+  // Display confirmation
+  console.log(chalk.bold(chalk.green('✓')) + chalk.green(` Started tracking: ${chalk.bold(description)}`));
+  console.log(chalk.gray(`  Task ID: ${newSessionId}`));
+  console.log(chalk.gray(`  From scheduled task`));
+
+  if (project) {
+    console.log(chalk.gray(`  Project: ${theme.formatProject(project)}`));
+  }
+
+  if (tags.length > 0) {
+    console.log(chalk.gray(`  Tags: ${theme.formatTags(tags)}`));
+  }
+
+  if (estimateMinutes) {
+    console.log(chalk.gray(`  Estimate: ${theme.formatEstimate(estimateMinutes)}`));
+  }
+
+  if (options.at) {
+    console.log(chalk.gray(`  Start time: ${actualStartTime.toLocaleString()}`));
+  }
+}
+
+/**
  * Start a new session with description from arguments
  */
-function startWithDescription(db: TimeTrackerDB, descriptionArgs: string | string[] | undefined, options: StartOptions): void {
-  if (!descriptionArgs) {
-    console.error(chalk.red('Error: Description or session ID required'));
-    process.exit(1);
+async function startWithDescription(db: TimeTrackerDB, descriptionArgs: string | string[] | undefined, options: StartOptions): Promise<void> {
+  if (descriptionArgs === undefined) {
+    // Try interactive selection from scheduled tasks
+    const selectedTask = await promptScheduledTaskSelection(db);
+
+    if (!selectedTask) {
+      // User cancelled or no tasks - show existing error
+      console.error(chalk.red('Error: Description or session ID required'));
+      process.exit(1);
+      return;
+    }
+
+    // Remove task from schedule
+    db.deleteScheduledTask(selectedTask.id!);
+
+    // Use task as template
+    startFromScheduledTask(db, selectedTask, options);
+    return;
   }
 
   // Join description arguments

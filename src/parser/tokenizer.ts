@@ -16,6 +16,7 @@ export enum TokenType {
   PAUSE_MARKER = 'PAUSE_MARKER',
   ABANDON_MARKER = 'ABANDON_MARKER',
   STATE_SUFFIX = 'STATE_SUFFIX',
+  PRIORITY = 'PRIORITY',
 }
 
 /**
@@ -156,7 +157,7 @@ export function tokenizeLine(line: string, lineNumber: number): TokenizedLine | 
 
   // 3. Extract description (everything before special markers)
   // This happens after checking for special markers, so it works with @resume too
-  if (remaining.length > 0 && !remaining.match(/^[@+~(#-]/)) {
+  if (remaining.length > 0 && !remaining.match(/^[@+~(^#-]/)) {
     let description = '';
     let descPosition = position;
 
@@ -167,6 +168,7 @@ export function tokenizeLine(line: string, lineNumber: number): TokenizedLine | 
         remaining.match(/^\+[a-zA-Z0-9_-]+/) || // tag
         remaining.match(/^~\d/) || // estimate
         remaining.match(/^\(\d/) || // explicit duration
+        remaining.match(/^\^[1-9]/) || // priority
         remaining.startsWith('->') || // state suffix
         remaining.match(/^#\s/) // remark (must have space)
       ) {
@@ -185,6 +187,9 @@ export function tokenizeLine(line: string, lineNumber: number): TokenizedLine | 
       }
       if (remaining[0] === '(') {
         throw new ParseError('Invalid explicit duration format', lineNumber);
+      }
+      if (remaining[0] === '^') {
+        throw new ParseError('Invalid priority format (must be ^1 to ^9)', lineNumber);
       }
 
       // Check for invalid # without space (error)
@@ -274,6 +279,21 @@ export function tokenizeLine(line: string, lineNumber: number): TokenizedLine | 
 
       position += durationMatch[0].length;
       remaining = remaining.slice(durationMatch[0].length).trim();
+    } else if (char === '^') {
+      // Priority
+      const priorityMatch = remaining.match(/^\^([1-9])/);
+      if (!priorityMatch) {
+        throw new ParseError('Invalid priority format (must be ^1 to ^9)', lineNumber);
+      }
+
+      tokens.push({
+        type: TokenType.PRIORITY,
+        value: priorityMatch[1],
+        position,
+      });
+
+      position += priorityMatch[0].length;
+      remaining = remaining.slice(priorityMatch[0].length).trim();
     } else if (remaining.startsWith('->')) {
       // State suffix (->paused, ->completed, ->abandoned)
       const stateSuffixMatch = remaining.match(/^->(paused|completed|abandoned)(?:\s|$)/);

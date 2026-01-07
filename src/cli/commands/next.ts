@@ -5,6 +5,9 @@ import { parseDuration } from '../../parser/duration';
 import { LogParser } from '../../parser/grammar';
 import { logger } from '../../utils/logger';
 import { validateStartTime, validateStopTime } from '../../utils/session-validator';
+import { promptScheduledTaskSelection } from './schedule-select';
+import { ScheduledTask } from '../../types/session';
+import * as theme from '../../utils/theme';
 
 interface NextOptions {
   project?: string;
@@ -17,7 +20,7 @@ interface NextOptions {
  * tt next command implementation
  * Stops the current task (if any) and starts a new one
  */
-export function nextCommand(descriptionArgs: string | string[] | undefined, options: NextOptions): void {
+export async function nextCommand(descriptionArgs: string | string[] | undefined, options: NextOptions): Promise<void> {
   try {
     ensureDataDir();
     const db = new TimeTrackerDB(getDatabasePath());
@@ -61,7 +64,7 @@ export function nextCommand(descriptionArgs: string | string[] | undefined, opti
       }
 
       // Step 3: Start the new session with description (reuse logic from start.ts)
-      nextWithDescription(db, descriptionArgs, options);
+      await nextWithDescription(db, descriptionArgs, options);
     } finally {
       db.close();
     }
@@ -150,12 +153,88 @@ function nextFromSessionTemplate(db: TimeTrackerDB, sessionId: number, options: 
 }
 
 /**
+ * Start next session based on a scheduled task
+ */
+function nextFromScheduledTask(db: TimeTrackerDB, task: ScheduledTask & { tags: string[] }, options: NextOptions): void {
+  // Use scheduled task metadata, but allow options to override
+  const description = task.description;
+  const project = options.project || task.project;
+  const tags = options.tags
+    ? options.tags.split(',').map((t) => t.trim())
+    : task.tags;
+
+  let estimateMinutes: number | undefined;
+  if (options.estimate) {
+    try {
+      estimateMinutes = parseDuration(options.estimate);
+    } catch (error) {
+      console.error(chalk.red(`Error: Invalid estimate format: ${options.estimate}`));
+      process.exit(1);
+    }
+  } else {
+    estimateMinutes = task.estimateMinutes;
+  }
+
+  // Validate and get start time
+  const actualStartTime = validateStartTime(options.at, db);
+
+  // Create the new session
+  const newSessionId = db.insertSession({
+    startTime: actualStartTime,
+    description,
+    project,
+    estimateMinutes,
+    state: 'working',
+  });
+
+  // Add tags
+  if (tags.length > 0) {
+    db.insertSessionTags(newSessionId, tags);
+  }
+
+  // Display confirmation
+  console.log(chalk.bold(chalk.green('✓')) + chalk.green(` Started tracking: ${chalk.bold(description)}`));
+  console.log(chalk.gray(`  Task ID: ${newSessionId}`));
+  console.log(chalk.gray(`  From scheduled task`));
+
+  if (project) {
+    console.log(chalk.gray(`  Project: ${theme.formatProject(project)}`));
+  }
+
+  if (tags.length > 0) {
+    console.log(chalk.gray(`  Tags: ${theme.formatTags(tags)}`));
+  }
+
+  if (estimateMinutes) {
+    console.log(chalk.gray(`  Estimate: ${theme.formatEstimate(estimateMinutes)}`));
+  }
+
+  if (options.at) {
+    console.log(chalk.gray(`  Start time: ${actualStartTime.toLocaleString()}`));
+  }
+}
+
+/**
  * Start next session with description from arguments
  */
-function nextWithDescription(db: TimeTrackerDB, descriptionArgs: string | string[] | undefined, options: NextOptions): void {
-  if (!descriptionArgs) {
-    console.error(chalk.red('Error: Description or session ID required'));
-    process.exit(1);
+async function nextWithDescription(db: TimeTrackerDB, descriptionArgs: string | string[] | undefined, options: NextOptions): Promise<void> {
+  if (descriptionArgs === undefined) {
+    // Try interactive selection from scheduled tasks
+    const selectedTask = await promptScheduledTaskSelection(db);
+
+    if (!selectedTask) {
+      // User cancelled or no tasks - show existing error
+      console.error(chalk.red('Error: Description or session ID required'));
+      process.exit(1);
+      return;
+    }
+
+    // Remove task from schedule
+    db.deleteScheduledTask(selectedTask.id!);
+
+    // Use task as template
+    nextFromScheduledTask(db, selectedTask, options);
+    return;
   }
 
   const fullInput = Array.isArray(descriptionArgs)

@@ -615,7 +615,7 @@ describe('start command', () => {
       }
     });
 
-    it('should prevent overlapping sessions', () => {
+    it('should prevent overlapping sessions', async () => {
       const originalLog = console.log;
       const originalError = console.error;
       console.log = jest.fn();
@@ -623,11 +623,11 @@ describe('start command', () => {
 
       try {
         // Start first session 2 hours ago
-        startCommand('Task 1', { at: '-2h' });
+        await startCommand('Task 1', { at: '-2h' });
         reopenDb();
 
         // Try to start second session 1 hour ago (should fail with overlap since first session is still active)
-        startCommand('Task 2', { at: '-1h' });
+        await startCommand('Task 2', { at: '-1h' });
 
         expect(mockExit).toHaveBeenCalledWith(1);
         expect(console.error).toHaveBeenCalledWith(

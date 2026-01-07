@@ -19,6 +19,7 @@ import { deleteCommand } from './cli/commands/delete';
 import { editCommand } from './cli/commands/edit';
 import { configCommand } from './cli/commands/config';
 import { incompleteCommand } from './cli/commands/incomplete';
+import { scheduleCommand } from './cli/commands/schedule';
 import { logger } from './utils/logger';
 
 const program = new Command();
@@ -231,5 +232,18 @@ program
   .argument('[subcommand]', 'Subcommand: get, set, edit, path')
   .argument('[args...]', 'Arguments for subcommand')
   .action(configCommand);
+
+// Schedule command
+program
+  .command('schedule [subcommand] [args...]')
+  .description('Manage scheduled tasks')
+  .option('-p, --project <project>', 'Project name')
+  .option('-t, --tags <tags>', 'Comma-separated tags')
+  .option('-e, --estimate <duration>', 'Estimated duration')
+  .option('--priority <priority>', 'Priority 1-9')
+  .option('--scheduled <datetime>', 'Scheduled date/time')
+  .action((subcommand, args, options) => {
+    scheduleCommand(subcommand, args || [], options);
+  });
 
 program.parse();

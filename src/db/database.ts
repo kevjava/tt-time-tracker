@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { Session, SessionState } from '../types/session';
+import { Session, SessionState, ScheduledTask } from '../types/session';
 import { DatabaseError } from '../types/errors';
 
 /**
@@ -795,6 +795,266 @@ export class TimeTrackerDB {
       continuesSessionId: row.continues_session_id || undefined,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
+      tags,
+    };
+  }
+
+  /**
+   * Insert a new scheduled task
+   */
+  insertScheduledTask(task: Omit<ScheduledTask, 'id' | 'createdAt'>): number {
+    try {
+      const stmt = this.db.prepare(`
+        INSERT INTO scheduled_tasks (
+          description, project, estimate_minutes, priority, scheduled_date_time
+        ) VALUES (?, ?, ?, ?, ?)
+      `);
+
+      const result = stmt.run(
+        task.description,
+        task.project || null,
+        task.estimateMinutes || null,
+        task.priority,
+        task.scheduledDateTime?.toISOString() || null
+      );
+
+      return result.lastInsertRowid as number;
+    } catch (error) {
+      throw new DatabaseError(`Failed to insert scheduled task: ${error}`);
+    }
+  }
+
+  /**
+   * Insert tags for a scheduled task
+   */
+  insertScheduledTaskTags(taskId: number, tags: string[]): void {
+    if (tags.length === 0) return;
+
+    const uniqueTags = [...new Set(tags)];
+
+    try {
+      const stmt = this.db.prepare(`
+        INSERT INTO scheduled_task_tags (scheduled_task_id, tag)
+        VALUES (?, ?)
+      `);
+
+      const insertMany = this.db.transaction((taskId: number, tags: string[]) => {
+        for (const tag of tags) {
+          stmt.run(taskId, tag);
+        }
+      });
+
+      insertMany(taskId, uniqueTags);
+    } catch (error) {
+      throw new DatabaseError(`Failed to insert scheduled task tags: ${error}`);
+    }
+  }
+
+  /**
+   * Get all scheduled tasks with their tags
+   */
+  getAllScheduledTasks(): (ScheduledTask & { tags: string[] })[] {
+    try {
+      const stmt = this.db.prepare(`
+        SELECT * FROM scheduled_tasks
+        ORDER BY created_at ASC
+      `);
+
+      const rows = stmt.all() as any[];
+      return rows.map((row) => {
+        const tags = this.getScheduledTaskTags(row.id);
+        return this.rowToScheduledTask(row, tags);
+      });
+    } catch (error) {
+      throw new DatabaseError(`Failed to get scheduled tasks: ${error}`);
+    }
+  }
+
+  /**
+   * Get scheduled task by ID
+   */
+  getScheduledTaskById(id: number): (ScheduledTask & { tags: string[] }) | null {
+    try {
+      const stmt = this.db.prepare(`
+        SELECT * FROM scheduled_tasks WHERE id = ?
+      `);
+
+      const row = stmt.get(id) as any;
+      if (!row) return null;
+
+      const tags = this.getScheduledTaskTags(id);
+      return this.rowToScheduledTask(row, tags);
+    } catch (error) {
+      throw new DatabaseError(`Failed to get scheduled task: ${error}`);
+    }
+  }
+
+  /**
+   * Get tags for a scheduled task
+   */
+  getScheduledTaskTags(taskId: number): string[] {
+    try {
+      const stmt = this.db.prepare(`
+        SELECT tag FROM scheduled_task_tags WHERE scheduled_task_id = ?
+      `);
+
+      const rows = stmt.all(taskId) as any[];
+      return rows.map((row) => row.tag);
+    } catch (error) {
+      throw new DatabaseError(`Failed to get scheduled task tags: ${error}`);
+    }
+  }
+
+  /**
+   * Update a scheduled task
+   */
+  updateScheduledTask(id: number, updates: Partial<Omit<ScheduledTask, 'id' | 'createdAt'>>): void {
+    const fields: string[] = [];
+    const values: any[] = [];
+
+    if (updates.description !== undefined) {
+      fields.push('description = ?');
+      values.push(updates.description);
+    }
+    if (updates.project !== undefined) {
+      fields.push('project = ?');
+      values.push(updates.project || null);
+    }
+    if (updates.estimateMinutes !== undefined) {
+      fields.push('estimate_minutes = ?');
+      values.push(updates.estimateMinutes || null);
+    }
+    if (updates.priority !== undefined) {
+      fields.push('priority = ?');
+      values.push(updates.priority);
+    }
+    if (updates.scheduledDateTime !== undefined) {
+      fields.push('scheduled_date_time = ?');
+      values.push(updates.scheduledDateTime?.toISOString() || null);
+    }
+
+    if (fields.length === 0) return;
+
+    try {
+      const stmt = this.db.prepare(`
+        UPDATE scheduled_tasks
+        SET ${fields.join(', ')}
+        WHERE id = ?
+      `);
+
+      stmt.run(...values, id);
+    } catch (error) {
+      throw new DatabaseError(`Failed to update scheduled task: ${error}`);
+    }
+  }
+
+  /**
+   * Update tags for a scheduled task (replaces all existing tags)
+   */
+  updateScheduledTaskTags(taskId: number, tags: string[]): void {
+    try {
+      const updateTags = this.db.transaction((taskId: number, tags: string[]) => {
+        const deleteStmt = this.db.prepare('DELETE FROM scheduled_task_tags WHERE scheduled_task_id = ?');
+        deleteStmt.run(taskId);
+
+        if (tags.length > 0) {
+          const insertStmt = this.db.prepare(`
+            INSERT INTO scheduled_task_tags (scheduled_task_id, tag)
+            VALUES (?, ?)
+          `);
+
+          for (const tag of tags) {
+            insertStmt.run(taskId, tag);
+          }
+        }
+      });
+
+      updateTags(taskId, tags);
+    } catch (error) {
+      throw new DatabaseError(`Failed to update scheduled task tags: ${error}`);
+    }
+  }
+
+  /**
+   * Delete a scheduled task
+   */
+  deleteScheduledTask(id: number): void {
+    try {
+      const stmt = this.db.prepare('DELETE FROM scheduled_tasks WHERE id = ?');
+      stmt.run(id);
+    } catch (error) {
+      throw new DatabaseError(`Failed to delete scheduled task: ${error}`);
+    }
+  }
+
+  /**
+   * Get scheduled tasks for interactive selection, organized by category
+   */
+  getScheduledTasksForSelection(): {
+    oldest: (ScheduledTask & { tags: string[] })[];
+    important: (ScheduledTask & { tags: string[] })[];
+    urgent: (ScheduledTask & { tags: string[] })[];
+  } {
+    try {
+      // Oldest: All tasks by creation date ascending (limit 10)
+      const oldestStmt = this.db.prepare(`
+        SELECT * FROM scheduled_tasks
+        ORDER BY created_at ASC
+        LIMIT 10
+      `);
+      const oldestRows = oldestStmt.all() as any[];
+      const oldest = oldestRows.map(row => {
+        const tags = this.getScheduledTaskTags(row.id);
+        return this.rowToScheduledTask(row, tags);
+      });
+
+      // Important: Tasks with priority set (not 5), ordered by priority asc then created date (limit 10)
+      const importantStmt = this.db.prepare(`
+        SELECT * FROM scheduled_tasks
+        WHERE priority != 5
+        ORDER BY priority ASC, created_at ASC
+        LIMIT 10
+      `);
+      const importantRows = importantStmt.all() as any[];
+      const important = importantRows.map(row => {
+        const tags = this.getScheduledTaskTags(row.id);
+        return this.rowToScheduledTask(row, tags);
+      });
+
+      // Urgent: Tasks with scheduled date today or overdue, ordered by date ascending (limit 10)
+      const now = new Date();
+      const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      const urgentStmt = this.db.prepare(`
+        SELECT * FROM scheduled_tasks
+        WHERE scheduled_date_time IS NOT NULL
+          AND datetime(scheduled_date_time) <= datetime(?)
+        ORDER BY scheduled_date_time ASC
+        LIMIT 10
+      `);
+      const urgentRows = urgentStmt.all(endOfToday.toISOString()) as any[];
+      const urgent = urgentRows.map(row => {
+        const tags = this.getScheduledTaskTags(row.id);
+        return this.rowToScheduledTask(row, tags);
+      });
+
+      return { oldest, important, urgent };
+    } catch (error) {
+      throw new DatabaseError(`Failed to get scheduled tasks for selection: ${error}`);
+    }
+  }
+
+  /**
+   * Convert database row to ScheduledTask object
+   */
+  private rowToScheduledTask(row: any, tags: string[]): ScheduledTask & { tags: string[] } {
+    return {
+      id: row.id,
+      description: row.description,
+      project: row.project || undefined,
+      estimateMinutes: row.estimate_minutes || undefined,
+      priority: row.priority,
+      scheduledDateTime: row.scheduled_date_time ? new Date(row.scheduled_date_time) : undefined,
+      createdAt: new Date(row.created_at),
       tags,
     };
   }

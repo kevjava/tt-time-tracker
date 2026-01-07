@@ -6,6 +6,8 @@ import { LogParser } from '../../parser/grammar';
 import { logger } from '../../utils/logger';
 import { validateInterruptTime } from '../../utils/session-validator';
 import * as theme from '../../utils/theme';
+import { promptScheduledTaskSelection } from './schedule-select';
+import { ScheduledTask } from '../../types/session';
 
 interface InterruptOptions {
   project?: string;
@@ -17,7 +19,7 @@ interface InterruptOptions {
 /**
  * tt interrupt command implementation
  */
-export function interruptCommand(descriptionArgs: string | string[], options: InterruptOptions): void {
+export async function interruptCommand(descriptionArgs: string | string[] | undefined, options: InterruptOptions): Promise<void> {
   try {
     ensureDataDir();
     const db = new TimeTrackerDB(getDatabasePath());
@@ -46,7 +48,7 @@ export function interruptCommand(descriptionArgs: string | string[], options: In
       }
 
       // Otherwise, proceed with normal interrupt logic
-      interruptWithDescription(db, descriptionArgs, options);
+      await interruptWithDescription(db, descriptionArgs, options);
     } finally {
       db.close();
     }
@@ -149,9 +151,109 @@ function interruptFromSessionTemplate(db: TimeTrackerDB, sessionId: number, opti
 }
 
 /**
+ * Interrupt with a new session based on a scheduled task
+ */
+function interruptFromScheduledTask(db: TimeTrackerDB, task: ScheduledTask & { tags: string[] }, options: InterruptOptions): void {
+  // Get the active session
+  const activeSession = db.getActiveSession();
+
+  if (!activeSession) {
+    console.error(chalk.red('Error: No active session to interrupt'));
+    process.exit(1);
+  }
+
+  // Use scheduled task metadata, but allow options to override
+  const description = task.description;
+  const project = options.project || task.project;
+  const tags = options.tags
+    ? options.tags.split(',').map((t) => t.trim())
+    : task.tags;
+
+  let estimateMinutes: number | undefined;
+  if (options.estimate) {
+    try {
+      estimateMinutes = parseDuration(options.estimate);
+    } catch (error) {
+      console.error(chalk.red(`Error: Invalid estimate format: ${options.estimate}`));
+      process.exit(1);
+    }
+  } else {
+    estimateMinutes = task.estimateMinutes;
+  }
+
+  // Validate and get interrupt time
+  const actualStartTime = validateInterruptTime(options.at, activeSession, db);
+
+  // Pause the parent session
+  db.updateSession(activeSession.id!, {
+    endTime: actualStartTime,
+    state: 'paused',
+  });
+
+  logger.debug(`Paused parent task: ${activeSession.description}`);
+
+  // Create the interruption session
+  const newSessionId = db.insertSession({
+    startTime: actualStartTime,
+    description,
+    project,
+    estimateMinutes,
+    state: 'working',
+    parentSessionId: activeSession.id,
+  });
+
+  // Add tags
+  if (tags.length > 0) {
+    db.insertSessionTags(newSessionId, tags);
+  }
+
+  // Display confirmation
+  console.log(chalk.bold(chalk.green('✓')) + chalk.green(` Started interruption: ${chalk.bold(description)}`));
+  console.log(chalk.gray(`  Task ID: ${newSessionId}`));
+  console.log(chalk.gray(`  From scheduled task`));
+  console.log(chalk.gray(`  Interrupting: ${activeSession.description}`));
+
+  if (project) {
+    console.log(chalk.gray(`  Project: ${theme.formatProject(project)}`));
+  }
+
+  if (tags.length > 0) {
+    console.log(chalk.gray(`  Tags: ${theme.formatTags(tags)}`));
+  }
+
+  if (estimateMinutes) {
+    console.log(chalk.gray(`  Estimate: ${theme.formatEstimate(estimateMinutes)}`));
+  }
+
+  if (options.at) {
+    console.log(chalk.gray(`  Start time: ${actualStartTime.toLocaleString()}`));
+  }
+}
+
+/**
  * Interrupt with description from arguments
  */
-function interruptWithDescription(db: TimeTrackerDB, descriptionArgs: string | string[], options: InterruptOptions): void {
+async function interruptWithDescription(db: TimeTrackerDB, descriptionArgs: string | string[] | undefined, options: InterruptOptions): Promise<void> {
+  // Handle interactive selection if no arguments
+  if (descriptionArgs === undefined) {
+    // Try interactive selection from scheduled tasks
+    const selectedTask = await promptScheduledTaskSelection(db);
+
+    if (!selectedTask) {
+      // User cancelled or no tasks - show existing error
+      console.error(chalk.red('Error: Description or session ID required'));
+      process.exit(1);
+      return;
+    }
+
+    // Remove task from schedule
+    db.deleteScheduledTask(selectedTask.id!);
+
+    // Use task as template
+    interruptFromScheduledTask(db, selectedTask, options);
+    return;
+  }
+
   // Join description arguments
   const fullInput = Array.isArray(descriptionArgs)
     ? descriptionArgs.join(' ')

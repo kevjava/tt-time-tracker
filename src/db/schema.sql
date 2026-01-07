@@ -37,3 +37,28 @@ CREATE INDEX IF NOT EXISTS idx_sessions_parent ON sessions(parent_session_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_continues ON sessions(continues_session_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_time_range ON sessions(start_time, end_time, project);
 CREATE INDEX IF NOT EXISTS idx_session_tags_tag ON session_tags(tag);
+
+-- Scheduled Tasks (future tasks that can be used as templates)
+CREATE TABLE IF NOT EXISTS scheduled_tasks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  description TEXT NOT NULL,
+  project TEXT,
+  estimate_minutes INTEGER,
+  priority INTEGER DEFAULT 5,
+  scheduled_date_time DATETIME,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  CHECK (priority >= 1 AND priority <= 9)
+);
+
+CREATE TABLE IF NOT EXISTS scheduled_task_tags (
+  scheduled_task_id INTEGER NOT NULL,
+  tag TEXT NOT NULL,
+  PRIMARY KEY (scheduled_task_id, tag),
+  FOREIGN KEY (scheduled_task_id) REFERENCES scheduled_tasks(id) ON DELETE CASCADE
+);
+
+-- Indexes for scheduled tasks
+CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_priority ON scheduled_tasks(priority ASC);
+CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_scheduled_date ON scheduled_tasks(scheduled_date_time ASC);
+CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_created_at ON scheduled_tasks(created_at ASC);

@@ -292,6 +292,16 @@ export class LogParser {
       }
     }
 
+    // Extract and parse priority
+    const priorityToken = this.findToken(tokens, TokenType.PRIORITY);
+    let priority: number | undefined;
+    if (priorityToken) {
+      priority = parseInt(priorityToken.value, 10);
+      if (priority < 1 || priority > 9) {
+        throw new ParseError(`Priority must be 1-9: "${priorityToken.value}"`, lineNumber);
+      }
+    }
+
     // Extract remark
     const remarkToken = this.findToken(tokens, TokenType.REMARK);
     const remark = remarkToken?.value;
@@ -303,6 +313,7 @@ export class LogParser {
       tags,
       estimateMinutes,
       explicitDurationMinutes,
+      priority,
       remark,
       indentLevel,
       lineNumber,

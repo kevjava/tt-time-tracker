@@ -31,6 +31,19 @@ export interface SessionTag {
 }
 
 /**
+ * Represents a scheduled task that can be used as a template
+ */
+export interface ScheduledTask {
+  id?: number;
+  description: string;
+  project?: string;
+  estimateMinutes?: number;
+  priority: number; // 1-9, default 5
+  scheduledDateTime?: Date;
+  createdAt?: Date;
+}
+
+/**
  * Parsed log entry before DB insertion
  */
 export interface LogEntry {
@@ -40,6 +53,7 @@ export interface LogEntry {
   tags: string[];
   estimateMinutes?: number;
   explicitDurationMinutes?: number;
+  priority?: number;
   remark?: string;
   indentLevel: number;
   lineNumber: number;
