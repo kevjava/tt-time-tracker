@@ -248,11 +248,11 @@ async function interruptWithDescription(db: TimeTrackerDB, descriptionArgs: stri
       return;
     }
 
-    // Remove task from schedule
-    db.deleteScheduledTask(selectedTask.id!);
-
     // Use task as template
     interruptFromScheduledTask(db, selectedTask, options);
+
+    // Remove task from schedule only after successful session creation
+    db.deleteScheduledTask(selectedTask.id!);
     return;
   }
 
