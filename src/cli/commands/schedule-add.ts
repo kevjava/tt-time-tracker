@@ -86,7 +86,12 @@ export function scheduleAddCommand(descriptionArgs: string[], options: ScheduleA
 
       // Command-line options override log notation
       if (options.estimate) {
-        estimateMinutes = parseDuration(options.estimate);
+        try {
+          estimateMinutes = parseDuration(options.estimate);
+        } catch (error) {
+          console.error(chalk.red(`Error: Invalid estimate format: ${options.estimate}`));
+          process.exit(1);
+        }
       }
 
       if (options.priority) {

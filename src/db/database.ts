@@ -912,23 +912,23 @@ export class TimeTrackerDB {
     const fields: string[] = [];
     const values: any[] = [];
 
-    if (updates.description !== undefined) {
+    if ('description' in updates) {
       fields.push('description = ?');
       values.push(updates.description);
     }
-    if (updates.project !== undefined) {
+    if ('project' in updates) {
       fields.push('project = ?');
       values.push(updates.project || null);
     }
-    if (updates.estimateMinutes !== undefined) {
+    if ('estimateMinutes' in updates) {
       fields.push('estimate_minutes = ?');
       values.push(updates.estimateMinutes || null);
     }
-    if (updates.priority !== undefined) {
+    if ('priority' in updates) {
       fields.push('priority = ?');
       values.push(updates.priority);
     }
-    if (updates.scheduledDateTime !== undefined) {
+    if ('scheduledDateTime' in updates) {
       fields.push('scheduled_date_time = ?');
       values.push(updates.scheduledDateTime?.toISOString() || null);
     }
