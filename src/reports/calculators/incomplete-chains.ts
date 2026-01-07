@@ -3,20 +3,22 @@ import { getSessionDuration } from '../../utils/duration';
 
 /**
  * Calculate incomplete continuation chains
- * Returns chains that have at least one paused or working session
+ * Returns chains where the last (most recent) session is not completed or abandoned
  */
 export function calculateIncompleteChains(sessions: SessionWithTags[]): IncompleteChain[] {
   const chains = groupSessionsByChain(sessions);
   const incompleteChains: IncompleteChain[] = [];
 
   for (const chain of chains) {
-    // Check if chain has any incomplete sessions
-    const incompleteSessions = chain.filter(
-      (s) => s.state === 'paused' || s.state === 'working'
-    );
-
-    if (incompleteSessions.length > 0) {
+    // Check if the last session in the chain is incomplete
+    const lastSession = chain[chain.length - 1];
+    if (lastSession.state !== 'completed' && lastSession.state !== 'abandoned') {
       const rootSession = chain[0];
+
+      // Get all incomplete sessions (for display purposes)
+      const incompleteSessions = chain.filter(
+        (s) => s.state === 'paused' || s.state === 'working'
+      );
 
       // Calculate total time (only completed sessions)
       const totalMinutes = chain.reduce((sum, s) => {

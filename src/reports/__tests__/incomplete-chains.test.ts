@@ -266,4 +266,67 @@ describe('calculateIncompleteChains', () => {
     expect(result[0].totalMinutes).toBe(120);
     expect(result[0].incompleteSessions).toHaveLength(2); // Sessions 2 and 3
   });
+
+  it('should not include chains where last session is completed', () => {
+    const sessions: SessionWithTags[] = [
+      {
+        id: 1,
+        startTime: new Date('2025-01-15T08:00:00'),
+        endTime: new Date('2025-01-15T09:00:00'),
+        description: 'Task',
+        state: 'paused',
+        tags: ['code'],
+      },
+      {
+        id: 2,
+        startTime: new Date('2025-01-15T10:00:00'),
+        endTime: new Date('2025-01-15T11:00:00'),
+        description: 'Task',
+        state: 'paused',
+        continuesSessionId: 1,
+        tags: ['code'],
+      },
+      {
+        id: 3,
+        startTime: new Date('2025-01-15T12:00:00'),
+        endTime: new Date('2025-01-15T13:00:00'),
+        description: 'Task',
+        state: 'completed',
+        continuesSessionId: 1,
+        tags: ['code'],
+      },
+    ];
+
+    const result = calculateIncompleteChains(sessions);
+
+    // Chain should not be included because last session is completed
+    expect(result).toHaveLength(0);
+  });
+
+  it('should not include chains where last session is abandoned', () => {
+    const sessions: SessionWithTags[] = [
+      {
+        id: 1,
+        startTime: new Date('2025-01-15T08:00:00'),
+        endTime: new Date('2025-01-15T09:00:00'),
+        description: 'Task',
+        state: 'paused',
+        tags: ['code'],
+      },
+      {
+        id: 2,
+        startTime: new Date('2025-01-15T10:00:00'),
+        endTime: new Date('2025-01-15T11:00:00'),
+        description: 'Task',
+        state: 'abandoned',
+        continuesSessionId: 1,
+        tags: ['code'],
+      },
+    ];
+
+    const result = calculateIncompleteChains(sessions);
+
+    // Chain should not be included because last session is abandoned
+    expect(result).toHaveLength(0);
+  });
 });
