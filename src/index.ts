@@ -102,6 +102,7 @@ program
 // Find command
 program
   .command('find')
+  .alias('search')
   .description('Search sessions by description, project, and tags')
   .argument('<query>', 'Search query (supports @project +tag syntax)')
   .option('--from <date>', 'Start date (fuzzy date or YYYY-MM-DD)')
@@ -198,6 +199,7 @@ program
 // Delete command
 program
   .command('delete')
+  .aliases(['rm', 'remove'])
   .description('Delete one or more sessions')
   .argument('[session-ids...]', 'Session IDs to delete (can specify multiple)')
   .option('-y, --yes', 'Skip confirmation prompt')
