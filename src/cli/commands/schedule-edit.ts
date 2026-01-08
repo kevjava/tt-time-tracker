@@ -11,6 +11,7 @@ interface ScheduleEditOptions {
   tags?: string;
   estimate?: string;
   priority?: string;
+  startTime?: string;
   scheduled?: string;
 }
 
@@ -175,15 +176,16 @@ export function scheduleEditCommand(
         updates.priority = logNotationData.priority;
       }
 
-      // Scheduled date/time
-      if (options.scheduled !== undefined) {
-        if (options.scheduled === '') {
+      // Scheduled date/time (support both --start-time and --scheduled for backward compatibility)
+      const scheduledValue = options.startTime !== undefined ? options.startTime : options.scheduled;
+      if (scheduledValue !== undefined) {
+        if (scheduledValue === '') {
           // Empty string means clear the scheduled date
           updates.scheduledDateTime = undefined;
         } else {
-          const newScheduled = new Date(options.scheduled);
+          const newScheduled = new Date(scheduledValue);
           if (isNaN(newScheduled.getTime())) {
-            console.error(chalk.red(`Error: Invalid scheduled date: ${options.scheduled}`));
+            console.error(chalk.red(`Error: Invalid scheduled date: ${scheduledValue}`));
             process.exit(1);
           }
           updates.scheduledDateTime = newScheduled;

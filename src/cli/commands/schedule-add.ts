@@ -11,6 +11,7 @@ interface ScheduleAddOptions {
   tags?: string;
   estimate?: string;
   priority?: string;
+  startTime?: string;
   scheduled?: string;
 }
 
@@ -102,10 +103,12 @@ export function scheduleAddCommand(descriptionArgs: string[], options: ScheduleA
         }
       }
 
-      if (options.scheduled) {
-        scheduledDateTime = new Date(options.scheduled);
+      // Support both --start-time (new) and --scheduled (deprecated)
+      const scheduledValue = options.startTime || options.scheduled;
+      if (scheduledValue) {
+        scheduledDateTime = new Date(scheduledValue);
         if (isNaN(scheduledDateTime.getTime())) {
-          console.error(chalk.red(`Error: Invalid scheduled date: ${options.scheduled}`));
+          console.error(chalk.red(`Error: Invalid scheduled date: ${scheduledValue}`));
           process.exit(1);
         }
       }
