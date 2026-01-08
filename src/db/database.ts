@@ -166,6 +166,10 @@ export class TimeTrackerDB {
       fields.push('parent_session_id = ?');
       values.push(updates.parentSessionId || null);
     }
+    if (updates.continuesSessionId !== undefined) {
+      fields.push('continues_session_id = ?');
+      values.push(updates.continuesSessionId || null);
+    }
 
     if (fields.length === 0) {
       return; // Nothing to update

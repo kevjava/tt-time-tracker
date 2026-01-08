@@ -223,6 +223,7 @@ program
   .option('--start-time <time>', 'Update start time (ISO 8601 format)')
   .option('--end-time <time>', 'Update end time (ISO 8601 format, empty string to clear)')
   .option('--state <state>', 'Update state (working, paused, completed, abandoned)')
+  .option('--continues <session-id>', 'Set continuation session ID (empty string to clear)')
   .action(editCommand);
 
 // Config command

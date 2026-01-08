@@ -16,6 +16,7 @@ interface EditOptions {
   startTime?: string;
   endTime?: string;
   state?: string;
+  continues?: string;
 }
 
 /**
@@ -163,6 +164,7 @@ export function editCommand(
       console.log(`  Estimate: ${session.estimateMinutes ? `${session.estimateMinutes}m` : '(none)'}`);
       console.log(`  Remark: ${session.remark || '(none)'}`);
       console.log(`  State: ${session.state}`);
+      console.log(`  Continues: ${session.continuesSessionId || '(none)'}`);
       console.log(chalk.gray('─'.repeat(80)));
 
       // Prepare updates
@@ -306,6 +308,35 @@ export function editCommand(
         updates.state = options.state as SessionState;
       }
 
+      // Continues (continuation relationship)
+      if (options.continues !== undefined) {
+        if (options.continues === '') {
+          // Empty string means clear the continuation
+          updates.continuesSessionId = null;
+        } else {
+          const continuesId = parseInt(options.continues, 10);
+          if (isNaN(continuesId)) {
+            console.error(chalk.red(`Error: Invalid continuation session ID: ${options.continues}`));
+            process.exit(1);
+          }
+
+          // Validate that the continuation session exists
+          const continuesSession = db.getSessionById(continuesId);
+          if (!continuesSession) {
+            console.error(chalk.red(`Error: Continuation session ${continuesId} not found`));
+            process.exit(1);
+          }
+
+          // Prevent self-continuation
+          if (continuesId === id) {
+            console.error(chalk.red('Error: A session cannot continue itself'));
+            process.exit(1);
+          }
+
+          updates.continuesSessionId = continuesId;
+        }
+      }
+
       // Apply updates
       if (Object.keys(updates).length > 0) {
         db.updateSession(id, updates);
@@ -361,6 +392,12 @@ export function editCommand(
 
       if (options.state !== undefined) {
         console.log(`  State: ${chalk.gray(session.state)} → ${chalk.green(options.state)}`);
+      }
+
+      if (options.continues !== undefined) {
+        const oldContinues = session.continuesSessionId ? `${session.continuesSessionId}` : '(none)';
+        const newContinues = updates.continuesSessionId ? `${updates.continuesSessionId}` : '(none)';
+        console.log(`  Continues: ${chalk.gray(oldContinues)} → ${chalk.green(newContinues)}`);
       }
 
       console.log();

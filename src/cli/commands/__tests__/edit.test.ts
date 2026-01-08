@@ -380,6 +380,94 @@ describe('edit command', () => {
         });
     });
 
+    describe('continuation editing', () => {
+        test('should set continuation with --continues flag', () => {
+            // Create two sessions
+            const sessionId1 = db.insertSession({
+                startTime: new Date('2024-01-15T09:00:00'),
+                endTime: new Date('2024-01-15T10:00:00'),
+                description: 'First session',
+                state: 'completed',
+            });
+
+            const sessionId2 = db.insertSession({
+                startTime: new Date('2024-01-15T10:30:00'),
+                endTime: new Date('2024-01-15T11:00:00'),
+                description: 'Second session',
+                state: 'completed',
+            });
+
+            // Set session 2 to continue session 1
+            editCommand(sessionId2.toString(), undefined, { continues: sessionId1.toString() });
+
+            reopenDb();
+
+            const session = db.getSessionById(sessionId2);
+            expect(session!.continuesSessionId).toBe(sessionId1);
+        });
+
+        test('should clear continuation with empty string', () => {
+            const sessionId1 = db.insertSession({
+                startTime: new Date('2024-01-15T09:00:00'),
+                endTime: new Date('2024-01-15T10:00:00'),
+                description: 'First session',
+                state: 'completed',
+            });
+
+            const sessionId2 = db.insertSession({
+                startTime: new Date('2024-01-15T10:30:00'),
+                endTime: new Date('2024-01-15T11:00:00'),
+                description: 'Second session',
+                state: 'completed',
+                continuesSessionId: sessionId1,
+            });
+
+            // Clear the continuation
+            editCommand(sessionId2.toString(), undefined, { continues: '' });
+
+            reopenDb();
+
+            const session = db.getSessionById(sessionId2);
+            expect(session!.continuesSessionId).toBeUndefined();
+        });
+
+        test('should error on non-existent continuation session', () => {
+            const sessionId = db.insertSession({
+                startTime: new Date('2024-01-15T09:00:00'),
+                description: 'Test task',
+                state: 'completed',
+            });
+
+            editCommand(sessionId.toString(), undefined, { continues: '9999' });
+
+            expect(mockExit).toHaveBeenCalledWith(1);
+        });
+
+        test('should error on invalid continuation session ID', () => {
+            const sessionId = db.insertSession({
+                startTime: new Date('2024-01-15T09:00:00'),
+                description: 'Test task',
+                state: 'completed',
+            });
+
+            editCommand(sessionId.toString(), undefined, { continues: 'invalid' });
+
+            expect(mockExit).toHaveBeenCalledWith(1);
+        });
+
+        test('should error when session tries to continue itself', () => {
+            const sessionId = db.insertSession({
+                startTime: new Date('2024-01-15T09:00:00'),
+                description: 'Test task',
+                state: 'completed',
+            });
+
+            editCommand(sessionId.toString(), undefined, { continues: sessionId.toString() });
+
+            expect(mockExit).toHaveBeenCalledWith(1);
+        });
+    });
+
     describe('preserves unchanged fields', () => {
         test('should not change fields not mentioned in log notation', () => {
             const sessionId = db.insertSession({
