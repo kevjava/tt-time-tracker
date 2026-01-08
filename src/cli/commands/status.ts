@@ -181,40 +181,36 @@ export function statusCommand(options: StatusOptions = {}): void {
 
       if (activeSessions.length === 0) {
         console.log(chalk.gray('No active timers'));
-        if (options.isDefault) {
-          console.log(chalk.gray('\nRun `tt help` to see available commands'));
-        }
-        return;
-      }
+      } else {
+        // Organize sessions by parent relationship
+        const sessionMap = new Map<number, Session & { tags: string[] }>();
+        const childSessions = new Map<number, (Session & { tags: string[] })[]>();
 
-      // Organize sessions by parent relationship
-      const sessionMap = new Map<number, Session & { tags: string[] }>();
-      const childSessions = new Map<number, (Session & { tags: string[] })[]>();
+        for (const session of activeSessions) {
+          sessionMap.set(session.id!, session);
 
-      for (const session of activeSessions) {
-        sessionMap.set(session.id!, session);
-
-        if (session.parentSessionId) {
-          if (!childSessions.has(session.parentSessionId)) {
-            childSessions.set(session.parentSessionId, []);
+          if (session.parentSessionId) {
+            if (!childSessions.has(session.parentSessionId)) {
+              childSessions.set(session.parentSessionId, []);
+            }
+            childSessions.get(session.parentSessionId)!.push(session);
           }
-          childSessions.get(session.parentSessionId)!.push(session);
+        }
+
+        // Find root sessions (those without parents or whose parents are inactive)
+        const rootSessions = activeSessions.filter(
+          (session) => !session.parentSessionId || !sessionMap.has(session.parentSessionId)
+        );
+
+        console.log(chalk.bold('\nActive Timers:\n'));
+
+        // Display sessions in a tree structure
+        for (const root of rootSessions) {
+          displaySession(root, 0, childSessions);
         }
       }
 
-      // Find root sessions (those without parents or whose parents are inactive)
-      const rootSessions = activeSessions.filter(
-        (session) => !session.parentSessionId || !sessionMap.has(session.parentSessionId)
-      );
-
-      console.log(chalk.bold('\nActive Timers:\n'));
-
-      // Display sessions in a tree structure
-      for (const root of rootSessions) {
-        displaySession(root, 0, childSessions);
-      }
-
-      // Calculate and display today's summary
+      // Calculate and display today's summary (always show, even if no active timers)
       const summary = calculateTodaySummary(db);
       displayTodaySummary(summary);
 
