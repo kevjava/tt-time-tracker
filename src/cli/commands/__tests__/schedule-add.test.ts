@@ -331,7 +331,7 @@ describe('schedule add command', () => {
 
         expect(mockExit).toHaveBeenCalledWith(1);
         expect(console.error).toHaveBeenCalledWith(
-          expect.stringContaining('Invalid scheduled date')
+          expect.stringContaining('Unable to parse scheduled time')
         );
       } finally {
         console.error = originalError;

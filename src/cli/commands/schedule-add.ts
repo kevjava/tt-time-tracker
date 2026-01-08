@@ -5,6 +5,7 @@ import { LogParser } from '../../parser/grammar';
 import { parseDuration } from '../../parser/duration';
 import { logger } from '../../utils/logger';
 import * as theme from '../../utils/theme';
+import { parseScheduledTime } from '../../utils/time-parser';
 
 interface ScheduleAddOptions {
   project?: string;
@@ -106,9 +107,10 @@ export function scheduleAddCommand(descriptionArgs: string[], options: ScheduleA
       // Support both --start-time (new) and --scheduled (deprecated)
       const scheduledValue = options.startTime || options.scheduled;
       if (scheduledValue) {
-        scheduledDateTime = new Date(scheduledValue);
-        if (isNaN(scheduledDateTime.getTime())) {
-          console.error(chalk.red(`Error: Invalid scheduled date: ${scheduledValue}`));
+        try {
+          scheduledDateTime = parseScheduledTime(scheduledValue);
+        } catch (error) {
+          console.error(chalk.red(`Error: ${error instanceof Error ? error.message : 'Invalid scheduled date'}`));
           process.exit(1);
         }
       }

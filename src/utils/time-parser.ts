@@ -50,6 +50,31 @@ export function parseAtTime(input: string, referenceDate: Date = new Date()): Da
 }
 
 /**
+ * Parse a scheduled time string that can be in various formats (including future dates):
+ * - ISO format: "2026-01-10 09:00" or "2026-01-10T09:00"
+ * - Natural language: "tomorrow at 2pm", "next monday 9am", "in 3 hours"
+ * - Date only: "2026-01-10", "tomorrow", "next week"
+ *
+ * Unlike parseAtTime, this allows future dates for scheduled tasks.
+ * Returns a Date object or throws an error if parsing fails.
+ */
+export function parseScheduledTime(input: string, referenceDate: Date = new Date()): Date {
+  const trimmed = input.trim();
+
+  // Try parsing with chrono-node for various date/time formats
+  // Use forwardDate: true to prefer future interpretations for scheduled tasks
+  const parsed = chrono.parseDate(trimmed, referenceDate, { forwardDate: true });
+
+  if (parsed) {
+    return parsed;
+  }
+
+  throw new Error(
+    `Unable to parse scheduled time: "${input}". Use formats like "2026-01-10 09:00", "tomorrow at 2pm", "next monday", etc.`
+  );
+}
+
+/**
  * Validate that a parsed time is not in the future
  */
 export function validateNotFuture(time: Date, referenceDate: Date = new Date()): void {

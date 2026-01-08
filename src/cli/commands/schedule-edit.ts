@@ -4,6 +4,7 @@ import { ensureDataDir, getDatabasePath } from '../../utils/config';
 import { LogParser } from '../../parser/grammar';
 import { parseDuration } from '../../parser/duration';
 import { logger } from '../../utils/logger';
+import { parseScheduledTime } from '../../utils/time-parser';
 
 interface ScheduleEditOptions {
   description?: string;
@@ -183,12 +184,12 @@ export function scheduleEditCommand(
           // Empty string means clear the scheduled date
           updates.scheduledDateTime = undefined;
         } else {
-          const newScheduled = new Date(scheduledValue);
-          if (isNaN(newScheduled.getTime())) {
-            console.error(chalk.red(`Error: Invalid scheduled date: ${scheduledValue}`));
+          try {
+            updates.scheduledDateTime = parseScheduledTime(scheduledValue);
+          } catch (error) {
+            console.error(chalk.red(`Error: ${error instanceof Error ? error.message : 'Invalid scheduled date'}`));
             process.exit(1);
           }
-          updates.scheduledDateTime = newScheduled;
         }
       } else if (logNotationData.scheduledDateTime !== undefined) {
         updates.scheduledDateTime = logNotationData.scheduledDateTime;
