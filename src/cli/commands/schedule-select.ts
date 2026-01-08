@@ -2,13 +2,13 @@ import chalk from 'chalk';
 import * as readline from 'readline';
 import { format } from 'date-fns';
 import { TimeTrackerDB } from '../../db/database';
-import { ScheduledTask } from '../../types/session';
+import { ScheduledTask, Session } from '../../types/session';
 import * as theme from '../../utils/theme';
 
 interface SelectionItem {
   globalNumber: number;
-  task: ScheduledTask & { tags: string[] };
-  category: 'oldest' | 'important' | 'urgent';
+  task: (ScheduledTask & { tags: string[] }) | (Session & { tags: string[]; totalMinutes?: number; chainSessionCount?: number });
+  category: 'oldest' | 'important' | 'urgent' | 'incomplete';
 }
 
 /**
@@ -17,11 +17,11 @@ interface SelectionItem {
  */
 export async function promptScheduledTaskSelection(
   db: TimeTrackerDB
-): Promise<(ScheduledTask & { tags: string[] }) | null> {
+): Promise<(ScheduledTask & { tags: string[] }) | (Session & { tags: string[]; totalMinutes?: number; chainSessionCount?: number }) | null> {
   const categories = db.getScheduledTasksForSelection();
 
   // Check if any tasks exist
-  if (categories.oldest.length === 0) {
+  if (categories.oldest.length === 0 && categories.incomplete.length === 0) {
     return null;
   }
 
@@ -32,13 +32,26 @@ export async function promptScheduledTaskSelection(
   // Track which tasks have been shown (by ID) to display with consistent numbers
   const taskNumberMap = new Map<number, number>();
 
+  // Incomplete stanza (show first, most important)
+  if (categories.incomplete.length > 0) {
+    console.log(chalk.bold('\nIncomplete Tasks:'));
+    for (const task of categories.incomplete) {
+      items.push({ globalNumber, task, category: 'incomplete' });
+      taskNumberMap.set(task.id!, globalNumber);
+      displayTask(globalNumber, task);
+      globalNumber++;
+    }
+  }
+
   // Oldest stanza
-  console.log(chalk.bold('\nOldest Tasks:'));
-  for (const task of categories.oldest) {
-    items.push({ globalNumber, task, category: 'oldest' });
-    taskNumberMap.set(task.id!, globalNumber);
-    displayTask(globalNumber, task);
-    globalNumber++;
+  if (categories.oldest.length > 0) {
+    console.log(chalk.bold('\nOldest Tasks:'));
+    for (const task of categories.oldest) {
+      items.push({ globalNumber, task, category: 'oldest' });
+      taskNumberMap.set(task.id!, globalNumber);
+      displayTask(globalNumber, task);
+      globalNumber++;
+    }
   }
 
   // Important stanza (only show if has tasks with priority != 5)
@@ -123,7 +136,10 @@ export async function promptScheduledTaskSelection(
   });
 }
 
-function displayTask(number: number, task: ScheduledTask & { tags: string[] }): void {
+function displayTask(
+  number: number,
+  task: (ScheduledTask & { tags: string[] }) | (Session & { tags: string[]; totalMinutes?: number; chainSessionCount?: number })
+): void {
   let line = `  ${chalk.cyan(number.toString().padStart(2))}. ${task.description}`;
 
   if (task.project) {
@@ -134,16 +150,50 @@ function displayTask(number: number, task: ScheduledTask & { tags: string[] }): 
     line += ` ${theme.formatTags(task.tags)}`;
   }
 
-  if (task.estimateMinutes) {
-    line += ` ${theme.formatEstimate(task.estimateMinutes)}`;
-  }
+  // Check if this is a Session (has startTime) or ScheduledTask
+  if ('startTime' in task) {
+    // This is an incomplete Session
+    const session = task as Session & { tags: string[]; totalMinutes?: number; chainSessionCount?: number };
 
-  if (task.priority !== 5) {
-    line += ` ${chalk.yellow(`^${task.priority}`)}`;
-  }
+    // Show state indicator
+    if (session.state === 'working') {
+      line += ` ${chalk.green.bold('[ACTIVE]')}`;
+    } else if (session.state === 'paused') {
+      line += ` ${chalk.yellow('[PAUSED]')}`;
+    }
 
-  if (task.scheduledDateTime) {
-    line += ` ${chalk.dim(`[${format(task.scheduledDateTime, 'MMM d, HH:mm')}]`)}`;
+    // Show total time spent
+    if (session.totalMinutes !== undefined && session.totalMinutes > 0) {
+      const hours = Math.floor(session.totalMinutes / 60);
+      const mins = Math.round(session.totalMinutes % 60);
+      const timeStr = hours > 0 ? `${hours}h${mins}m` : `${mins}m`;
+      line += ` ${chalk.gray(`[${timeStr} spent]`)}`;
+    }
+
+    // Show chain count if > 1
+    if (session.chainSessionCount !== undefined && session.chainSessionCount > 1) {
+      line += ` ${chalk.gray(`[${session.chainSessionCount} sessions]`)}`;
+    }
+
+    // Show estimate if available
+    if (session.estimateMinutes) {
+      line += ` ${theme.formatEstimate(session.estimateMinutes)}`;
+    }
+  } else {
+    // This is a ScheduledTask
+    const scheduledTask = task as ScheduledTask & { tags: string[] };
+
+    if (scheduledTask.estimateMinutes) {
+      line += ` ${theme.formatEstimate(scheduledTask.estimateMinutes)}`;
+    }
+
+    if (scheduledTask.priority !== 5) {
+      line += ` ${chalk.yellow(`^${scheduledTask.priority}`)}`;
+    }
+
+    if (scheduledTask.scheduledDateTime) {
+      line += ` ${chalk.dim(`[${format(scheduledTask.scheduledDateTime, 'MMM d, HH:mm')}]`)}`;
+    }
   }
 
   console.log(line);

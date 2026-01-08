@@ -7,7 +7,7 @@ import { logger } from '../../utils/logger';
 import { validateInterruptTime } from '../../utils/session-validator';
 import * as theme from '../../utils/theme';
 import { promptScheduledTaskSelection } from './schedule-select';
-import { ScheduledTask } from '../../types/session';
+import { ScheduledTask, Session } from '../../types/session';
 
 interface InterruptOptions {
   project?: string;
@@ -231,6 +231,103 @@ function interruptFromScheduledTask(db: TimeTrackerDB, task: ScheduledTask & { t
 }
 
 /**
+ * Interrupt with an incomplete session (create continuation as interruption)
+ */
+function interruptFromIncompleteSession(
+  db: TimeTrackerDB,
+  session: Session & { tags: string[]; totalMinutes?: number; chainSessionCount?: number },
+  options: InterruptOptions
+): void {
+  // Get the active session
+  const activeSession = db.getActiveSession();
+
+  if (!activeSession) {
+    console.error(chalk.red('Error: No active session to interrupt'));
+    process.exit(1);
+  }
+
+  // Find the root of the continuation chain for the incomplete session
+  const chainRoot = db.getChainRoot(session.id!);
+
+  // Allow options to override session metadata
+  const description = session.description;
+  const project = options.project || session.project;
+  const tags = options.tags
+    ? options.tags.split(',').map((t) => t.trim())
+    : session.tags;
+
+  let estimateMinutes: number | undefined;
+  if (options.estimate) {
+    try {
+      estimateMinutes = parseDuration(options.estimate);
+    } catch (error) {
+      console.error(chalk.red(`Error: Invalid estimate format: ${options.estimate}`));
+      process.exit(1);
+    }
+  } else {
+    estimateMinutes = session.estimateMinutes;
+  }
+
+  // Validate and get interrupt time
+  const actualStartTime = validateInterruptTime(options.at, activeSession, db);
+
+  // Pause the parent session
+  db.updateSession(activeSession.id!, {
+    endTime: actualStartTime,
+    state: 'paused',
+  });
+
+  logger.debug(`Paused parent task: ${activeSession.description}`);
+
+  // Create the interruption session as a continuation
+  const newSessionId = db.insertSession({
+    startTime: actualStartTime,
+    description,
+    project,
+    estimateMinutes,
+    state: 'working',
+    parentSessionId: activeSession.id,
+    continuesSessionId: chainRoot?.id,
+  });
+
+  // Add tags
+  if (tags.length > 0) {
+    db.insertSessionTags(newSessionId, tags);
+  }
+
+  // Display confirmation
+  console.log(
+    chalk.green.bold('▶') + chalk.green(` Resumed as interruption: ${description}`)
+  );
+  console.log(chalk.gray(`  Task ID: ${newSessionId}`));
+  console.log(chalk.gray(`  Continuing from session ${session.id}`));
+  console.log(chalk.gray(`  Interrupting: ${activeSession.description}`));
+
+  if (session.totalMinutes !== undefined && session.totalMinutes > 0) {
+    const hours = Math.floor(session.totalMinutes / 60);
+    const mins = Math.round(session.totalMinutes % 60);
+    const timeStr = hours > 0 ? `${hours}h${mins}m` : `${mins}m`;
+    console.log(chalk.gray(`  Previous time: ${timeStr}`));
+  }
+
+  if (options.at) {
+    console.log(chalk.gray(`  Start time: ${actualStartTime.toLocaleString()}`));
+  }
+
+  if (project) {
+    console.log(chalk.gray(`  Project: ${theme.formatProject(project)}`));
+  }
+
+  if (tags.length > 0) {
+    console.log(chalk.gray(`  Tags: ${theme.formatTags(tags)}`));
+  }
+
+  if (estimateMinutes) {
+    console.log(chalk.gray(`  Estimate: ${theme.formatEstimate(estimateMinutes)}`));
+  }
+}
+
+/**
  * Interrupt with description from arguments
  */
 async function interruptWithDescription(db: TimeTrackerDB, descriptionArgs: string | string[] | undefined, options: InterruptOptions): Promise<void> {
@@ -248,11 +345,19 @@ async function interruptWithDescription(db: TimeTrackerDB, descriptionArgs: stri
       return;
     }
 
-    // Use task as template
-    interruptFromScheduledTask(db, selectedTask, options);
+    // Check if this is a Session (incomplete) or ScheduledTask
+    if ('startTime' in selectedTask) {
+      // This is an incomplete session - resume it as interruption
+      const session = selectedTask as Session & { tags: string[]; totalMinutes?: number; chainSessionCount?: number };
+      interruptFromIncompleteSession(db, session, options);
+    } else {
+      // This is a scheduled task - use as template
+      const scheduledTask = selectedTask as ScheduledTask & { tags: string[] };
+      interruptFromScheduledTask(db, scheduledTask, options);
 
-    // Remove task from schedule only after successful session creation
-    db.deleteScheduledTask(selectedTask.id!);
+      // Remove task from schedule only after successful session creation
+      db.deleteScheduledTask(scheduledTask.id!);
+    }
     return;
   }
 

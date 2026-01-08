@@ -7,7 +7,7 @@ import { logger } from '../../utils/logger';
 import { validateStartTime } from '../../utils/session-validator';
 import * as theme from '../../utils/theme';
 import { promptScheduledTaskSelection } from './schedule-select';
-import { ScheduledTask } from '../../types/session';
+import { ScheduledTask, Session } from '../../types/session';
 
 interface StartOptions {
   project?: string;
@@ -221,6 +221,96 @@ function startFromScheduledTask(db: TimeTrackerDB, task: ScheduledTask & { tags:
 }
 
 /**
+ * Resume an incomplete session (create continuation)
+ */
+function resumeIncompleteSession(
+  db: TimeTrackerDB,
+  session: Session & { tags: string[]; totalMinutes?: number; chainSessionCount?: number },
+  options: StartOptions
+): void {
+  // Check for active session (can't resume if already working on something)
+  const activeSession = db.getActiveSession();
+  if (activeSession) {
+    console.error(
+      chalk.red(
+        `Error: Already tracking "${activeSession.description}". Stop it first with: tt stop`
+      )
+    );
+    process.exit(1);
+  }
+
+  // Determine start time
+  const startTime = options.at ? validateStartTime(options.at, db) : new Date();
+
+  // Find the root of the continuation chain
+  const chainRoot = db.getChainRoot(session.id!);
+
+  // Allow options to override session metadata
+  const description = session.description;
+  const project = options.project || session.project;
+  const tags = options.tags
+    ? options.tags.split(',').map((t) => t.trim())
+    : session.tags;
+
+  let estimateMinutes: number | undefined;
+  if (options.estimate) {
+    try {
+      estimateMinutes = parseDuration(options.estimate);
+    } catch (error) {
+      console.error(chalk.red(`Error: Invalid estimate format: ${options.estimate}`));
+      process.exit(1);
+    }
+  } else {
+    estimateMinutes = session.estimateMinutes;
+  }
+
+  // Create new session continuing from the chain root
+  const newSessionId = db.insertSession({
+    startTime,
+    description,
+    project,
+    estimateMinutes,
+    state: 'working',
+    continuesSessionId: chainRoot?.id,
+  });
+
+  // Copy tags (or use overridden tags)
+  if (tags.length > 0) {
+    db.insertSessionTags(newSessionId, tags);
+  }
+
+  // Display confirmation
+  console.log(
+    chalk.green.bold('▶') + chalk.green(` Resumed: ${description}`)
+  );
+  console.log(chalk.gray(`  Task ID: ${newSessionId}`));
+  console.log(chalk.gray(`  Continuing from session ${session.id}`));
+
+  if (session.totalMinutes !== undefined && session.totalMinutes > 0) {
+    const hours = Math.floor(session.totalMinutes / 60);
+    const mins = Math.round(session.totalMinutes % 60);
+    const timeStr = hours > 0 ? `${hours}h${mins}m` : `${mins}m`;
+    console.log(chalk.gray(`  Previous time: ${timeStr}`));
+  }
+
+  if (options.at) {
+    console.log(chalk.gray(`  Start time: ${startTime.toLocaleString()}`));
+  }
+
+  if (project) {
+    console.log(chalk.gray(`  Project: ${theme.formatProject(project)}`));
+  }
+
+  if (tags.length > 0) {
+    console.log(chalk.gray(`  Tags: ${theme.formatTags(tags)}`));
+  }
+
+  if (estimateMinutes) {
+    console.log(chalk.gray(`  Estimate: ${theme.formatEstimate(estimateMinutes)}`));
+  }
+}
+
+/**
  * Start a new session with description from arguments
  */
 async function startWithDescription(db: TimeTrackerDB, descriptionArgs: string | string[] | undefined, options: StartOptions): Promise<void> {
@@ -238,11 +328,19 @@ async function startWithDescription(db: TimeTrackerDB, descriptionArgs: string |
       return;
     }
 
-    // Use task as template
-    startFromScheduledTask(db, selectedTask, options);
+    // Check if this is a Session (incomplete) or ScheduledTask
+    if ('startTime' in selectedTask) {
+      // This is an incomplete session - resume it
+      const session = selectedTask as Session & { tags: string[]; totalMinutes?: number; chainSessionCount?: number };
+      resumeIncompleteSession(db, session, options);
+    } else {
+      // This is a scheduled task - use as template
+      const scheduledTask = selectedTask as ScheduledTask & { tags: string[] };
+      startFromScheduledTask(db, scheduledTask, options);
 
-    // Remove task from schedule only after successful session creation
-    db.deleteScheduledTask(selectedTask.id!);
+      // Remove task from schedule only after successful session creation
+      db.deleteScheduledTask(scheduledTask.id!);
+    }
     return;
   }
 

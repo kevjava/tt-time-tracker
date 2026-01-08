@@ -6,7 +6,7 @@ import { LogParser } from '../../parser/grammar';
 import { logger } from '../../utils/logger';
 import { validateStartTime, validateStopTime } from '../../utils/session-validator';
 import { promptScheduledTaskSelection } from './schedule-select';
-import { ScheduledTask } from '../../types/session';
+import { ScheduledTask, Session } from '../../types/session';
 import * as theme from '../../utils/theme';
 
 interface NextOptions {
@@ -26,22 +26,7 @@ export async function nextCommand(descriptionArgs: string | string[] | undefined
     const db = new TimeTrackerDB(getDatabasePath());
 
     try {
-      // Step 1: Stop any active session (silently if none exists)
-      const activeSession = db.getActiveSession();
-
-      if (activeSession) {
-        // Stop the active session
-        const endTime = validateStopTime(options.at, activeSession);
-
-        db.updateSession(activeSession.id!, {
-          endTime,
-          state: 'completed',
-        });
-
-        logger.debug(`Stopped previous task: ${activeSession.description}`);
-      }
-
-      // Step 2: Check if first argument is a session ID
+      // Check if first argument is a session ID
       if (descriptionArgs) {
         const firstArg = Array.isArray(descriptionArgs) ? descriptionArgs[0] : descriptionArgs;
         const sessionId = parseInt(firstArg, 10);
@@ -63,7 +48,7 @@ export async function nextCommand(descriptionArgs: string | string[] | undefined
         }
       }
 
-      // Step 3: Start the new session with description (reuse logic from start.ts)
+      // Start the new session with description (reuse logic from start.ts)
       await nextWithDescription(db, descriptionArgs, options);
     } finally {
       db.close();
@@ -84,6 +69,17 @@ function nextFromSessionTemplate(db: TimeTrackerDB, sessionId: number, options: 
   if (!templateSession) {
     console.error(chalk.red(`Error: Session ${sessionId} not found`));
     process.exit(1);
+  }
+
+  // Stop any active session first
+  const activeSession = db.getActiveSession();
+  if (activeSession) {
+    const endTime = validateStopTime(options.at, activeSession);
+    db.updateSession(activeSession.id!, {
+      endTime,
+      state: 'completed',
+    });
+    logger.debug(`Stopped previous task: ${activeSession.description}`);
   }
 
   // Use template session metadata, but allow options to override
@@ -156,6 +152,17 @@ function nextFromSessionTemplate(db: TimeTrackerDB, sessionId: number, options: 
  * Start next session based on a scheduled task
  */
 function nextFromScheduledTask(db: TimeTrackerDB, task: ScheduledTask & { tags: string[] }, options: NextOptions): void {
+  // Stop any active session first
+  const activeSession = db.getActiveSession();
+  if (activeSession) {
+    const endTime = validateStopTime(options.at, activeSession);
+    db.updateSession(activeSession.id!, {
+      endTime,
+      state: 'completed',
+    });
+    logger.debug(`Stopped previous task: ${activeSession.description}`);
+  }
+
   // Use scheduled task metadata, but allow options to override
   const description = task.description;
   const project = options.project || task.project;
@@ -215,6 +222,96 @@ function nextFromScheduledTask(db: TimeTrackerDB, task: ScheduledTask & { tags: 
 }
 
 /**
+ * Resume an incomplete session (create continuation)
+ */
+function nextFromIncompleteSession(
+  db: TimeTrackerDB,
+  session: Session & { tags: string[]; totalMinutes?: number; chainSessionCount?: number },
+  options: NextOptions
+): void {
+  // Stop any active session first
+  const activeSession = db.getActiveSession();
+  if (activeSession) {
+    const endTime = validateStopTime(options.at, activeSession);
+    db.updateSession(activeSession.id!, {
+      endTime,
+      state: 'completed',
+    });
+    logger.debug(`Stopped previous task: ${activeSession.description}`);
+  }
+
+  // Determine start time
+  const startTime = validateStartTime(options.at, db);
+
+  // Find the root of the continuation chain
+  const chainRoot = db.getChainRoot(session.id!);
+
+  // Allow options to override session metadata
+  const description = session.description;
+  const project = options.project || session.project;
+  const tags = options.tags
+    ? options.tags.split(',').map((t) => t.trim())
+    : session.tags;
+
+  let estimateMinutes: number | undefined;
+  if (options.estimate) {
+    try {
+      estimateMinutes = parseDuration(options.estimate);
+    } catch (error) {
+      console.error(chalk.red(`Error: Invalid estimate format: ${options.estimate}`));
+      process.exit(1);
+    }
+  } else {
+    estimateMinutes = session.estimateMinutes;
+  }
+
+  // Create new session continuing from the chain root
+  const newSessionId = db.insertSession({
+    startTime,
+    description,
+    project,
+    estimateMinutes,
+    state: 'working',
+    continuesSessionId: chainRoot?.id,
+  });
+
+  // Copy tags (or use overridden tags)
+  if (tags.length > 0) {
+    db.insertSessionTags(newSessionId, tags);
+  }
+
+  // Display confirmation
+  console.log(
+    chalk.green.bold('▶') + chalk.green(` Resumed: ${description}`)
+  );
+  console.log(chalk.gray(`  Task ID: ${newSessionId}`));
+  console.log(chalk.gray(`  Continuing from session ${session.id}`));
+
+  if (session.totalMinutes !== undefined && session.totalMinutes > 0) {
+    const hours = Math.floor(session.totalMinutes / 60);
+    const mins = Math.round(session.totalMinutes % 60);
+    const timeStr = hours > 0 ? `${hours}h${mins}m` : `${mins}m`;
+    console.log(chalk.gray(`  Previous time: ${timeStr}`));
+  }
+
+  if (options.at) {
+    console.log(chalk.gray(`  Start time: ${startTime.toLocaleString()}`));
+  }
+
+  if (project) {
+    console.log(chalk.gray(`  Project: ${theme.formatProject(project)}`));
+  }
+
+  if (tags.length > 0) {
+    console.log(chalk.gray(`  Tags: ${theme.formatTags(tags)}`));
+  }
+
+  if (estimateMinutes) {
+    console.log(chalk.gray(`  Estimate: ${theme.formatEstimate(estimateMinutes)}`));
+  }
+}
+
+/**
  * Start next session with description from arguments
  */
 async function nextWithDescription(db: TimeTrackerDB, descriptionArgs: string | string[] | undefined, options: NextOptions): Promise<void> {
@@ -232,11 +329,19 @@ async function nextWithDescription(db: TimeTrackerDB, descriptionArgs: string | 
       return;
     }
 
-    // Use task as template
-    nextFromScheduledTask(db, selectedTask, options);
+    // Check if this is a Session (incomplete) or ScheduledTask
+    if ('startTime' in selectedTask) {
+      // This is an incomplete session - resume it
+      const session = selectedTask as Session & { tags: string[]; totalMinutes?: number; chainSessionCount?: number };
+      nextFromIncompleteSession(db, session, options);
+    } else {
+      // This is a scheduled task - use as template
+      const scheduledTask = selectedTask as ScheduledTask & { tags: string[] };
+      nextFromScheduledTask(db, scheduledTask, options);
 
-    // Remove task from schedule only after successful session creation
-    db.deleteScheduledTask(selectedTask.id!);
+      // Remove task from schedule only after successful session creation
+      db.deleteScheduledTask(scheduledTask.id!);
+    }
     return;
   }
 
@@ -311,6 +416,17 @@ async function nextWithDescription(db: TimeTrackerDB, descriptionArgs: string | 
       if (!description || description.trim() === '') {
         console.error(chalk.red('Error: Description cannot be empty'));
         process.exit(1);
+      }
+
+      // Stop any active session first
+      const activeSession = db.getActiveSession();
+      if (activeSession) {
+        const endTime = validateStopTime(options.at, activeSession);
+        db.updateSession(activeSession.id!, {
+          endTime,
+          state: 'completed',
+        });
+        logger.debug(`Stopped previous task: ${activeSession.description}`);
       }
 
       // If --at is provided, override the timestamp (takes precedence)

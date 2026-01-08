@@ -992,12 +992,95 @@ export class TimeTrackerDB {
   }
 
   /**
+   * Get incomplete continuation chains for interactive selection
+   * Returns chains where the most recent session is paused or working (limit 10)
+   */
+  getIncompleteContinuationChainsForSelection(): (Session & {
+    tags: string[];
+    totalMinutes?: number;
+    chainSessionCount?: number;
+  })[] {
+    try {
+      // Get all paused and working sessions
+      const stmt = this.db.prepare(`
+        SELECT * FROM sessions
+        WHERE state IN ('paused', 'working')
+          AND parent_session_id IS NULL
+        ORDER BY start_time DESC
+      `);
+      const rows = stmt.all() as any[];
+
+      // Group sessions by continuation chain and filter to incomplete chains
+      const chainMap = new Map<number, (Session & { tags: string[] })[]>();
+
+      for (const row of rows) {
+        const session = this.rowToSession(row, []);
+        const tags = this.getSessionTags(row.id);
+        const sessionWithTags = { ...session, tags };
+
+        if (!session.id) continue;
+
+        // Get the chain root ID
+        const chainRootId = session.continuesSessionId || session.id;
+
+        if (!chainMap.has(chainRootId)) {
+          chainMap.set(chainRootId, []);
+        }
+        chainMap.get(chainRootId)!.push(sessionWithTags);
+      }
+
+      // For each chain, check if the most recent session is incomplete
+      const incompleteTasks: (Session & {
+        tags: string[];
+        totalMinutes?: number;
+        chainSessionCount?: number;
+      })[] = [];
+
+      for (const [chainRootId] of chainMap.entries()) {
+        // Get all sessions in the chain (to calculate total time)
+        const fullChain = this.getContinuationChain(chainRootId);
+
+        if (fullChain.length === 0) continue;
+
+        // Get the most recent session in the chain
+        const mostRecent = fullChain[fullChain.length - 1];
+
+        // Only include if the chain is still incomplete
+        if (mostRecent.state === 'paused' || mostRecent.state === 'working') {
+          // Calculate total time from completed sessions
+          let totalMinutes = 0;
+          for (const session of fullChain) {
+            if (session.endTime) {
+              const duration = (session.endTime.getTime() - session.startTime.getTime()) / 60000;
+              totalMinutes += duration;
+            }
+          }
+
+          // Add to incomplete tasks (use most recent paused session as representative)
+          incompleteTasks.push({
+            ...mostRecent,
+            totalMinutes,
+            chainSessionCount: fullChain.length,
+          });
+        }
+      }
+
+      // Sort by most recent start time and limit to 10
+      incompleteTasks.sort((a, b) => b.startTime.getTime() - a.startTime.getTime());
+      return incompleteTasks.slice(0, 10);
+    } catch (error) {
+      throw new DatabaseError(`Failed to get incomplete continuation chains: ${error}`);
+    }
+  }
+
+  /**
    * Get scheduled tasks for interactive selection, organized by category
    */
   getScheduledTasksForSelection(): {
     oldest: (ScheduledTask & { tags: string[] })[];
     important: (ScheduledTask & { tags: string[] })[];
     urgent: (ScheduledTask & { tags: string[] })[];
+    incomplete: (Session & { tags: string[]; totalMinutes?: number; chainSessionCount?: number })[];
   } {
     try {
       // Oldest: All tasks by creation date ascending (limit 10)
@@ -1041,7 +1124,10 @@ export class TimeTrackerDB {
         return this.rowToScheduledTask(row, tags);
       });
 
-      return { oldest, important, urgent };
+      // Incomplete: Paused/working continuation chains
+      const incomplete = this.getIncompleteContinuationChainsForSelection();
+
+      return { oldest, important, urgent, incomplete };
     } catch (error) {
       throw new DatabaseError(`Failed to get scheduled tasks for selection: ${error}`);
     }
