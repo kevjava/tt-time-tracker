@@ -323,9 +323,8 @@ async function nextWithDescription(db: TimeTrackerDB, descriptionArgs: string | 
     const selectedTask = await promptScheduledTaskSelection(db);
 
     if (!selectedTask) {
-      // User cancelled or no tasks - show existing error
-      console.error(chalk.red('Error: Description or session ID required'));
-      process.exit(1);
+      // User cancelled or no tasks available - exit gracefully
+      process.exit(0);
       return;
     }
 
