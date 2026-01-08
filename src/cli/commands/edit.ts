@@ -333,7 +333,25 @@ export function editCommand(
             process.exit(1);
           }
 
-          updates.continuesSessionId = continuesId;
+          // Resolve to the beginning of the continuation chain
+          const chainRoot = db.getChainRoot(continuesId);
+          if (!chainRoot) {
+            console.error(chalk.red(`Error: Could not find chain root for session ${continuesId}`));
+            process.exit(1);
+          }
+
+          // Prevent continuing ourselves after resolution
+          if (chainRoot.id === id) {
+            console.error(chalk.red('Error: A session cannot continue itself or its continuations'));
+            process.exit(1);
+          }
+
+          // Inform user if we resolved to a different session
+          if (chainRoot.id !== continuesId) {
+            console.log(chalk.yellow(`Note: Session ${continuesId} is part of a continuation chain. Continuing from chain root (session ${chainRoot.id}) instead.`));
+          }
+
+          updates.continuesSessionId = chainRoot.id;
         }
       }
 
