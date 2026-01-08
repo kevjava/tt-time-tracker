@@ -246,8 +246,9 @@ program
   .option('--priority <priority>', 'Priority 1-9')
   .option('--start-time <datetime>', 'Scheduled start date/time')
   .option('--scheduled <datetime>', 'Scheduled date/time (deprecated, use --start-time)')
-  .action((subcommand, args, options) => {
-    scheduleCommand(subcommand, args || [], options);
+  .option('-y, --yes', 'Skip confirmation prompt when removing tasks')
+  .action(async (subcommand, args, options) => {
+    await scheduleCommand(subcommand, args || [], options);
   });
 
 program.parse();

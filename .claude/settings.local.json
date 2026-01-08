@@ -17,7 +17,14 @@
       "Bash(TT_DATA_DIR=/tmp/tt-demo node:*)",
       "Bash(TT_DATA_DIR=/tmp/tt-demo sqlite3:*)",
       "Bash(npm run test:coverage:*)",
-      "Bash(git push)"
+      "Bash(git push)",
+      "Bash(grep:*)",
+      "Bash(TT_DATA_DIR=/tmp/tt-integration-test node:*)",
+      "Bash(TT_DATA_DIR=/tmp/tt-continues-test rm:*)",
+      "Bash(TT_DATA_DIR=/tmp/tt-continues-test node:*)",
+      "Bash(TT_DATA_DIR=/tmp/tt-continues-test node dist/index.js:*)",
+      "Bash(TT_DATA_DIR=/tmp/tt-continues-test sqlite3:*)",
+      "Bash(TT_DATA_DIR=/tmp/tt-test-incomplete node dist/index.js:*)"
     ]
   }
 }

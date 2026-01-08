@@ -77,7 +77,7 @@ Database → Query sessions → Calculate metrics → Format output
 
 **Time Handling:**
 
-- Timestamps without dates inherit the current date context
+- Timestamps without dates inherit the current date context, but if a log entry includes a date, it **must** appear on the same line as the first log entry of that date.
 - When time goes backward (e.g., 22:00 → 01:00), parser assumes next day (midnight crossing)
 - Large time gaps (>8 hours) generate warnings but don't block insertion
 - End times are inferred: each task's end_time = next task's start_time (unless explicit duration `(30m)` is provided)
@@ -160,7 +160,7 @@ Database → Query sessions → Calculate metrics → Format output
 ### CLI Module (`src/cli/`)
 
 - **commands/**: Each command is a separate module (log.ts, start.ts, stop.ts, report.ts, schedule.ts, etc.)
-- **schedule-*.ts**: Schedule command implementation (add, list, edit, remove, select)
+- **schedule-\*.ts**: Schedule command implementation (add, list, edit, remove, select)
 - **schedule-select.ts**: Interactive selection UI for scheduled tasks (three stanzas: oldest, important, urgent)
 - **editor.ts**: Handles `$EDITOR` integration for fixing parse errors
 - Uses Commander.js for argument parsing
@@ -245,6 +245,7 @@ Chalk v5 is ESM-only but the project uses CommonJS. The imports work because of 
 6. Update spec.md to document the command behavior
 
 **Example:** The `next` command (see `src/cli/commands/next.ts`) combines stop and start logic:
+
 - Stops any active session silently
 - Starts a new session with full log notation support
 - Supports all the same options as `start` command

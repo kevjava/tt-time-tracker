@@ -7,11 +7,11 @@ import chalk from 'chalk';
 /**
  * Main schedule command - routes to subcommands
  */
-export function scheduleCommand(
+export async function scheduleCommand(
   subcommand: string | undefined,
   args: string[],
   options: any
-): void {
+): Promise<void> {
   // No subcommand = list
   if (!subcommand) {
     scheduleListCommand();
@@ -27,7 +27,7 @@ export function scheduleCommand(
       break;
     case 'remove':
     case 'rm':
-      scheduleRemoveCommand(args[0]);
+      await scheduleRemoveCommand(args[0], options);
       break;
     case 'list':
     case 'ls':

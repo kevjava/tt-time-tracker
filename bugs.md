@@ -10,4 +10,6 @@
 
 ## Ready
 
-- Show status breakdown even if no running tasks.
+- `tt schedule rm` should confirm before deleting, like `tt rm does`.
+- Schedule add/edit should accept log notation in addition to command-line
+  parameters and flags.

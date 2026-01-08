@@ -89,12 +89,12 @@ describe('schedule remove command', () => {
   });
 
   describe('validation', () => {
-    it('should reject when task ID is not provided', () => {
+    it('should reject when task ID is not provided', async () => {
       const originalError = console.error;
       console.error = jest.fn();
 
       try {
-        scheduleRemoveCommand('');
+        await scheduleRemoveCommand('');
 
         expect(mockExit).toHaveBeenCalledWith(1);
         expect(console.error).toHaveBeenCalledWith(
@@ -105,12 +105,12 @@ describe('schedule remove command', () => {
       }
     });
 
-    it('should reject invalid task ID (non-numeric)', () => {
+    it('should reject invalid task ID (non-numeric)', async () => {
       const originalError = console.error;
       console.error = jest.fn();
 
       try {
-        scheduleRemoveCommand('abc');
+        await scheduleRemoveCommand('abc');
 
         expect(mockExit).toHaveBeenCalledWith(1);
         expect(console.error).toHaveBeenCalledWith(
@@ -121,12 +121,12 @@ describe('schedule remove command', () => {
       }
     });
 
-    it('should reject non-existent task ID', () => {
+    it('should reject non-existent task ID', async () => {
       const originalError = console.error;
       console.error = jest.fn();
 
       try {
-        scheduleRemoveCommand('999');
+        await scheduleRemoveCommand('999');
 
         expect(mockExit).toHaveBeenCalledWith(1);
         expect(console.error).toHaveBeenCalledWith(
@@ -139,7 +139,7 @@ describe('schedule remove command', () => {
   });
 
   describe('successful removal', () => {
-    it('should remove task and show confirmation', () => {
+    it('should remove task and show confirmation', async () => {
       const originalLog = console.log;
       const logs: string[] = [];
       console.log = jest.fn((msg) => logs.push(msg));
@@ -150,12 +150,12 @@ describe('schedule remove command', () => {
           priority: 5,
         });
 
-        scheduleRemoveCommand(taskId.toString());
+        await scheduleRemoveCommand(taskId.toString(), { yes: true });
         reopenDb();
 
         // Should show success message
-        expect(logs.some((log) => log.includes('Removed scheduled task'))).toBe(true);
-        expect(logs.some((log) => log.includes('Task to remove'))).toBe(true);
+        expect(logs.some((log) => log && log.includes('Removed scheduled task'))).toBe(true);
+        expect(logs.some((log) => log && log.includes('Task to remove'))).toBe(true);
 
         // Task should be deleted
         const task = db.getScheduledTaskById(taskId);
@@ -165,7 +165,7 @@ describe('schedule remove command', () => {
       }
     });
 
-    it('should cascade delete tags when removing task', () => {
+    it('should cascade delete tags when removing task', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
@@ -180,7 +180,7 @@ describe('schedule remove command', () => {
         const tagsBeforeDelete = db.getScheduledTaskTags(taskId);
         expect(tagsBeforeDelete).toEqual(['tag1', 'tag2', 'tag3']);
 
-        scheduleRemoveCommand(taskId.toString());
+        await scheduleRemoveCommand(taskId.toString(), { yes: true });
         reopenDb();
 
         // Task should be deleted
@@ -195,7 +195,7 @@ describe('schedule remove command', () => {
       }
     });
 
-    it('should remove only the specified task (not others)', () => {
+    it('should remove only the specified task (not others)', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
@@ -216,7 +216,7 @@ describe('schedule remove command', () => {
         });
 
         // Remove task 2
-        scheduleRemoveCommand(taskId2.toString());
+        await scheduleRemoveCommand(taskId2.toString(), { yes: true });
         reopenDb();
 
         // Task 2 should be deleted
@@ -234,7 +234,7 @@ describe('schedule remove command', () => {
       }
     });
 
-    it('should remove task with all metadata fields', () => {
+    it('should remove task with all metadata fields', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
@@ -256,7 +256,7 @@ describe('schedule remove command', () => {
         expect(taskBeforeDelete?.priority).toBe(2);
         expect(taskBeforeDelete?.tags).toEqual(['important', 'urgent']);
 
-        scheduleRemoveCommand(taskId.toString());
+        await scheduleRemoveCommand(taskId.toString(), { yes: true });
         reopenDb();
 
         // Task should be completely deleted
