@@ -152,15 +152,11 @@ function displayTask(
 
   // Check if this is a Session (has startTime) or ScheduledTask
   if ('startTime' in task) {
-    // This is an incomplete Session
+    // This is an incomplete Session (always paused, never active/working)
     const session = task as Session & { tags: string[]; totalMinutes?: number; chainSessionCount?: number };
 
-    // Show state indicator
-    if (session.state === 'working') {
-      line += ` ${chalk.green.bold('[ACTIVE]')}`;
-    } else if (session.state === 'paused') {
-      line += ` ${chalk.yellow('[PAUSED]')}`;
-    }
+    // Show paused indicator
+    line += ` ${chalk.yellow('[PAUSED]')}`;
 
     // Show total time spent
     if (session.totalMinutes !== undefined && session.totalMinutes > 0) {

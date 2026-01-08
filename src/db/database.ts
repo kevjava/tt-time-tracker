@@ -1001,10 +1001,10 @@ export class TimeTrackerDB {
     chainSessionCount?: number;
   })[] {
     try {
-      // Get all paused and working sessions
+      // Get all paused sessions (exclude working/active sessions)
       const stmt = this.db.prepare(`
         SELECT * FROM sessions
-        WHERE state IN ('paused', 'working')
+        WHERE state = 'paused'
           AND parent_session_id IS NULL
         ORDER BY start_time DESC
       `);
@@ -1045,8 +1045,8 @@ export class TimeTrackerDB {
         // Get the most recent session in the chain
         const mostRecent = fullChain[fullChain.length - 1];
 
-        // Only include if the chain is still incomplete
-        if (mostRecent.state === 'paused' || mostRecent.state === 'working') {
+        // Only include if the chain is paused (not working/active)
+        if (mostRecent.state === 'paused') {
           // Calculate total time from completed sessions
           let totalMinutes = 0;
           for (const session of fullChain) {
