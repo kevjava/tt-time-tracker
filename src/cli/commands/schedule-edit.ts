@@ -56,12 +56,36 @@ export function scheduleEditCommand(
         if (fullInput.trim()) {
           logger.debug('Attempting to parse log notation for edit');
           try {
-            // Prepend dummy timestamp if needed
-            const parseInput = fullInput.match(/^\d{4}-\d{2}-\d{2}/)
-              ? fullInput
-              : `00:00 ${fullInput}`;
+            // Prepend dummy date and description if we have just a time (HH:MM) or metadata
+            let inputToParse = fullInput;
 
-            const parseResult = LogParser.parse(parseInput);
+            // Check if input starts with metadata (no description before metadata)
+            const startsWithMetadata = fullInput.match(/^[@+^~]/);
+
+            // Check if we have only a time (HH:MM) with no description following
+            const hasOnlyTime = fullInput.match(/^\d{1,2}:\d{2}$/) ||
+                               (fullInput.match(/^\d{1,2}:\d{2}\s/) &&
+                                fullInput.substring(fullInput.indexOf(' ') + 1).trim().match(/^[@+^~]/));
+
+            if (hasOnlyTime) {
+              // Add today's date and dummy description for time-only updates
+              const today = new Date();
+              const dateStr = today.toISOString().split('T')[0];
+              inputToParse = `${dateStr} ${fullInput.trim()} _dummy`.trim();
+            } else if (fullInput.match(/^\d{1,2}:\d{2}/) && !fullInput.match(/^\d{4}-\d{2}-\d{2}/)) {
+              // Add today's date for parser
+              const today = new Date();
+              const dateStr = today.toISOString().split('T')[0];
+              inputToParse = `${dateStr} ${fullInput}`;
+            } else if (startsWithMetadata) {
+              // For metadata-only updates (starting with @ + ^ ~), add dummy timestamp and description
+              inputToParse = `00:00 _dummy ${fullInput}`;
+            } else if (!fullInput.match(/^\d{1,2}:\d{2}/) && !fullInput.match(/^\d{4}-\d{2}-\d{2}/)) {
+              // No time prefix, add dummy timestamp
+              inputToParse = `00:00 ${fullInput}`;
+            }
+
+            const parseResult = LogParser.parse(inputToParse);
 
             if (parseResult.errors.length === 0 && parseResult.entries.length > 0) {
               const logEntry = parseResult.entries[0];
@@ -69,7 +93,8 @@ export function scheduleEditCommand(
               logger.debug('Successfully parsed log notation for edit');
 
               // Extract values from log notation (will be overridden by command-line flags)
-              if (logEntry.description && logEntry.description.trim()) {
+              // Don't extract description if we added a dummy one
+              if (logEntry.description && logEntry.description.trim() && logEntry.description !== '_dummy') {
                 logNotationData.description = logEntry.description;
               }
 
@@ -89,9 +114,19 @@ export function scheduleEditCommand(
                 logNotationData.priority = logEntry.priority;
               }
 
-              // Extract scheduled date/time if present
-              if (fullInput.match(/^\d{4}-\d{2}-\d{2}/)) {
+              // Extract scheduled date/time if time/date was present in input
+              if (fullInput.match(/^\d{1,2}:\d{2}/) || fullInput.match(/^\d{4}-\d{2}-\d{2}/)) {
                 logNotationData.scheduledDateTime = logEntry.timestamp;
+
+                // If the parsed time is in the past and we only provided a time (not full date),
+                // schedule it for tomorrow instead
+                if (fullInput.match(/^\d{1,2}:\d{2}/) && !fullInput.match(/^\d{4}-\d{2}-\d{2}/)) {
+                  if (logNotationData.scheduledDateTime.getTime() < Date.now()) {
+                    logNotationData.scheduledDateTime = new Date(
+                      logNotationData.scheduledDateTime.getTime() + 24 * 60 * 60 * 1000
+                    );
+                  }
+                }
               }
             } else {
               logger.debug('Failed to parse as log notation, ignoring');

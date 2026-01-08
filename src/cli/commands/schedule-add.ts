@@ -38,19 +38,27 @@ export function scheduleAddCommand(descriptionArgs: string[], options: ScheduleA
       let scheduledDateTime: Date | undefined;
 
       // Parse log notation if present
-      const hasDateOrMetadata = fullInput.match(/^\d{4}-\d{2}-\d{2}/) ||
+      const hasTimeOrMetadata = fullInput.match(/^\d{1,2}:\d{2}/) ||
+                                fullInput.match(/^\d{4}-\d{2}-\d{2}/) ||
                                 fullInput.includes('@') ||
                                 fullInput.includes('+') ||
                                 fullInput.includes('^') ||
                                 fullInput.includes('~');
 
-      if (hasDateOrMetadata) {
+      if (hasTimeOrMetadata) {
         logger.debug('Attempting to parse as log notation');
         try {
-          // Prepend dummy timestamp if needed for parser
-          const inputToParse = fullInput.match(/^\d{4}-\d{2}-\d{2}/)
-            ? fullInput
-            : `00:00 ${fullInput}`;
+          // Prepend dummy date if we have just a time (HH:MM)
+          let inputToParse = fullInput;
+          if (fullInput.match(/^\d{1,2}:\d{2}/) && !fullInput.match(/^\d{4}-\d{2}-\d{2}/)) {
+            // Add today's date for parser
+            const today = new Date();
+            const dateStr = today.toISOString().split('T')[0];
+            inputToParse = `${dateStr} ${fullInput}`;
+          } else if (!fullInput.match(/^\d{1,2}:\d{2}/) && !fullInput.match(/^\d{4}-\d{2}-\d{2}/)) {
+            // No time prefix, add dummy timestamp
+            inputToParse = `00:00 ${fullInput}`;
+          }
 
           const parseResult = LogParser.parse(inputToParse);
 
@@ -76,9 +84,17 @@ export function scheduleAddCommand(descriptionArgs: string[], options: ScheduleA
               priority = logEntry.priority;
             }
 
-            // Extract scheduled date/time if present in input
-            if (fullInput.match(/^\d{4}-\d{2}-\d{2}/)) {
+            // Extract scheduled date/time if time/date was present in input
+            if (fullInput.match(/^\d{1,2}:\d{2}/) || fullInput.match(/^\d{4}-\d{2}-\d{2}/)) {
               scheduledDateTime = logEntry.timestamp;
+
+              // If the parsed time is in the past and we only provided a time (not full date),
+              // schedule it for tomorrow instead
+              if (fullInput.match(/^\d{1,2}:\d{2}/) && !fullInput.match(/^\d{4}-\d{2}-\d{2}/)) {
+                if (scheduledDateTime.getTime() < Date.now()) {
+                  scheduledDateTime = new Date(scheduledDateTime.getTime() + 24 * 60 * 60 * 1000);
+                }
+              }
             }
           }
         } catch (error) {
