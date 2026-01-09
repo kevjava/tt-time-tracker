@@ -69,6 +69,7 @@ tt-time-tracker/
 │   │   │   ├── schedule-list.ts      # List scheduled tasks
 │   │   │   ├── schedule-edit.ts      # Edit scheduled task
 │   │   │   ├── schedule-remove.ts    # Remove scheduled task
+│   │   │   ├── schedule-import.ts    # Import tasks from .ttlog file
 │   │   │   └── schedule-select.ts    # Interactive selection UI
 │   │   └── editor.ts                 # $EDITOR integration
 │   └── utils/
@@ -343,6 +344,49 @@ Stop current active task.
 - Set state = 'completed'
 - Update remark if provided
 - Print summary: task description, duration
+
+### `tt schedule import <file>`
+
+Import scheduled tasks from a .ttlog template file.
+
+**Arguments:**
+
+- `<file>` - Path to .ttlog file containing task entries
+
+**Behavior:**
+
+- Read and parse file using LogParser
+- Display parse errors and exit (do NOT open editor for batch imports)
+- Display parse warnings but continue
+- Filter out state marker placeholders (`__END__`, `__PAUSE__`, `__ABANDON__`)
+- For each valid entry:
+  - Skip entries with unresolved `@resume` markers (require database)
+  - Resolve `@prev` and `@N` markers using in-file context
+  - Import as scheduled task with:
+    - description from entry.description
+    - project from entry.project
+    - estimateMinutes from entry.estimateMinutes (NOT explicitDurationMinutes)
+    - priority from entry.priority (default 5)
+    - scheduledDateTime from entry.timestamp (preserves exact date/time)
+    - tags from entry.tags
+- Flatten interruptions (import indented entries as separate tasks)
+- Display summary: count imported, count skipped, sample of recent imports
+- Allow duplicate descriptions (no deduplication)
+
+**Error Handling:**
+
+- File not found → error + exit(1)
+- Parse errors → display all, suggest fixing source, exit(1)
+- Parse warnings → display but continue
+- Unresolved @resume → skip, increment skipped count
+- No entries → graceful message
+
+**Key Differences from log command:**
+
+- No editor integration (batch operation, fix source file)
+- Uses estimateMinutes (~15m) not explicitDurationMinutes ((30m))
+- Preserves exact timestamps in scheduledDateTime
+- Flattens interruption hierarchy (no parent_session_id concept for scheduled tasks)
 
 ### Future commands (not in v1.0):
 

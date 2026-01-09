@@ -160,7 +160,8 @@ Database → Query sessions → Calculate metrics → Format output
 ### CLI Module (`src/cli/`)
 
 - **commands/**: Each command is a separate module (log.ts, start.ts, stop.ts, report.ts, schedule.ts, etc.)
-- **schedule-\*.ts**: Schedule command implementation (add, list, edit, remove, select)
+- **schedule-\*.ts**: Schedule command implementation (add, list, edit, remove, import, select)
+- **schedule-import.ts**: Imports .ttlog files as scheduled tasks, flattens interruptions, preserves timestamps
 - **schedule-select.ts**: Interactive selection UI for scheduled tasks (three stanzas: oldest, important, urgent)
 - **editor.ts**: Handles `$EDITOR` integration for fixing parse errors
 - Uses Commander.js for argument parsing
@@ -196,6 +197,48 @@ Context switches include all focus changes, including interruptions. Each interr
 - **Not a switch**: Breaks/lunch (tagged with +lunch, +break, +downtime) don't count
 
 The `buildWorkTimeline()` function in both `context-switches.ts` and `focus-blocks.ts` creates a chronological timeline of active work sessions, tracking when you switch to/from interruptions.
+
+### Schedule Import (schedule-import.ts)
+
+The `schedule import` command imports .ttlog files as scheduled task templates:
+
+**Key behaviors:**
+1. Uses LogParser to parse file (same as `log` command)
+2. **No editor integration** - displays errors and exits (batch operation, not interactive)
+3. **Flattens interruptions** - imports all entries (including indented ones) as separate scheduled tasks
+4. **Uses estimates not durations** - `estimateMinutes` from `~15m`, ignores `explicitDurationMinutes` from `(30m)`
+5. **Preserves timestamps** - stores exact date/time in `scheduledDateTime` field
+6. **Resolves resume markers** - `@prev` and `@N` resolved using in-file context, `@resume` skipped
+7. **Filters state markers** - skips `__END__`, `__PAUSE__`, `__ABANDON__` placeholder entries
+8. **Allows duplicates** - no deduplication, each import creates new tasks
+
+**Implementation pattern:**
+```typescript
+// 1. Read and parse file
+const parseResult = LogParser.parse(content);
+
+// 2. Filter valid entries (skip state markers)
+const validEntries = entries.filter(e => !isSpecialMarker(e.description));
+
+// 3. Import each entry
+for (const entry of validEntries) {
+  const taskId = db.insertScheduledTask({
+    description: entry.description,
+    project: entry.project,
+    estimateMinutes: entry.estimateMinutes,  // NOT explicitDurationMinutes
+    priority: entry.priority || 5,
+    scheduledDateTime: entry.timestamp,      // Preserve exact time
+  });
+  if (entry.tags.length > 0) {
+    db.insertScheduledTaskTags(taskId, entry.tags);
+  }
+}
+```
+
+**Test fixtures:**
+- `schedule-import-simple.log` - Basic entries with timestamps and metadata
+- `schedule-import-interruptions.log` - Nested interruptions to test flattening
+- `schedule-import-resume-markers.log` - Resume marker resolution
 
 ### Test Organization
 

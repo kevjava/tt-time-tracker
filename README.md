@@ -634,6 +634,7 @@ Manage a queue of future tasks that act as templates for starting work. Schedule
 - `tt schedule add <description>` - Add a new scheduled task
 - `tt schedule edit <id>` - Edit an existing scheduled task
 - `tt schedule remove <id>` - Remove a scheduled task
+- `tt schedule import <file>` - Import tasks from a .ttlog template file
 
 **Interactive Selection:**
 
@@ -773,6 +774,78 @@ tt schedule remove 5
 ```
 
 **Note:** Tasks are automatically removed from the schedule when you select them via interactive selection in `start`, `next`, `switch`, or `interrupt` commands.
+
+#### `tt schedule import <file>`
+
+Import scheduled tasks from a .ttlog template file. This allows you to create reusable schedule templates for different days or types of work.
+
+**Arguments:**
+
+- `<file>` - Path to a .ttlog file containing task entries
+
+**Behavior:**
+
+- Parses the file using standard log notation syntax
+- Imports all entries (including interruptions) as separate scheduled tasks
+- Preserves exact timestamps, projects, tags, estimates, and priorities from the file
+- Uses estimated durations (`~15m`) rather than explicit durations (`(30m)`)
+- Resolves `@prev` and `@N` resume markers using in-file context
+- Skips `@resume` markers (which require database lookup)
+- Displays parse errors without opening editor (fix errors in source file and retry)
+- Shows count of imported tasks and any entries that were skipped
+
+**Template File Format:**
+
+Create a .ttlog file with your desired schedule:
+
+```ttlog
+# Wednesday Schedule
+07:00 morning emails @admin +emails ~15m
+07:15 plan the day @admin +planning ~15m
+07:30 dog walk +break ~30m
+08:00 run @wellness +wellness ~1h
+09:00 shower +break ~30m
+09:30 standup @project1 +meeting ~15m ^2
+10:00 deep work session @project1 +code ~3h ^1
+```
+
+**Examples:**
+
+```bash
+# Import a daily schedule template
+tt schedule import wednesday-schedule.ttlog
+
+# Import a project-specific task list
+tt schedule import sprint-backlog.ttlog
+
+# Create and import a template on the fly
+cat > morning-routine.ttlog << 'EOF'
+07:00 review overnight emails @admin ~15m
+07:15 daily planning @admin ~15m
+07:30 team standup @myProject +meeting ~15m
+EOF
+tt schedule import morning-routine.ttlog
+```
+
+**Success Output:**
+
+```
+✓ Imported 7 scheduled task(s) from wednesday-schedule.ttlog
+
+Recently imported tasks:
+  #1 2026-01-15 07:00 morning emails @admin +emails ~15m
+  #2 2026-01-15 07:15 plan the day @admin +planning ~15m
+  #3 2026-01-15 07:30 dog walk +break ~30m
+  #4 2026-01-15 08:00 run @wellness +wellness ~1h
+  #5 2026-01-15 09:00 shower +break ~30m
+```
+
+**Notes:**
+
+- Interruptions (indented entries) are imported as separate tasks, not nested
+- All tasks support the full log notation syntax (timestamps, projects, tags, estimates, priorities)
+- Imported tasks can then be selected via interactive menus in `start`, `next`, `switch`, or `interrupt` commands
+- Template files can be version controlled and shared across team members
 
 ### `tt status`
 
