@@ -1,0 +1,5 @@
+# Schedule import fixture - with nested interruptions
+2026-01-10 09:00 deep work @projectX +code ~2h
+  10:00 quick question from manager @admin +communication (5m)
+  10:15 coffee break +break (10m)
+11:00 continue with task 2 @projectX +code

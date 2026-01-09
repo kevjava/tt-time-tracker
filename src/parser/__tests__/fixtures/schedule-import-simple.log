@@ -1,0 +1,6 @@
+# Simple schedule import fixture - basic entries with dates/times
+2026-01-10 07:00 morning emails @admin +emails ~15m
+2026-01-10 08:00 standup meeting @projectX +meeting ~15m
+2026-01-10 09:00 deep work session @projectX +code ~3h ^2
+2026-01-10 12:00 +lunch
+2026-01-10 13:00 code review @projectY +review ~1h

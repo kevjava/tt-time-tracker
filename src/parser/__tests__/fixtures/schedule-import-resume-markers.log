@@ -1,0 +1,5 @@
+# Schedule import fixture - resume marker handling
+2026-01-10 09:00 task one @projectX +code
+2026-01-10 10:00 task two @projectY +docs
+2026-01-10 11:00 @prev # should resolve to "task two"
+2026-01-10 12:00 @1 # should resolve to "task one"

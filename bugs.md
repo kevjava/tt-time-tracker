@@ -10,6 +10,27 @@
 
 ## Ready
 
-- `tt schedule rm` should confirm before deleting, like `tt rm does`.
-- Schedule add/edit should accept log notation in addition to command-line
-  parameters and flags.
+### Schedule imports
+
+I'd like to be able to import a schedule file as a template for a day's work.
+
+I could create a file called `wednesday.ttlog`:
+
+```ttlog
+07:00 In, reading emails @admin ~15m
+07:15 Plan the day @admin ~15m
+07:30 Dog walk @break ~30m
+08:00 Run @wellness +wellness ~1h
+09:00 Shower @break ~30m
+09:30 Standup @project1 ~15m
+```
+
+I could do a
+
+```sh
+tt schedule import wednesday.ttlog
+```
+
+...and `tt` would parse them in log format, then import all of these schedule
+entries to be executed with a default date of today (it's acceptable for some of
+these to be in the past.)

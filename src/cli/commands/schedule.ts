@@ -2,6 +2,7 @@ import { scheduleListCommand } from './schedule-list';
 import { scheduleAddCommand } from './schedule-add';
 import { scheduleEditCommand } from './schedule-edit';
 import { scheduleRemoveCommand } from './schedule-remove';
+import { scheduleImportCommand } from './schedule-import';
 import chalk from 'chalk';
 
 /**
@@ -33,9 +34,12 @@ export async function scheduleCommand(
     case 'ls':
       scheduleListCommand();
       break;
+    case 'import':
+      scheduleImportCommand(args[0], options);
+      break;
     default:
       console.error(chalk.red(`Error: Unknown subcommand: ${subcommand}`));
-      console.log(chalk.yellow('Available subcommands: add, edit, remove, list'));
+      console.log(chalk.yellow('Available subcommands: add, edit, remove, list, import'));
       process.exit(1);
   }
 }
