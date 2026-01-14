@@ -439,6 +439,141 @@ describe('switch command', () => {
     });
   });
 
+  describe('interruption handling', () => {
+    it('should error when called during an interruption', () => {
+      const originalError = console.error;
+      console.error = jest.fn();
+
+      try {
+        // Create a parent task
+        const parentId = db.insertSession({
+          startTime: new Date(Date.now() - 3600000),
+          description: 'Parent task',
+          state: 'working',
+        });
+
+        // Pause the parent (simulating interrupt behavior)
+        db.updateSession(parentId, {
+          state: 'paused',
+        });
+
+        // Create an interruption (child task)
+        db.insertSession({
+          startTime: new Date(Date.now() - 1800000),
+          description: 'Interruption task',
+          state: 'working',
+          parentSessionId: parentId,
+        });
+
+        // Try to use switch during the interruption
+        switchCommand('New task', {});
+
+        expect(mockExit).toHaveBeenCalledWith(1);
+        expect(console.error).toHaveBeenCalledWith(
+          expect.stringContaining('Currently in an interruption')
+        );
+        expect(console.error).toHaveBeenCalledWith(
+          expect.stringContaining('tt resume')
+        );
+      } finally {
+        console.error = originalError;
+      }
+    });
+
+    it('should show error message with correct command name', () => {
+      const originalError = console.error;
+      console.error = jest.fn();
+
+      try {
+        // Create a parent task
+        const parentId = db.insertSession({
+          startTime: new Date(Date.now() - 3600000),
+          description: 'Parent task',
+          state: 'paused',
+        });
+
+        // Create an interruption
+        db.insertSession({
+          startTime: new Date(Date.now() - 1800000),
+          description: 'Interruption task',
+          state: 'working',
+          parentSessionId: parentId,
+        });
+
+        // Try to use switch during the interruption
+        switchCommand('New task', {});
+
+        expect(mockExit).toHaveBeenCalledWith(1);
+        // Should suggest running tt switch after resume
+        expect(console.error).toHaveBeenCalledWith(
+          expect.stringContaining('tt switch')
+        );
+      } finally {
+        console.error = originalError;
+      }
+    });
+
+    it('should work normally when not in an interruption', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        // Create a regular active task (no parent)
+        const activeId = db.insertSession({
+          startTime: new Date(Date.now() - 3600000),
+          description: 'Regular task',
+          state: 'working',
+        });
+
+        // Use switch - should work normally
+        switchCommand('New task', {});
+        reopenDb();
+
+        // Verify previous task was paused (not completed, unlike next)
+        const previousTask = db.getSessionById(activeId);
+        expect(previousTask?.state).toBe('paused');
+        expect(previousTask?.endTime).toBeDefined();
+
+        // Verify new task was started
+        const activeTask = db.getActiveSession();
+        expect(activeTask?.description).toBe('New task');
+        expect(activeTask?.state).toBe('working');
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    it('should include interruption description in error message', () => {
+      const originalError = console.error;
+      console.error = jest.fn();
+
+      try {
+        // Create parent and interruption
+        const parentId = db.insertSession({
+          startTime: new Date(Date.now() - 3600000),
+          description: 'Main coding work',
+          state: 'paused',
+        });
+
+        db.insertSession({
+          startTime: new Date(Date.now() - 1800000),
+          description: 'Quick email check',
+          state: 'working',
+          parentSessionId: parentId,
+        });
+
+        switchCommand('Another task', {});
+
+        expect(console.error).toHaveBeenCalledWith(
+          expect.stringContaining('Quick email check')
+        );
+      } finally {
+        console.error = originalError;
+      }
+    });
+
+  });
+
   describe('integration with resume', () => {
     it('should allow paused tasks to be resumed later', () => {
       const originalLog = console.log;

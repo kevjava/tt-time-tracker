@@ -10,17 +10,22 @@
 
 ## Ready
 
-### Issuing a `next` command during an interruption
+### ~~Issuing a `next` or `switch` command during an interruption~~ RESOLVED
 
-Doing a `tt next` during an interruption will end the interruption and then fail
-to start the next one. Should we:
+**Resolution:** Implemented option 2 - detect interruption and prompt user.
 
-1. Stop the interruption and the parent task
-2. Do nothing. Tell the user that they should issue a `tt resume` command to end
-   the interruption and then proceed to the next task
+Both `tt next` and `tt switch` now check if the active session is an interruption
+(has a `parentSessionId`) before proceeding. If so, they display an error message
+telling the user to run `tt resume` first to properly end the interruption, then
+re-run the command.
 
-I think option 2 is better -- there are no surprises to the user. Do you see
-consistency issues with that?
+Example:
+```
+Error: Currently in an interruption "side task". Use `tt resume` to end the interruption first, then run `tt next`.
+```
+
+Note: `tt start` was not affected - it already refuses to start when there's an
+active session.
 
 ### ~~`--at` for the same minute can cause overlaps~~ ✅ RESOLVED
 

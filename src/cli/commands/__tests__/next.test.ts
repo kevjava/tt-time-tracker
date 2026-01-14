@@ -836,6 +836,140 @@ describe('next command', () => {
     });
   });
 
+  describe('interruption handling', () => {
+    it('should error when called during an interruption', () => {
+      const originalError = console.error;
+      console.error = jest.fn();
+
+      try {
+        // Create a parent task
+        const parentId = db.insertSession({
+          startTime: new Date(Date.now() - 3600000),
+          description: 'Parent task',
+          state: 'working',
+        });
+
+        // Pause the parent (simulating interrupt behavior)
+        db.updateSession(parentId, {
+          state: 'paused',
+        });
+
+        // Create an interruption (child task)
+        db.insertSession({
+          startTime: new Date(Date.now() - 1800000),
+          description: 'Interruption task',
+          state: 'working',
+          parentSessionId: parentId,
+        });
+
+        // Try to use next during the interruption
+        nextCommand('New task', {});
+
+        expect(mockExit).toHaveBeenCalledWith(1);
+        expect(console.error).toHaveBeenCalledWith(
+          expect.stringContaining('Currently in an interruption')
+        );
+        expect(console.error).toHaveBeenCalledWith(
+          expect.stringContaining('tt resume')
+        );
+      } finally {
+        console.error = originalError;
+      }
+    });
+
+    it('should show error message with correct command name', () => {
+      const originalError = console.error;
+      console.error = jest.fn();
+
+      try {
+        // Create a parent task
+        const parentId = db.insertSession({
+          startTime: new Date(Date.now() - 3600000),
+          description: 'Parent task',
+          state: 'paused',
+        });
+
+        // Create an interruption
+        db.insertSession({
+          startTime: new Date(Date.now() - 1800000),
+          description: 'Interruption task',
+          state: 'working',
+          parentSessionId: parentId,
+        });
+
+        // Try to use next during the interruption
+        nextCommand('New task', {});
+
+        expect(mockExit).toHaveBeenCalledWith(1);
+        // Should suggest running tt next after resume
+        expect(console.error).toHaveBeenCalledWith(
+          expect.stringContaining('tt next')
+        );
+      } finally {
+        console.error = originalError;
+      }
+    });
+
+    it('should work normally when not in an interruption', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
+
+      try {
+        // Create a regular active task (no parent)
+        const activeId = db.insertSession({
+          startTime: new Date(Date.now() - 3600000),
+          description: 'Regular task',
+          state: 'working',
+        });
+
+        // Use next - should work normally
+        nextCommand('New task', {});
+        reopenDb();
+
+        // Verify previous task was stopped
+        const previousTask = db.getSessionById(activeId);
+        expect(previousTask?.state).toBe('completed');
+        expect(previousTask?.endTime).toBeDefined();
+
+        // Verify new task was started
+        const activeTask = db.getActiveSession();
+        expect(activeTask?.description).toBe('New task');
+        expect(activeTask?.state).toBe('working');
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    it('should include interruption description in error message', () => {
+      const originalError = console.error;
+      console.error = jest.fn();
+
+      try {
+        // Create parent and interruption
+        const parentId = db.insertSession({
+          startTime: new Date(Date.now() - 3600000),
+          description: 'Main coding work',
+          state: 'paused',
+        });
+
+        db.insertSession({
+          startTime: new Date(Date.now() - 1800000),
+          description: 'Quick email check',
+          state: 'working',
+          parentSessionId: parentId,
+        });
+
+        nextCommand('Another task', {});
+
+        expect(console.error).toHaveBeenCalledWith(
+          expect.stringContaining('Quick email check')
+        );
+      } finally {
+        console.error = originalError;
+      }
+    });
+  });
+
   describe('session ID as template', () => {
     it('should duplicate metadata from existing session', () => {
       const originalLog = console.log;

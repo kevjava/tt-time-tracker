@@ -8,6 +8,7 @@ import { validateStartTime, validateStopTime } from '../../utils/session-validat
 import { promptScheduledTaskSelection } from './schedule-select';
 import { ScheduledTask, Session } from '../../types/session';
 import * as theme from '../../utils/theme';
+import { checkNotInInterruption } from './interruption-guard';
 
 interface NextOptions {
   project?: string;
@@ -74,6 +75,7 @@ function nextFromSessionTemplate(db: TimeTrackerDB, sessionId: number, options: 
   // Stop any active session first
   const activeSession = db.getActiveSession();
   if (activeSession) {
+    checkNotInInterruption(activeSession, 'next');
     const endTime = validateStopTime(options.at, activeSession);
     db.updateSession(activeSession.id!, {
       endTime,
@@ -155,6 +157,7 @@ function nextFromScheduledTask(db: TimeTrackerDB, task: ScheduledTask & { tags: 
   // Stop any active session first
   const activeSession = db.getActiveSession();
   if (activeSession) {
+    checkNotInInterruption(activeSession, 'next');
     const endTime = validateStopTime(options.at, activeSession);
     db.updateSession(activeSession.id!, {
       endTime,
@@ -232,6 +235,7 @@ function nextFromIncompleteSession(
   // Stop any active session first
   const activeSession = db.getActiveSession();
   if (activeSession) {
+    checkNotInInterruption(activeSession, 'next');
     const endTime = validateStopTime(options.at, activeSession);
     db.updateSession(activeSession.id!, {
       endTime,
@@ -420,6 +424,7 @@ async function nextWithDescription(db: TimeTrackerDB, descriptionArgs: string | 
       // Stop any active session first
       const activeSession = db.getActiveSession();
       if (activeSession) {
+        checkNotInInterruption(activeSession, 'next');
         const endTime = validateStopTime(options.at, activeSession);
         db.updateSession(activeSession.id!, {
           endTime,

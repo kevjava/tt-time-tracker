@@ -8,6 +8,7 @@ import { validateStartTime, validateStopTime } from '../../utils/session-validat
 import * as theme from '../../utils/theme';
 import { promptScheduledTaskSelection } from './schedule-select';
 import { ScheduledTask, Session } from '../../types/session';
+import { checkNotInInterruption } from './interruption-guard';
 
 interface SwitchOptions {
   project?: string;
@@ -94,6 +95,7 @@ function switchFromSessionTemplate(db: TimeTrackerDB, sessionId: number, options
   const activeSession = db.getActiveSession();
 
   if (activeSession) {
+    checkNotInInterruption(activeSession, 'switch');
     // Pause the active session
     const endTime = validateStopTime(options.at, activeSession);
 
@@ -161,6 +163,7 @@ function switchFromScheduledTask(db: TimeTrackerDB, task: ScheduledTask & { tags
   // Pause any active session first
   const activeSession = db.getActiveSession();
   if (activeSession) {
+    checkNotInInterruption(activeSession, 'switch');
     const endTime = validateStopTime(options.at, activeSession);
     db.updateSession(activeSession.id!, {
       endTime,
@@ -238,6 +241,7 @@ function switchFromIncompleteSession(
   // Pause any active session first
   const activeSession = db.getActiveSession();
   if (activeSession) {
+    checkNotInInterruption(activeSession, 'switch');
     const endTime = validateStopTime(options.at, activeSession);
     db.updateSession(activeSession.id!, {
       endTime,
@@ -353,6 +357,7 @@ async function switchWithDescription(db: TimeTrackerDB, descriptionArgs: string 
   // If we reach here, user provided arguments, so pause any active session now
   const activeSession = db.getActiveSession();
   if (activeSession) {
+    checkNotInInterruption(activeSession, 'switch');
     // Pause the active session
     const endTime = validateStopTime(options.at, activeSession);
     db.updateSession(activeSession.id!, {
