@@ -124,13 +124,7 @@ Database → Query sessions → Calculate metrics → Format output
 - Uses composite primary key (scheduled_task_id, tag)
 - CASCADE delete when scheduled task is deleted
 
-**Important indexes:**
-
-- `idx_sessions_time_range` on (start_time, end_time, project) for efficient report queries
-- `idx_scheduled_tasks_priority` for priority-based queries
-- `idx_scheduled_tasks_scheduled_date` for date-based queries
-- `idx_scheduled_tasks_created_at` for chronological ordering
-- Time-range queries are performance-critical for reports
+Time-range queries are performance-critical for reports (see schema.sql for indexes).
 
 ## Module Organization
 
@@ -206,58 +200,6 @@ Context switches include all focus changes, including interruptions. Each interr
 
 The `buildWorkTimeline()` function in both `context-switches.ts` and `focus-blocks.ts` creates a chronological timeline of active work sessions, tracking when you switch to/from interruptions.
 
-### Schedule Import (schedule-import.ts)
-
-The `schedule import` command imports .ttlog files as scheduled task templates:
-
-**Key behaviors:**
-1. Uses LogParser to parse file (same as `log` command)
-2. **No editor integration** - displays errors and exits (batch operation, not interactive)
-3. **Flattens interruptions** - imports all entries (including indented ones) as separate scheduled tasks
-4. **Uses estimates not durations** - `estimateMinutes` from `~15m`, ignores `explicitDurationMinutes` from `(30m)`
-5. **Preserves timestamps** - stores exact date/time in `scheduledDateTime` field
-6. **Resolves resume markers** - `@prev` and `@N` resolved using in-file context, `@resume` skipped
-7. **Filters state markers** - skips `__END__`, `__PAUSE__`, `__ABANDON__` placeholder entries
-8. **Allows duplicates** - no deduplication, each import creates new tasks
-
-**Implementation pattern:**
-```typescript
-// 1. Read and parse file
-const parseResult = LogParser.parse(content);
-
-// 2. Filter valid entries (skip state markers)
-const validEntries = entries.filter(e => !isSpecialMarker(e.description));
-
-// 3. Import each entry
-for (const entry of validEntries) {
-  const taskId = db.insertScheduledTask({
-    description: entry.description,
-    project: entry.project,
-    estimateMinutes: entry.estimateMinutes,  // NOT explicitDurationMinutes
-    priority: entry.priority || 5,
-    scheduledDateTime: entry.timestamp,      // Preserve exact time
-  });
-  if (entry.tags.length > 0) {
-    db.insertScheduledTaskTags(taskId, entry.tags);
-  }
-}
-```
-
-**Test fixtures:**
-- `schedule-import-simple.log` - Basic entries with timestamps and metadata
-- `schedule-import-interruptions.log` - Nested interruptions to test flattening
-- `schedule-import-resume-markers.log` - Resume marker resolution
-
-### Test Organization
-
-```
-src/module/__tests__/
-  module.test.ts
-  fixtures/         # Test log files for integration tests
-```
-
-All tests use Jest. Database tests use in-memory SQLite (`:memory:`) for isolation.
-
 ## Important Caveats
 
 ### Build Process
@@ -275,48 +217,6 @@ When calculating actual duration, always check for `explicitDurationMinutes` fir
 ### Chalk Import (ESM)
 
 Chalk v5 is ESM-only but the project uses CommonJS. The imports work because of `esModuleInterop: true` in tsconfig.json. Don't change the module system without updating all imports.
-
-## Common Development Tasks
-
-### Adding a New Report Metric
-
-1. Create calculator in `src/reports/calculators/new-metric.ts`
-2. Add to `WeeklyReport` type in `src/reports/types.ts`
-3. Call calculator in `src/reports/weekly.ts`
-4. Update formatters to display the new metric
-5. Add tests in `src/reports/__tests__/`
-
-### Adding a New Command
-
-1. Create `src/cli/commands/new-command.ts`
-2. Export command handler function
-3. Register in `src/index.ts` using Commander.js
-4. Write comprehensive tests in `src/cli/commands/__tests__/new-command.test.ts`
-5. Update README.md with usage examples
-6. Update spec.md to document the command behavior
-
-**Example:** The `next` command (see `src/cli/commands/next.ts`) combines stop and start logic:
-
-- Stops any active session silently
-- Starts a new session with full log notation support
-- Supports all the same options as `start` command
-- Useful pattern for convenience commands that combine operations
-
-### Modifying the Log Notation Syntax
-
-1. Update tokenizer to recognize new token types
-2. Update grammar parser to handle new tokens
-3. Add fixtures in `src/parser/__tests__/fixtures/`
-4. Update README.md documentation
-5. Update spec.md if changing semantics
-
-## Testing Philosophy
-
-- **Parser**: Comprehensive unit tests for edge cases (102 tests total, 74 for parser)
-- **Database**: Use in-memory SQLite for fast, isolated tests
-- **Integration**: Test fixtures include `simple.log`, `interruptions.log`, `errors.log`, `warnings.log`, `complex.log`
-- **Errors**: Test both happy path and error conditions
-- **Test-first**: Write tests before implementation for new features
 
 ## Environment Variables
 
