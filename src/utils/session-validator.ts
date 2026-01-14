@@ -1,9 +1,13 @@
+import chalk from 'chalk';
 import { TimeTrackerDB } from '../db/database';
 import { Session } from '../types/session';
 import { parseAtTime, validateNotFuture, validateTimeOrder } from './time-parser';
 
+const AUTO_ADJUST_THRESHOLD_MS = 60000; // 60 seconds
+
 /**
  * Validate and parse a time for starting a new session
+ * Auto-adjusts start time if overlap is less than 60 seconds
  */
 export function validateStartTime(
   atTime: string | undefined,
@@ -15,7 +19,33 @@ export function validateStartTime(
   validateNotFuture(startTime);
 
   // Check for overlapping sessions
-  if (db.hasOverlappingSession(startTime, null)) {
+  const overlappingSession = db.getOverlappingSession(startTime, null);
+  if (overlappingSession) {
+    // If the overlapping session has no end time (still active), we can't auto-adjust
+    if (!overlappingSession.endTime) {
+      throw new Error(
+        `Cannot start session at ${startTime.toLocaleString()} - it would overlap with an active session. ` +
+        `Stop or complete the active session first.`
+      );
+    }
+
+    // Check if overlap is less than threshold (60 seconds)
+    const overlapMs = overlappingSession.endTime.getTime() - startTime.getTime();
+    if (overlapMs > 0 && overlapMs < AUTO_ADJUST_THRESHOLD_MS) {
+      const adjustedTime = new Date(overlappingSession.endTime.getTime() + 1000);
+
+      // Check that adjusted time is not in the future
+      validateNotFuture(adjustedTime);
+
+      console.warn(
+        chalk.yellow(
+          `Note: Adjusted start time from ${startTime.toLocaleTimeString()} to ${adjustedTime.toLocaleTimeString()} to avoid overlap with previous session`
+        )
+      );
+      return adjustedTime;
+    }
+
+    // Overlap is too large, throw error
     throw new Error(
       `Cannot start session at ${startTime.toLocaleString()} - it would overlap with an existing session. ` +
       `Stop or complete the conflicting session first.`
@@ -45,6 +75,7 @@ export function validateStopTime(
 
 /**
  * Validate and parse a time for interrupting a session
+ * Auto-adjusts interrupt time if overlap is less than 60 seconds
  */
 export function validateInterruptTime(
   atTime: string | undefined,
@@ -60,7 +91,35 @@ export function validateInterruptTime(
   validateTimeOrder(activeSession.startTime, interruptTime);
 
   // Check for overlapping sessions (excluding the active session being interrupted)
-  if (db.hasOverlappingSession(interruptTime, null, activeSession.id)) {
+  const overlappingSession = db.getOverlappingSession(interruptTime, null, activeSession.id);
+  if (overlappingSession) {
+    // If the overlapping session has no end time (still active), we can't auto-adjust
+    if (!overlappingSession.endTime) {
+      throw new Error(
+        `Cannot start interruption at ${interruptTime.toLocaleString()} - it would overlap with an active session.`
+      );
+    }
+
+    // Check if overlap is less than threshold (60 seconds)
+    const overlapMs = overlappingSession.endTime.getTime() - interruptTime.getTime();
+    if (overlapMs > 0 && overlapMs < AUTO_ADJUST_THRESHOLD_MS) {
+      const adjustedTime = new Date(overlappingSession.endTime.getTime() + 1000);
+
+      // Check that adjusted time is not in the future
+      validateNotFuture(adjustedTime);
+
+      // Also verify adjusted time is still after the active session's start time
+      validateTimeOrder(activeSession.startTime, adjustedTime);
+
+      console.warn(
+        chalk.yellow(
+          `Note: Adjusted start time from ${interruptTime.toLocaleTimeString()} to ${adjustedTime.toLocaleTimeString()} to avoid overlap with previous session`
+        )
+      );
+      return adjustedTime;
+    }
+
+    // Overlap is too large, throw error
     throw new Error(
       `Cannot start interruption at ${interruptTime.toLocaleString()} - it would overlap with an existing session.`
     );

@@ -10,27 +10,31 @@
 
 ## Ready
 
-### Schedule imports
+### Issuing a `next` command during an interruption
 
-I'd like to be able to import a schedule file as a template for a day's work.
+Doing a `tt next` during an interruption will end the interruption and then fail
+to start the next one. Should we:
 
-I could create a file called `wednesday.ttlog`:
+1. Stop the interruption and the parent task
+2. Do nothing. Tell the user that they should issue a `tt resume` command to end
+   the interruption and then proceed to the next task
 
-```ttlog
-07:00 In, reading emails @admin ~15m
-07:15 Plan the day @admin ~15m
-07:30 Dog walk @break ~30m
-08:00 Run @wellness +wellness ~1h
-09:00 Shower @break ~30m
-09:30 Standup @project1 ~15m
+I think option 2 is better -- there are no surprises to the user. Do you see
+consistency issues with that?
+
+### ~~`--at` for the same minute can cause overlaps~~ ✅ RESOLVED
+
+**Resolution:** Implemented option 2 - auto-adjustment for overlaps < 60 seconds.
+
+When using `--at` and the specified time would overlap with an existing session
+by less than 60 seconds, the start time is automatically adjusted to 1 second
+after the previous session's end time. A warning message is displayed to inform
+the user of the adjustment.
+
+Example:
+```
+Note: Adjusted start time from 10:30:00 to 10:30:46 to avoid overlap with previous session
 ```
 
-I could do a
-
-```sh
-tt schedule import wednesday.ttlog
-```
-
-...and `tt` would parse them in log format, then import all of these schedule
-entries to be executed with a default date of today (it's acceptable for some of
-these to be in the past.)
+If the overlap is >= 60 seconds, the original error is still shown and the user
+must manually resolve the conflict.

@@ -1426,8 +1426,14 @@ tt resume --at "12:00" -r "Fixed the issue"
 tt stop --at "13:00"
 ```
 
-**Overlap Prevention:**
-The `--at` flag validates that times don't conflict with existing sessions. If you get an overlap error, you'll need to stop or adjust the conflicting session first.
+**Overlap Prevention & Auto-Adjustment:**
+The `--at` flag validates that times don't conflict with existing sessions. For small overlaps (less than 60 seconds), the start time is automatically adjusted to 1 second after the previous session's end time, with a warning message:
+
+```
+Note: Adjusted start time from 10:30:00 to 10:30:46 to avoid overlap with previous session
+```
+
+For larger overlaps, you'll get an error and need to stop or adjust the conflicting session first.
 
 **Time Formats:**
 - **Relative**: `-30m`, `-2h`, `-1h30m` (most convenient for recent tasks)

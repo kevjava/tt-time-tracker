@@ -704,6 +704,90 @@ describe('TimeTrackerDB', () => {
     });
   });
 
+  describe('getOverlappingSession', () => {
+    beforeEach(() => {
+      // Insert test sessions
+      // Session 1: 09:00 - 09:30:45 (completed)
+      db.insertSession({
+        startTime: new Date('2024-12-24T09:00:00'),
+        endTime: new Date('2024-12-24T09:30:45'),
+        description: 'completed task 1',
+        state: 'completed',
+      });
+
+      // Session 2: 11:00 - 12:00 (completed)
+      db.insertSession({
+        startTime: new Date('2024-12-24T11:00:00'),
+        endTime: new Date('2024-12-24T12:00:00'),
+        description: 'completed task 2',
+        state: 'completed',
+      });
+
+      // Session 3: 14:00 - (active, no end time)
+      db.insertSession({
+        startTime: new Date('2024-12-24T14:00:00'),
+        description: 'active task',
+        state: 'working',
+      });
+    });
+
+    it('should return null when no overlap exists', () => {
+      const startTime = new Date('2024-12-24T10:00:00');
+      expect(db.getOverlappingSession(startTime, null)).toBeNull();
+    });
+
+    it('should return the overlapping session when one exists', () => {
+      const startTime = new Date('2024-12-24T09:15:00');
+      const result = db.getOverlappingSession(startTime, null);
+
+      expect(result).not.toBeNull();
+      expect(result?.description).toBe('completed task 1');
+      expect(result?.endTime).toEqual(new Date('2024-12-24T09:30:45'));
+    });
+
+    it('should return active session when overlapping with it', () => {
+      const startTime = new Date('2024-12-24T15:00:00');
+      const result = db.getOverlappingSession(startTime, null);
+
+      expect(result).not.toBeNull();
+      expect(result?.description).toBe('active task');
+      expect(result?.endTime).toBeUndefined();
+    });
+
+    it('should exclude specified session from overlap check', () => {
+      // First, get the ID of the first session
+      const firstSession = db.getOverlappingSession(
+        new Date('2024-12-24T09:15:00'),
+        null
+      );
+      expect(firstSession).not.toBeNull();
+
+      // Now exclude that session from the check
+      const result = db.getOverlappingSession(
+        new Date('2024-12-24T09:15:00'),
+        null,
+        firstSession!.id
+      );
+      expect(result).toBeNull();
+    });
+
+    it('should return overlapping session with sub-minute precision', () => {
+      // Try to start at 09:30:00 when previous session ended at 09:30:45
+      const startTime = new Date('2024-12-24T09:30:00');
+      const result = db.getOverlappingSession(startTime, null);
+
+      expect(result).not.toBeNull();
+      expect(result?.endTime).toEqual(new Date('2024-12-24T09:30:45'));
+    });
+
+    it('should return null when starting exactly at session end time', () => {
+      const startTime = new Date('2024-12-24T09:30:45');
+      const result = db.getOverlappingSession(startTime, null);
+
+      expect(result).toBeNull();
+    });
+  });
+
   describe('continuation chains', () => {
     describe('insertSession with continuesSessionId', () => {
       it('should insert session with continues_session_id', () => {

@@ -313,14 +313,15 @@ tt-time-tracker/
 
 - Validation functions for each command type
 - Checks overlap conflicts with existing sessions
+- **Auto-adjusts small overlaps**: If overlap is < 60 seconds, automatically adjusts start time to 1 second after the previous session's end time
 - Enforces time ordering constraints
-- Provides clear error messages
+- Provides clear error messages and adjustment warnings
 
 **Functions:**
 
-- `validateStartTime()` - For `start` command
+- `validateStartTime()` - For `start` command (with auto-adjustment)
 - `validateStopTime()` - For `stop` command
-- `validateInterruptTime()` - For `interrupt` command
+- `validateInterruptTime()` - For `interrupt` command (with auto-adjustment)
 - `validateResumeTime()` - For `resume` command
 - `validatePauseTime()` - For `pause` command
 - `validateAbandonTime()` - For `abandon` command
@@ -501,8 +502,8 @@ All time-based commands now support the `--at` flag for retroactive tracking. Th
 **Implementation Details:**
 
 - `src/utils/time-parser.ts`: Parses and validates time strings using chrono-node
-- `src/utils/session-validator.ts`: Validates times against business rules
-- `src/db/database.ts`: `hasOverlappingSession()` method for conflict detection
+- `src/utils/session-validator.ts`: Validates times against business rules, auto-adjusts small overlaps
+- `src/db/database.ts`: `getOverlappingSession()` returns full session details for conflict detection and auto-adjustment
 
 **Validation Rules:**
 
@@ -510,6 +511,7 @@ All time-based commands now support the `--at` flag for retroactive tracking. Th
 - Stop/pause/abandon time must be after session start
 - New sessions cannot overlap with existing sessions
 - Overlap detection excludes the session being modified
+- **Auto-adjustment:** Small overlaps (< 60 seconds) are automatically resolved by adjusting start time to 1 second after the previous session's end
 
 ### Pause and Abandon Commands
 

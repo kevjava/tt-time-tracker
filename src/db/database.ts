@@ -561,6 +561,63 @@ export class TimeTrackerDB {
   }
 
   /**
+   * Get the session that overlaps with the given time range (if any)
+   * Returns the overlapping session or null if no overlap exists
+   * Excludes sessions with the given ID (useful when updating an existing session)
+   */
+  getOverlappingSession(
+    startTime: Date,
+    endTime: Date | null = null,
+    excludeSessionId?: number
+  ): (Session & { tags: string[] }) | null {
+    try {
+      let query = `
+        SELECT * FROM sessions
+        WHERE id != ?
+      `;
+
+      const params: any[] = [excludeSessionId ?? -1];
+
+      if (endTime === null) {
+        // Checking if starting a new session would overlap with an existing one
+        // A new session starting at startTime conflicts if:
+        // - There's an active session (end_time IS NULL) that started before startTime
+        // - There's a completed session where startTime falls within [start_time, end_time)
+        query += ` AND (
+          (end_time IS NULL AND start_time < ?)
+          OR (end_time IS NOT NULL AND start_time < ? AND end_time > ?)
+        )`;
+        params.push(startTime.toISOString(), startTime.toISOString(), startTime.toISOString());
+      } else {
+        // Checking if a time range [startTime, endTime] overlaps with any existing session
+        // Two ranges [A1, A2] and [B1, B2] overlap if: A1 < B2 AND A2 > B1
+        // For sessions: startTime < session.end_time AND endTime > session.start_time
+        query += ` AND (
+          (end_time IS NOT NULL AND start_time < ? AND end_time > ?)
+          OR (end_time IS NULL AND start_time < ?)
+        )`;
+        params.push(endTime.toISOString(), startTime.toISOString(), endTime.toISOString());
+      }
+
+      // Order by end_time descending to get the most recent completed session first
+      // This is important for the auto-adjustment logic
+      query += ' ORDER BY end_time DESC NULLS FIRST LIMIT 1';
+
+      const stmt = this.db.prepare(query);
+      const row = stmt.get(...params) as any;
+
+      if (!row) {
+        return null;
+      }
+
+      const tags = this.getSessionTags(row.id);
+      return this.rowToSession(row, tags);
+    } catch (error) {
+      throw new DatabaseError(`Failed to get overlapping session: ${error}`);
+    }
+  }
+
+  /**
    * Get all projects
    */
   getAllProjects(): string[] {

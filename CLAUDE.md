@@ -146,6 +146,14 @@ Database → Query sessions → Calculate metrics → Format output
 - **schema.sql**: SQLite schema (copied to dist/ during build)
 - Uses synchronous API (better-sqlite3 is sync-only)
 - Transactions are used for batch inserts in the log command
+- `getOverlappingSession()` returns full session details for overlap checks, enabling auto-adjustment
+
+### Utils Module (`src/utils/`)
+
+- **time-parser.ts**: Parses `--at` flag values (relative, time-only, full datetime)
+- **session-validator.ts**: Validates times for each command type, auto-adjusts small overlaps (< 60s)
+- **config.ts**: Configuration management
+- **date.ts**: Date utilities
 
 ### Reports Module (`src/reports/`)
 

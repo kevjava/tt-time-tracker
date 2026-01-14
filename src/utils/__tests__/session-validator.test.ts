@@ -8,6 +8,21 @@ import {
 } from '../session-validator';
 import { TimeTrackerDB } from '../../db/database';
 
+// Mock chalk to avoid ESM issues in Jest
+jest.mock('chalk', () => {
+  const mockFn = (str: string) => str;
+  return {
+    default: {
+      yellow: mockFn,
+      red: mockFn,
+      green: mockFn,
+    },
+    yellow: mockFn,
+    red: mockFn,
+    green: mockFn,
+  };
+});
+
 // Mock the time-parser module
 jest.mock('../time-parser', () => ({
   parseAtTime: jest.fn((time: string | undefined) => {
@@ -47,15 +62,21 @@ jest.mock('../time-parser', () => ({
 
 describe('validateStartTime', () => {
   let mockDb: jest.Mocked<TimeTrackerDB>;
+  let consoleWarnSpy: jest.SpyInstance;
 
   beforeEach(() => {
     mockDb = {
-      hasOverlappingSession: jest.fn(),
+      getOverlappingSession: jest.fn(),
     } as any;
+    consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+  });
+
+  afterEach(() => {
+    consoleWarnSpy.mockRestore();
   });
 
   it('should return current time when no --at flag provided', () => {
-    mockDb.hasOverlappingSession.mockReturnValue(false);
+    mockDb.getOverlappingSession.mockReturnValue(null);
 
     const result = validateStartTime(undefined, mockDb);
 
@@ -63,27 +84,70 @@ describe('validateStartTime', () => {
     const now = new Date();
     const diff = Math.abs(result.getTime() - now.getTime());
     expect(diff).toBeLessThan(1000);
-    expect(mockDb.hasOverlappingSession).toHaveBeenCalledWith(result, null);
+    expect(mockDb.getOverlappingSession).toHaveBeenCalledWith(result, null);
   });
 
   it('should parse and validate time from --at flag', () => {
-    mockDb.hasOverlappingSession.mockReturnValue(false);
+    mockDb.getOverlappingSession.mockReturnValue(null);
 
     const result = validateStartTime('-30m', mockDb);
 
     expect(result).toEqual(new Date('2025-12-29T15:00:00.000Z'));
-    expect(mockDb.hasOverlappingSession).toHaveBeenCalledWith(result, null);
+    expect(mockDb.getOverlappingSession).toHaveBeenCalledWith(result, null);
   });
 
-  it('should throw error if time overlaps with existing session', () => {
-    mockDb.hasOverlappingSession.mockReturnValue(true);
+  it('should throw error if time overlaps with active session (no end time)', () => {
+    mockDb.getOverlappingSession.mockReturnValue({
+      id: 1,
+      startTime: new Date('2025-12-29T14:00:00.000Z'),
+      description: 'Active task',
+      state: 'working' as const,
+      tags: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      // No endTime - active session
+    });
 
     expect(() => validateStartTime('14:30', mockDb)).toThrow(
-      'Cannot start session'
+      'would overlap with an active session'
     );
+  });
+
+  it('should throw error if overlap is >= 60 seconds', () => {
+    mockDb.getOverlappingSession.mockReturnValue({
+      id: 1,
+      startTime: new Date('2025-12-29T14:00:00.000Z'),
+      endTime: new Date('2025-12-29T15:00:00.000Z'), // 30 min overlap with 14:30
+      description: 'Completed task',
+      state: 'completed' as const,
+      tags: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
     expect(() => validateStartTime('14:30', mockDb)).toThrow(
       'would overlap with an existing session'
     );
+  });
+
+  it('should auto-adjust time when overlap is < 60 seconds', () => {
+    // Previous session ended at 14:30:30, trying to start at 14:30:00
+    mockDb.getOverlappingSession.mockReturnValue({
+      id: 1,
+      startTime: new Date('2025-12-29T14:00:00.000Z'),
+      endTime: new Date('2025-12-29T14:30:30.000Z'), // 30 seconds overlap
+      description: 'Completed task',
+      state: 'completed' as const,
+      tags: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const result = validateStartTime('14:30', mockDb);
+
+    // Should adjust to 1 second after the overlapping session ends
+    expect(result).toEqual(new Date('2025-12-29T14:30:31.000Z'));
+    expect(consoleWarnSpy).toHaveBeenCalled();
   });
 
   it('should throw error for future time', () => {
@@ -146,6 +210,7 @@ describe('validateStopTime', () => {
 
 describe('validateInterruptTime', () => {
   let mockDb: jest.Mocked<TimeTrackerDB>;
+  let consoleWarnSpy: jest.SpyInstance;
 
   const mockSession = {
     id: 1,
@@ -159,12 +224,17 @@ describe('validateInterruptTime', () => {
 
   beforeEach(() => {
     mockDb = {
-      hasOverlappingSession: jest.fn(),
+      getOverlappingSession: jest.fn(),
     } as any;
+    consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+  });
+
+  afterEach(() => {
+    consoleWarnSpy.mockRestore();
   });
 
   it('should return current time when no --at flag provided', () => {
-    mockDb.hasOverlappingSession.mockReturnValue(false);
+    mockDb.getOverlappingSession.mockReturnValue(null);
 
     const result = validateInterruptTime(undefined, mockSession, mockDb);
 
@@ -175,7 +245,7 @@ describe('validateInterruptTime', () => {
   });
 
   it('should parse and validate time from --at flag', () => {
-    mockDb.hasOverlappingSession.mockReturnValue(false);
+    mockDb.getOverlappingSession.mockReturnValue(null);
 
     const result = validateInterruptTime('-30m', mockSession, mockDb);
 
@@ -189,23 +259,66 @@ describe('validateInterruptTime', () => {
     );
   });
 
-  it('should throw error if time overlaps with another session', () => {
-    mockDb.hasOverlappingSession.mockReturnValue(true);
+  it('should throw error if time overlaps with active session (no end time)', () => {
+    mockDb.getOverlappingSession.mockReturnValue({
+      id: 2,
+      startTime: new Date('2025-12-29T14:00:00.000Z'),
+      description: 'Another active task',
+      state: 'working' as const,
+      tags: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      // No endTime - active session
+    });
 
     expect(() => validateInterruptTime('14:30', mockSession, mockDb)).toThrow(
-      'Cannot start interruption'
+      'would overlap with an active session'
     );
+  });
+
+  it('should throw error if overlap is >= 60 seconds', () => {
+    mockDb.getOverlappingSession.mockReturnValue({
+      id: 2,
+      startTime: new Date('2025-12-29T14:00:00.000Z'),
+      endTime: new Date('2025-12-29T15:00:00.000Z'), // 30 min overlap with 14:30
+      description: 'Completed task',
+      state: 'completed' as const,
+      tags: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
     expect(() => validateInterruptTime('14:30', mockSession, mockDb)).toThrow(
       'would overlap with an existing session'
     );
   });
 
+  it('should auto-adjust time when overlap is < 60 seconds', () => {
+    // Previous session ended at 14:30:30, trying to interrupt at 14:30:00
+    mockDb.getOverlappingSession.mockReturnValue({
+      id: 2,
+      startTime: new Date('2025-12-29T14:00:00.000Z'),
+      endTime: new Date('2025-12-29T14:30:30.000Z'), // 30 seconds overlap
+      description: 'Completed task',
+      state: 'completed' as const,
+      tags: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const result = validateInterruptTime('14:30', mockSession, mockDb);
+
+    // Should adjust to 1 second after the overlapping session ends
+    expect(result).toEqual(new Date('2025-12-29T14:30:31.000Z'));
+    expect(consoleWarnSpy).toHaveBeenCalled();
+  });
+
   it('should exclude active session from overlap check', () => {
-    mockDb.hasOverlappingSession.mockReturnValue(false);
+    mockDb.getOverlappingSession.mockReturnValue(null);
 
     validateInterruptTime('14:30', mockSession, mockDb);
 
-    expect(mockDb.hasOverlappingSession).toHaveBeenCalledWith(
+    expect(mockDb.getOverlappingSession).toHaveBeenCalledWith(
       new Date('2025-12-29T14:30:00.000Z'),
       null,
       1 // Active session ID should be excluded
