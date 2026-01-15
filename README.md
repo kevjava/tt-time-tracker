@@ -314,16 +314,21 @@ cat work.log | tt log
 
 ### `tt start [description]`
 
-Start tracking a task. Supports plain descriptions, log notation syntax, session ID templates, and interactive selection from scheduled tasks.
+Start tracking a task. Supports plain descriptions, log notation syntax, session ID templates, schedule ID shortcuts, and interactive selection from scheduled tasks.
 
 **Arguments:**
 
-- `[description]` - Task description, log notation, or session ID (optional - shows interactive selection if omitted)
+- `[description]` - Task description, log notation, session ID, or schedule ID (optional - shows interactive selection if omitted)
 - `[session-id]` - Use an existing session as a template (e.g., `tt start 42`)
+- `[schedule-id]` - Use a scheduled task directly (e.g., `tt start a`)
 
 **Interactive Selection:**
 
 When called without arguments, displays an interactive menu of scheduled tasks organized by oldest, important (priority ≠ 5), and urgent (today/overdue). Select a task to use as a template - it will be removed from the schedule and started.
+
+**Schedule ID Shortcuts:**
+
+Provide a schedule ID (letters like `a`, `b`, `aa`) to start a scheduled task directly without the interactive menu. The task is used as a template and removed from the schedule. This is useful when you know which task you want from `tt schedule list`.
 
 **Session Templates:**
 
@@ -376,6 +381,12 @@ tt start write tests @myApp +testing +urgent
 # Mixed: log notation with option override
 tt start 09:00 morning standup @teamA +meeting -p teamB
 
+# Schedule ID - start a scheduled task directly (see tt schedule list)
+tt start a
+
+# Schedule ID with option override
+tt start b -e 2h
+
 # Retroactive tracking - started 30 minutes ago
 tt start "Forgot to start this" --at "-30m" -p myApp
 
@@ -388,16 +399,21 @@ tt start "Yesterday's work" --at "2025-12-28 14:00" -p myApp
 
 ### `tt next [description]`
 
-Stop the current task (if any) and immediately start tracking a new task. Supports plain descriptions, log notation syntax, session ID templates, and interactive selection from scheduled tasks.
+Stop the current task (if any) and immediately start tracking a new task. Supports plain descriptions, log notation syntax, session ID templates, schedule ID shortcuts, and interactive selection from scheduled tasks.
 
 **Arguments:**
 
-- `[description]` - Task description, log notation, or session ID (optional - shows interactive selection if omitted)
+- `[description]` - Task description, log notation, session ID, or schedule ID (optional - shows interactive selection if omitted)
 - `[session-id]` - Use an existing session as a template (e.g., `tt next 42`)
+- `[schedule-id]` - Use a scheduled task directly (e.g., `tt next a`)
 
 **Interactive Selection:**
 
 When called without arguments, displays an interactive menu of scheduled tasks. Select a task to use as a template - it will be removed from the schedule, the current task will be stopped, and the new task will start.
+
+**Schedule ID Shortcuts:**
+
+Provide a schedule ID (letters like `a`, `b`, `aa`) to switch to a scheduled task directly without the interactive menu.
 
 **Options:**
 
@@ -450,6 +466,9 @@ tt next "code review" -p myApp -t review
 # Using log notation
 tt next 14:30 standup meeting @team +meeting ~15m
 
+# Schedule ID - switch to a scheduled task directly
+tt next a
+
 # Retroactive task switch - happened 20 minutes ago
 tt next "Bug fix" --at "-20m" -t urgent -p backend
 
@@ -498,16 +517,21 @@ tt stop --at "2025-12-29 17:30" -r "End of day"
 
 ### `tt interrupt [description]`
 
-Interrupt the current task with a new task. The current task is paused and a new task starts as a child session. Supports plain descriptions, log notation syntax, session ID templates, and interactive selection from scheduled tasks.
+Interrupt the current task with a new task. The current task is paused and a new task starts as a child session. Supports plain descriptions, log notation syntax, session ID templates, schedule ID shortcuts, and interactive selection from scheduled tasks.
 
 **Arguments:**
 
-- `[description]` - Task description, log notation, or session ID (optional - shows interactive selection if omitted)
+- `[description]` - Task description, log notation, session ID, or schedule ID (optional - shows interactive selection if omitted)
 - `[session-id]` - Use an existing session as a template (e.g., `tt interrupt 42`)
+- `[schedule-id]` - Use a scheduled task directly (e.g., `tt interrupt a`)
 
 **Interactive Selection:**
 
 When called without arguments, displays an interactive menu of scheduled tasks. Select a task to use as a template - it will be removed from the schedule, the current task will be paused, and the interruption will start.
+
+**Schedule ID Shortcuts:**
+
+Provide a schedule ID (letters like `a`, `b`, `aa`) to interrupt with a scheduled task directly without the interactive menu.
 
 **Options:**
 
@@ -542,6 +566,9 @@ tt interrupt "fix production bug" -p backend -t urgent,bugfix -e 30m
 
 # Using log notation
 tt interrupt 14:00 Standup meeting @team +meeting ~15m
+
+# Schedule ID - interrupt with a scheduled task directly
+tt interrupt a
 
 # Retroactive interruption - happened 15 minutes ago
 tt interrupt "Quick bug fix" --at "-15m" -t urgent
@@ -717,10 +744,12 @@ Scheduled Tasks
 
 ID    Priority  Scheduled          Description                  Project    Tags           Estimate
 ─────────────────────────────────────────────────────────────────────────────────────────────────
-1     ^1        2026-01-10 09:00   Fix production bug           backend    +urgent        1h
-2     ^2                           Implement auth feature       backend    +code          3h
-5                                  Write documentation          docs       +writing       2h
+a     ^1        2026-01-10 09:00   Fix production bug           backend    +urgent        1h
+b     ^2                           Implement auth feature       backend    +code          3h
+e                                  Write documentation          docs       +writing       2h
 ```
+
+**Note:** Schedule IDs use letters (a, b, c, ..., z, aa, ab, ...) to distinguish them from numeric session IDs. This prevents confusion between `tt edit 42` (session) and `tt schedule edit a` (scheduled task).
 
 #### `tt schedule edit <id> [log-notation...]`
 
@@ -744,19 +773,19 @@ Edit an existing scheduled task by ID using command-line flags or log notation.
 
 ```bash
 # Edit using command-line flags
-tt schedule edit 1 --priority 1 -t urgent,critical
+tt schedule edit a --priority 1 -t urgent,critical
 
 # Update using log notation
-tt schedule edit 2 "Implement OAuth @backend +code +auth ~4h ^2"
+tt schedule edit b "Implement OAuth @backend +code +auth ~4h ^2"
 
 # Update just the priority
-tt schedule edit 3 ^1
+tt schedule edit c ^1
 
 # Clear the scheduled date
-tt schedule edit 4 --scheduled ""
+tt schedule edit d --scheduled ""
 
 # Update estimate and project
-tt schedule edit 5 ~3h @newProject
+tt schedule edit e ~3h @newProject
 ```
 
 #### `tt schedule remove <id>`
@@ -767,10 +796,10 @@ Remove a scheduled task by ID.
 
 ```bash
 # Remove a single task
-tt schedule remove 1
+tt schedule remove a
 
 # Remove a task that's no longer needed
-tt schedule remove 5
+tt schedule remove e
 ```
 
 **Note:** Tasks are automatically removed from the schedule when you select them via interactive selection in `start`, `next`, `switch`, or `interrupt` commands.
@@ -833,11 +862,11 @@ tt schedule import morning-routine.ttlog
 ✓ Imported 7 scheduled task(s) from wednesday-schedule.ttlog
 
 Recently imported tasks:
-  #1 2026-01-15 07:00 morning emails @admin +emails ~15m
-  #2 2026-01-15 07:15 plan the day @admin +planning ~15m
-  #3 2026-01-15 07:30 dog walk +break ~30m
-  #4 2026-01-15 08:00 run @wellness +wellness ~1h
-  #5 2026-01-15 09:00 shower +break ~30m
+  a 2026-01-15 07:00 morning emails @admin +emails ~15m
+  b 2026-01-15 07:15 plan the day @admin +planning ~15m
+  c 2026-01-15 07:30 dog walk +break ~30m
+  d 2026-01-15 08:00 run @wellness +wellness ~1h
+  e 2026-01-15 09:00 shower +break ~30m
 ```
 
 **Notes:**

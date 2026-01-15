@@ -99,11 +99,10 @@ tt schedule add "Deploy v2.0 to production" -p backend -t deploy,ops --priority 
 tt schedule add "Write API documentation" -p backend -t docs ~3h
 tt schedule add "Team retrospective" -t meeting --scheduled "2026-01-10 15:00"
 
-# View scheduled tasks
+# View scheduled tasks (note: IDs are letters like a, b, c, ...)
 tt schedule list
 
-# Tuesday morning - use interactive selection to pick your first task
-# Just run 'tt start' with no arguments - it will show your scheduled tasks
+# Option 1: Interactive selection - shows menu of scheduled tasks
 tt start
 # You'll see three stanzas:
 #   Oldest - All tasks by creation time
@@ -111,15 +110,17 @@ tt start
 #   Urgent - Tasks scheduled for today or overdue
 # Press Enter for the default (first oldest task) or type a number to select
 
-# Later, when switching tasks, use interactive selection again
-tt next
-# Select from your scheduled tasks
+# Option 2: Direct schedule ID - skip the menu entirely
+tt start a      # Start scheduled task 'a' directly
+tt next b       # Stop current task and start scheduled task 'b'
+tt switch c     # Pause current task and start scheduled task 'c'
+tt interrupt d  # Interrupt current task with scheduled task 'd'
 
-# Edit a scheduled task's priority
-tt schedule edit 2 --priority 3
+# Edit a scheduled task's priority (using letter ID)
+tt schedule edit b --priority 3
 
 # Remove a task that's no longer needed
-tt schedule remove 5
+tt schedule remove e
 
 # Add a task with full log notation including priority
 tt schedule add "Fix critical bug @backend +urgent ~1h ^1"
@@ -127,6 +128,8 @@ tt schedule add "Fix critical bug @backend +urgent ~1h ^1"
 # Start a task using a session ID as a template (reuse previous task metadata)
 tt start 42  # Uses session 42's project, tags, and estimate
 ```
+
+**Note:** Schedule IDs use letters (a, b, c, ..., z, aa, ab, ...) while session IDs use numbers. This prevents confusion between `tt edit 42` (editing session #42) and `tt schedule edit a` (editing scheduled task 'a').
 
 ## Log File Examples
 
