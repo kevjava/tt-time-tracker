@@ -9,6 +9,7 @@ import { promptScheduledTaskSelection } from './schedule-select';
 import { ScheduledTask, Session } from '../../types/session';
 import * as theme from '../../utils/theme';
 import { checkNotInInterruption } from './interruption-guard';
+import { letterToNum } from '../../utils/schedule-id';
 
 interface NextOptions {
   project?: string;
@@ -46,6 +47,18 @@ export async function nextCommand(descriptionArgs: string | string[] | undefined
         ) {
           nextFromSessionTemplate(db, sessionId, options);
           return;
+        }
+
+        // Check if first argument is a schedule ID (letters only, exists in DB)
+        if (/^[a-zA-Z]+$/.test(firstArg) && isSingleArg) {
+          const scheduleId = letterToNum(firstArg);
+          const task = db.getScheduledTaskById(scheduleId);
+          if (task) {
+            nextFromScheduledTask(db, task, options);
+            db.deleteScheduledTask(task.id!);
+            return;
+          }
+          // Not a valid schedule ID, fall through to description handling
         }
       }
 
