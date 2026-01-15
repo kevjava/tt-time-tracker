@@ -55,6 +55,7 @@ jest.mock('../../../utils/config', () => {
 
 import { scheduleRemoveCommand } from '../schedule-remove';
 import { TimeTrackerDB } from '../../../db/database';
+import { numToLetter } from '../../../utils/schedule-id';
 
 describe('schedule remove command', () => {
   let db: TimeTrackerDB;
@@ -105,16 +106,16 @@ describe('schedule remove command', () => {
       }
     });
 
-    it('should reject invalid task ID (non-numeric)', async () => {
+    it('should reject invalid task ID (numeric - should use letters)', async () => {
       const originalError = console.error;
       console.error = jest.fn();
 
       try {
-        await scheduleRemoveCommand('abc');
+        await scheduleRemoveCommand('123');
 
         expect(mockExit).toHaveBeenCalledWith(1);
         expect(console.error).toHaveBeenCalledWith(
-          expect.stringContaining('Invalid task ID')
+          expect.stringContaining('Schedule IDs use letters')
         );
       } finally {
         console.error = originalError;
@@ -126,7 +127,7 @@ describe('schedule remove command', () => {
       console.error = jest.fn();
 
       try {
-        await scheduleRemoveCommand('999');
+        await scheduleRemoveCommand('zzz');
 
         expect(mockExit).toHaveBeenCalledWith(1);
         expect(console.error).toHaveBeenCalledWith(
@@ -150,7 +151,7 @@ describe('schedule remove command', () => {
           priority: 5,
         });
 
-        await scheduleRemoveCommand(taskId.toString(), { yes: true });
+        await scheduleRemoveCommand(numToLetter(taskId), { yes: true });
         reopenDb();
 
         // Should show success message
@@ -180,7 +181,7 @@ describe('schedule remove command', () => {
         const tagsBeforeDelete = db.getScheduledTaskTags(taskId);
         expect(tagsBeforeDelete).toEqual(['tag1', 'tag2', 'tag3']);
 
-        await scheduleRemoveCommand(taskId.toString(), { yes: true });
+        await scheduleRemoveCommand(numToLetter(taskId), { yes: true });
         reopenDb();
 
         // Task should be deleted
@@ -216,7 +217,7 @@ describe('schedule remove command', () => {
         });
 
         // Remove task 2
-        await scheduleRemoveCommand(taskId2.toString(), { yes: true });
+        await scheduleRemoveCommand(numToLetter(taskId2), { yes: true });
         reopenDb();
 
         // Task 2 should be deleted
@@ -256,7 +257,7 @@ describe('schedule remove command', () => {
         expect(taskBeforeDelete?.priority).toBe(2);
         expect(taskBeforeDelete?.tags).toEqual(['important', 'urgent']);
 
-        await scheduleRemoveCommand(taskId.toString(), { yes: true });
+        await scheduleRemoveCommand(numToLetter(taskId), { yes: true });
         reopenDb();
 
         // Task should be completely deleted

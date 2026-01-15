@@ -2,6 +2,7 @@ import chalk from 'chalk';
 import { createInterface } from 'readline';
 import { TimeTrackerDB } from '../../db/database';
 import { ensureDataDir, getDatabasePath } from '../../utils/config';
+import { letterToNum, numToLetter } from '../../utils/schedule-id';
 
 interface ScheduleRemoveOptions {
   yes?: boolean;
@@ -38,24 +39,25 @@ export async function scheduleRemoveCommand(taskIdArg: string, options: Schedule
         process.exit(1);
       }
 
-      const taskId = parseInt(taskIdArg, 10);
-
-      if (isNaN(taskId)) {
-        console.error(chalk.red(`Error: Invalid task ID: ${taskIdArg}`));
+      let taskId: number;
+      try {
+        taskId = letterToNum(taskIdArg);
+      } catch (error) {
+        console.error(chalk.red(error instanceof Error ? error.message : `Error: Invalid task ID: ${taskIdArg}`));
         process.exit(1);
       }
 
       const task = db.getScheduledTaskById(taskId);
 
       if (!task) {
-        console.error(chalk.red(`Error: Scheduled task ${taskId} not found`));
+        console.error(chalk.red(`Error: Scheduled task ${taskIdArg} not found`));
         process.exit(1);
       }
 
       // Display task details
       console.log(chalk.bold('\nScheduled task to remove:'));
       console.log(chalk.gray('─'.repeat(80)));
-      console.log(`  ID: ${task.id}`);
+      console.log(`  ID: ${numToLetter(task.id!)}`);
       console.log(`  Description: ${task.description}`);
       if (task.project) {
         console.log(`  Project: ${task.project}`);

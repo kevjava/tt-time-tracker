@@ -3,6 +3,7 @@ import { format } from 'date-fns';
 import { TimeTrackerDB } from '../../db/database';
 import { ensureDataDir, getDatabasePath } from '../../utils/config';
 import * as theme from '../../utils/theme';
+import { numToLetter } from '../../utils/schedule-id';
 
 /**
  * Pad string to specified width
@@ -108,7 +109,7 @@ export function scheduleListCommand(): void {
 
       // Rows
       for (const task of tasks) {
-        const id = task.id?.toString() || '';
+        const id = task.id ? numToLetter(task.id) : '';
         const priority = task.priority === 5 ? '' : chalk.yellow(`^${task.priority}`);
         const scheduled = task.scheduledDateTime
           ? format(task.scheduledDateTime, 'yyyy-MM-dd HH:mm')

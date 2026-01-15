@@ -55,6 +55,7 @@ jest.mock('../../../utils/config', () => {
 
 import { scheduleEditCommand } from '../schedule-edit';
 import { TimeTrackerDB } from '../../../db/database';
+import { numToLetter } from '../../../utils/schedule-id';
 
 describe('schedule edit command', () => {
   let db: TimeTrackerDB;
@@ -89,16 +90,16 @@ describe('schedule edit command', () => {
   });
 
   describe('validation', () => {
-    it('should reject invalid task ID (non-numeric)', () => {
+    it('should reject invalid task ID (numeric - should use letters)', () => {
       const originalError = console.error;
       console.error = jest.fn();
 
       try {
-        scheduleEditCommand('abc', undefined, { description: 'New desc' });
+        scheduleEditCommand('123', undefined, { description: 'New desc' });
 
         expect(mockExit).toHaveBeenCalledWith(1);
         expect(console.error).toHaveBeenCalledWith(
-          expect.stringContaining('Invalid task ID')
+          expect.stringContaining('Schedule IDs use letters')
         );
       } finally {
         console.error = originalError;
@@ -110,7 +111,7 @@ describe('schedule edit command', () => {
       console.error = jest.fn();
 
       try {
-        scheduleEditCommand('999', undefined, { description: 'New desc' });
+        scheduleEditCommand('zzz', undefined, { description: 'New desc' });
 
         expect(mockExit).toHaveBeenCalledWith(1);
         expect(console.error).toHaveBeenCalledWith(
@@ -132,7 +133,7 @@ describe('schedule edit command', () => {
           priority: 5,
         });
 
-        scheduleEditCommand(taskId.toString(), undefined, {});
+        scheduleEditCommand(numToLetter(taskId), undefined, {});
 
         expect(mockExit).toHaveBeenCalledWith(1);
         expect(console.error).toHaveBeenCalledWith(
@@ -153,7 +154,7 @@ describe('schedule edit command', () => {
           priority: 5,
         });
 
-        scheduleEditCommand(taskId.toString(), undefined, { priority: '10' });
+        scheduleEditCommand(numToLetter(taskId), undefined, { priority: '10' });
 
         expect(mockExit).toHaveBeenCalledWith(1);
         expect(console.error).toHaveBeenCalledWith(
@@ -174,7 +175,7 @@ describe('schedule edit command', () => {
           priority: 5,
         });
 
-        scheduleEditCommand(taskId.toString(), undefined, { estimate: 'invalid' });
+        scheduleEditCommand(numToLetter(taskId), undefined, { estimate: 'invalid' });
 
         expect(mockExit).toHaveBeenCalledWith(1);
         expect(console.error).toHaveBeenCalledWith(
@@ -195,7 +196,7 @@ describe('schedule edit command', () => {
           priority: 5,
         });
 
-        scheduleEditCommand(taskId.toString(), undefined, { scheduled: 'not-a-date' });
+        scheduleEditCommand(numToLetter(taskId), undefined, { scheduled: 'not-a-date' });
 
         expect(mockExit).toHaveBeenCalledWith(1);
         expect(console.error).toHaveBeenCalledWith(
@@ -218,7 +219,7 @@ describe('schedule edit command', () => {
           priority: 5,
         });
 
-        scheduleEditCommand(taskId.toString(), undefined, {
+        scheduleEditCommand(numToLetter(taskId), undefined, {
           description: 'New description',
         });
         reopenDb();
@@ -241,7 +242,7 @@ describe('schedule edit command', () => {
           priority: 5,
         });
 
-        scheduleEditCommand(taskId.toString(), undefined, {
+        scheduleEditCommand(numToLetter(taskId), undefined, {
           project: 'newProject',
         });
         reopenDb();
@@ -264,7 +265,7 @@ describe('schedule edit command', () => {
         });
         db.insertScheduledTaskTags(taskId, ['oldTag']);
 
-        scheduleEditCommand(taskId.toString(), undefined, {
+        scheduleEditCommand(numToLetter(taskId), undefined, {
           tags: 'newTag1,newTag2',
         });
         reopenDb();
@@ -287,7 +288,7 @@ describe('schedule edit command', () => {
         });
         db.insertScheduledTaskTags(taskId, ['tag1', 'tag2']);
 
-        scheduleEditCommand(taskId.toString(), undefined, { tags: '' });
+        scheduleEditCommand(numToLetter(taskId), undefined, { tags: '' });
         reopenDb();
 
         const task = db.getScheduledTaskById(taskId);
@@ -308,7 +309,7 @@ describe('schedule edit command', () => {
           priority: 5,
         });
 
-        scheduleEditCommand(taskId.toString(), undefined, { estimate: '2h' });
+        scheduleEditCommand(numToLetter(taskId), undefined, { estimate: '2h' });
         reopenDb();
 
         const task = db.getScheduledTaskById(taskId);
@@ -328,7 +329,7 @@ describe('schedule edit command', () => {
           priority: 5,
         });
 
-        scheduleEditCommand(taskId.toString(), undefined, { priority: '1' });
+        scheduleEditCommand(numToLetter(taskId), undefined, { priority: '1' });
         reopenDb();
 
         const task = db.getScheduledTaskById(taskId);
@@ -348,7 +349,7 @@ describe('schedule edit command', () => {
           priority: 5,
         });
 
-        scheduleEditCommand(taskId.toString(), undefined, {
+        scheduleEditCommand(numToLetter(taskId), undefined, {
           scheduled: '2026-01-15 10:00',
         });
         reopenDb();
@@ -372,7 +373,7 @@ describe('schedule edit command', () => {
           priority: 5,
         });
 
-        scheduleEditCommand(taskId.toString(), undefined, { scheduled: '' });
+        scheduleEditCommand(numToLetter(taskId), undefined, { scheduled: '' });
         reopenDb();
 
         const task = db.getScheduledTaskById(taskId);
@@ -397,7 +398,7 @@ describe('schedule edit command', () => {
         });
         db.insertScheduledTaskTags(taskId, ['oldTag']);
 
-        scheduleEditCommand(taskId.toString(), undefined, {
+        scheduleEditCommand(numToLetter(taskId), undefined, {
           description: 'New task',
           project: 'newProject',
           tags: 'newTag1,newTag2',
@@ -432,7 +433,7 @@ describe('schedule edit command', () => {
         });
 
         scheduleEditCommand(
-          taskId.toString(),
+          numToLetter(taskId),
           'Updated task @newProject +tag1 +tag2 ~1h ^3',
           {}
         );
@@ -460,7 +461,7 @@ describe('schedule edit command', () => {
         });
 
         scheduleEditCommand(
-          taskId.toString(),
+          numToLetter(taskId),
           '2026-01-15 09:00 Morning meeting @team',
           {}
         );
@@ -487,7 +488,7 @@ describe('schedule edit command', () => {
         });
 
         scheduleEditCommand(
-          taskId.toString(),
+          numToLetter(taskId),
           'Task from notation @oldProject +oldTag ^5',
           {
             project: 'newProject',
@@ -522,7 +523,7 @@ describe('schedule edit command', () => {
         });
         db.insertScheduledTaskTags(taskId, ['oldTag']);
 
-        scheduleEditCommand(taskId.toString(), undefined, {
+        scheduleEditCommand(numToLetter(taskId), undefined, {
           description: 'Updated task',
           priority: '2',
         });

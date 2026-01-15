@@ -6,6 +6,7 @@ import { LogParser } from '../../parser/grammar';
 import { LogEntry } from '../../types/session';
 import { logger } from '../../utils/logger';
 import * as theme from '../../utils/theme';
+import { numToLetter } from '../../utils/schedule-id';
 
 interface ScheduleImportOptions {
   // Future: could add filtering options like --date to shift timestamps
@@ -159,7 +160,7 @@ function displayRecentlyImportedTasks(db: TimeTrackerDB, importedCount: number):
 
   for (const task of recentTasks) {
     const parts: string[] = [];
-    parts.push(chalk.gray(`  #${task.id}`));
+    parts.push(chalk.gray(`  ${numToLetter(task.id!)}`));
 
     if (task.scheduledDateTime) {
       const dateStr = task.scheduledDateTime.toISOString().split('T')[0];

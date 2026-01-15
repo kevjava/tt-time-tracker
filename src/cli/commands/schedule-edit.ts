@@ -5,6 +5,7 @@ import { LogParser } from '../../parser/grammar';
 import { parseDuration } from '../../parser/duration';
 import { logger } from '../../utils/logger';
 import { parseScheduledTime } from '../../utils/time-parser';
+import { letterToNum, numToLetter } from '../../utils/schedule-id';
 
 interface ScheduleEditOptions {
   description?: string;
@@ -29,10 +30,11 @@ export function scheduleEditCommand(
     const db = new TimeTrackerDB(getDatabasePath());
 
     try {
-      const id = parseInt(taskId, 10);
-
-      if (isNaN(id)) {
-        console.error(chalk.red(`Error: Invalid task ID: ${taskId}`));
+      let id: number;
+      try {
+        id = letterToNum(taskId);
+      } catch (error) {
+        console.error(chalk.red(error instanceof Error ? error.message : `Error: Invalid task ID: ${taskId}`));
         process.exit(1);
       }
 
@@ -40,7 +42,7 @@ export function scheduleEditCommand(
       const task = db.getScheduledTaskById(id);
 
       if (!task) {
-        console.error(chalk.red(`Error: Scheduled task with ID ${id} not found`));
+        console.error(chalk.red(`Error: Scheduled task with ID ${taskId} not found`));
         process.exit(1);
       }
 
@@ -150,7 +152,7 @@ export function scheduleEditCommand(
       // Display current task details
       console.log(chalk.bold('\nCurrent scheduled task:'));
       console.log(chalk.gray('─'.repeat(80)));
-      console.log(`  ID: ${task.id}`);
+      console.log(`  ID: ${numToLetter(task.id!)}`);
       console.log(`  Description: ${task.description}`);
       console.log(`  Project: ${task.project || '(none)'}`);
       console.log(`  Tags: ${task.tags.length > 0 ? task.tags.join(', ') : '(none)'}`);

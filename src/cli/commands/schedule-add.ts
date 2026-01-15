@@ -6,6 +6,7 @@ import { parseDuration } from '../../parser/duration';
 import { logger } from '../../utils/logger';
 import * as theme from '../../utils/theme';
 import { parseScheduledTime } from '../../utils/time-parser';
+import { numToLetter } from '../../utils/schedule-id';
 
 interface ScheduleAddOptions {
   project?: string;
@@ -146,7 +147,7 @@ export function scheduleAddCommand(descriptionArgs: string[], options: ScheduleA
 
       // Display confirmation
       console.log(chalk.green.bold('✓') + chalk.green(' Scheduled task added'));
-      console.log(chalk.gray(`  Task ID: ${taskId}`));
+      console.log(chalk.gray(`  Task ID: ${numToLetter(taskId)}`));
       console.log(chalk.gray(`  Description: ${description}`));
 
       if (project) {
