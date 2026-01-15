@@ -36,6 +36,7 @@ export function editCommand(
     if (options.project) scheduleOptions.project = options.project;
     if (options.tags) scheduleOptions.tags = options.tags;
     if (options.estimate) scheduleOptions.estimate = options.estimate;
+    if (options.startTime) scheduleOptions.startTime = options.startTime;
 
     scheduleEditCommand(sessionId, logNotationArgs, scheduleOptions);
     return;
