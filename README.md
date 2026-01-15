@@ -1179,6 +1179,7 @@ Delete one or more sessions by ID or by filter criteria.
 - Supports combining session IDs with filters (union of both criteria)
 - Requires confirmation unless `--yes` flag is used
 - All deletions are performed in a single transaction (all or nothing)
+- **Schedule ID shortcut:** Letter IDs (like `a`, `b`, `aa`) are automatically delegated to `tt schedule remove`
 
 **Examples:**
 
@@ -1218,6 +1219,9 @@ tt delete --from yesterday --to yesterday
 
 # Delete all sessions from natural language date
 tt delete --from "3 days ago" --to yesterday
+
+# Delete a scheduled task (letter ID delegates to schedule remove)
+tt delete b --yes
 ```
 
 **Tips:**
@@ -1233,8 +1237,12 @@ Edit a session by ID using command-line flags or log notation.
 
 **Arguments:**
 
-- `<session-id>` - ID of the session to edit (required)
+- `<session-id>` - ID of the session to edit (numeric), or schedule ID (letters) to edit a scheduled task
 - `[log-notation...]` - Optional log notation for updates (e.g., `~20m`, `@project`, `+tag1 +tag2`)
+
+**Schedule ID Shortcut:**
+
+If you pass a letter ID (like `a`, `b`, `aa`), the command automatically delegates to `tt schedule edit`. This means `tt edit a -p newProject` is equivalent to `tt schedule edit a -p newProject`.
 
 **Options:**
 

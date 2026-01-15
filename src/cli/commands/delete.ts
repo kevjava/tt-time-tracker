@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { parseFuzzyDate } from '../../utils/date';
 import { Session } from '../../types/session';
 import * as theme from '../../utils/theme';
+import { scheduleRemoveCommand } from './schedule-remove';
 
 interface DeleteOptions {
   yes?: boolean;
@@ -92,6 +93,45 @@ export async function deleteCommand(
   options: DeleteOptions
 ): Promise<void> {
   try {
+    // Check for schedule IDs (letters only) and separate them from session IDs
+    if (sessionIds) {
+      const idArray = Array.isArray(sessionIds) ? sessionIds : [sessionIds];
+      const scheduleIds: string[] = [];
+      const numericIds: string[] = [];
+
+      for (const idStr of idArray) {
+        if (/^[a-zA-Z]+$/.test(idStr)) {
+          scheduleIds.push(idStr);
+        } else {
+          numericIds.push(idStr);
+        }
+      }
+
+      // If we have schedule IDs and no filter options, delegate to schedule remove
+      if (scheduleIds.length > 0) {
+        const hasFilterOptions = options.from || options.to || options.project || options.tag || options.state;
+
+        if (hasFilterOptions) {
+          console.error(chalk.red('Error: Filter options (--from, --to, --project, --tag, --state) cannot be used with schedule IDs'));
+          console.error(chalk.gray('  Use numeric session IDs with filters, or schedule IDs without filters'));
+          process.exit(1);
+        }
+
+        // Process schedule IDs
+        for (const scheduleId of scheduleIds) {
+          await scheduleRemoveCommand(scheduleId, { yes: options.yes });
+        }
+
+        // If there are no numeric IDs left, we're done
+        if (numericIds.length === 0) {
+          return;
+        }
+
+        // Continue with numeric IDs
+        sessionIds = numericIds;
+      }
+    }
+
     ensureDataDir();
     const db = new TimeTrackerDB(getDatabasePath());
 

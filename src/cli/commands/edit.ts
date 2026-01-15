@@ -6,6 +6,7 @@ import { parseDuration } from '../../parser/duration';
 import { SessionState } from '../../types/session';
 import { LogParser } from '../../parser/grammar';
 import { logger } from '../../utils/logger';
+import { scheduleEditCommand } from './schedule-edit';
 
 interface EditOptions {
   description?: string;
@@ -27,6 +28,19 @@ export function editCommand(
   logNotationArgs: string | string[] | undefined,
   options: EditOptions
 ): void {
+  // Check if sessionId is a schedule ID (letters only) - delegate to schedule edit
+  if (/^[a-zA-Z]+$/.test(sessionId)) {
+    // Convert edit options to schedule edit options
+    const scheduleOptions: any = {};
+    if (options.description) scheduleOptions.description = options.description;
+    if (options.project) scheduleOptions.project = options.project;
+    if (options.tags) scheduleOptions.tags = options.tags;
+    if (options.estimate) scheduleOptions.estimate = options.estimate;
+
+    scheduleEditCommand(sessionId, logNotationArgs, scheduleOptions);
+    return;
+  }
+
   try {
     ensureDataDir();
     const db = new TimeTrackerDB(getDatabasePath());
