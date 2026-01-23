@@ -1,4 +1,5 @@
 import chalk from 'chalk';
+import { createInterface } from 'readline';
 import { TimeTrackerDB } from '../../db/database';
 import { ensureDataDir, getDatabasePath } from '../../utils/config';
 import { validateResumeTime, validateStartTime } from '../../utils/session-validator';
@@ -6,6 +7,24 @@ import { validateResumeTime, validateStartTime } from '../../utils/session-valid
 interface ResumeOptions {
   remark?: string;
   at?: string;
+  yes?: boolean;
+}
+
+/**
+ * Prompt user for confirmation
+ */
+function promptConfirmation(message: string): Promise<boolean> {
+  const rl = createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  return new Promise((resolve) => {
+    rl.question(message, (answer) => {
+      rl.close();
+      resolve(answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes');
+    });
+  });
 }
 
 /**
@@ -15,7 +34,7 @@ interface ResumeOptions {
  * 1. Resume from interruption: `tt resume` (no ID)
  * 2. Resume paused task: `tt resume <id>`
  */
-export function resumeCommand(idArg?: string, options: ResumeOptions = {}): void {
+export async function resumeCommand(idArg?: string, options: ResumeOptions = {}): Promise<void> {
   try {
     ensureDataDir();
     const db = new TimeTrackerDB(getDatabasePath());
@@ -23,7 +42,7 @@ export function resumeCommand(idArg?: string, options: ResumeOptions = {}): void
     try {
       // Mode 1: Resume paused task by ID
       if (idArg) {
-        resumePausedTask(db, idArg, options);
+        await resumePausedTask(db, idArg, options);
         return;
       }
 
@@ -41,29 +60,52 @@ export function resumeCommand(idArg?: string, options: ResumeOptions = {}): void
 /**
  * Resume a paused task by creating a new session continuing from it
  */
-function resumePausedTask(db: TimeTrackerDB, idArg: string, options: ResumeOptions): void {
+async function resumePausedTask(db: TimeTrackerDB, idArg: string, options: ResumeOptions): Promise<void> {
   // Parse ID
   const id = parseInt(idArg, 10);
   if (isNaN(id)) {
     console.error(chalk.red(`Error: Invalid session ID: ${idArg}`));
     process.exit(1);
+    return;
   }
 
-  // Get the paused session
-  const pausedSession = db.getSessionById(id);
+  // Get the session
+  const session = db.getSessionById(id);
 
-  if (!pausedSession) {
+  if (!session) {
     console.error(chalk.red(`Error: Session ${id} not found`));
     process.exit(1);
+    return;
   }
 
-  if (pausedSession.state !== 'paused') {
+  // Handle completed sessions - offer to resume them
+  if (session.state === 'completed') {
+    if (!options.yes) {
+      console.log(chalk.yellow(`Session ${id} is completed: "${session.description}"`));
+      const confirmed = await promptConfirmation(
+        chalk.yellow('Would you like to resume this session? (y/N): ')
+      );
+
+      if (!confirmed) {
+        console.log(chalk.gray('Resume cancelled.'));
+        process.exit(0);
+        return;
+      }
+    }
+
+    // Update the completed session to paused so it can be part of the continuation chain
+    db.updateSession(session.id!, { state: 'paused' });
+    session.state = 'paused';
+  }
+
+  if (session.state !== 'paused') {
     console.error(
       chalk.red(
-        `Error: Session ${id} is not paused (state: ${pausedSession.state}). Only paused tasks can be resumed.`
+        `Error: Session ${id} is not paused (state: ${session.state}). Only paused tasks can be resumed.`
       )
     );
     process.exit(1);
+    return;
   }
 
   // Check for active session (can't resume if already working on something)
@@ -75,51 +117,52 @@ function resumePausedTask(db: TimeTrackerDB, idArg: string, options: ResumeOptio
       )
     );
     process.exit(1);
+    return;
   }
 
   // Determine start time
   const startTime = options.at ? validateStartTime(options.at, db) : new Date();
 
   // Find the root of the continuation chain
-  const chainRoot = db.getChainRoot(pausedSession.id!);
+  const chainRoot = db.getChainRoot(session.id!);
 
   // Create new session continuing from the chain root
   const sessionId = db.insertSession({
     startTime,
-    description: pausedSession.description,
-    project: pausedSession.project,
+    description: session.description,
+    project: session.project,
     state: 'working',
     continuesSessionId: chainRoot?.id,
     remark: options.remark,
   });
 
   // Copy tags from paused session
-  if (pausedSession.tags.length > 0) {
-    db.insertSessionTags(sessionId, pausedSession.tags);
+  if (session.tags.length > 0) {
+    db.insertSessionTags(sessionId, session.tags);
   }
 
   // Display confirmation
   console.log(
-    chalk.green.bold('▶') + chalk.green(` Resumed: ${pausedSession.description}`)
+    chalk.green.bold('▶') + chalk.green(` Resumed: ${session.description}`)
   );
 
   if (options.at) {
     console.log(chalk.gray(`  Start time: ${startTime.toLocaleString()}`));
   }
 
-  if (pausedSession.project) {
-    console.log(chalk.gray(`  Project: ${pausedSession.project}`));
+  if (session.project) {
+    console.log(chalk.gray(`  Project: ${session.project}`));
   }
 
-  if (pausedSession.tags.length > 0) {
-    console.log(chalk.gray(`  Tags: ${pausedSession.tags.join(', ')}`));
+  if (session.tags.length > 0) {
+    console.log(chalk.gray(`  Tags: ${session.tags.join(', ')}`));
   }
 
   if (options.remark) {
     console.log(chalk.gray(`  Remark: ${options.remark}`));
   }
 
-  console.log(chalk.gray(`  Continuing from session ${pausedSession.id}`));
+  console.log(chalk.gray(`  Continuing from session ${session.id}`));
 }
 
 /**

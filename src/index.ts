@@ -169,6 +169,7 @@ program
   .argument('[id]', 'Session ID to resume (optional, for paused tasks)')
   .option('-r, --remark <remark>', 'Add remark to interruption or resumed session')
   .option('--at <time>', 'Resume time (e.g., "15:51", "2025-12-29 15:51", "-30m")')
+  .option('-y, --yes', 'Skip confirmation when resuming completed sessions')
   .action(resumeCommand);
 
 // Pause command

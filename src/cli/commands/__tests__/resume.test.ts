@@ -682,9 +682,9 @@ describe('resume command', () => {
       }
     });
 
-    it('should error if session is not paused', () => {
-      const originalError = console.error;
-      console.error = jest.fn();
+    it('should resume completed session when --yes flag is provided', async () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
 
       try {
         const completedId = db.insertSession({
@@ -694,7 +694,36 @@ describe('resume command', () => {
           state: 'completed',
         });
 
-        resumeCommand(String(completedId), {});
+        await resumeCommand(String(completedId), { yes: true });
+        reopenDb();
+
+        // Original session should now be paused
+        const originalSession = db.getSessionById(completedId);
+        expect(originalSession?.state).toBe('paused');
+
+        // New working session should be created
+        const activeSession = db.getActiveSession();
+        expect(activeSession).not.toBeNull();
+        expect(activeSession?.description).toBe('Completed task');
+        expect(activeSession?.continuesSessionId).toBe(completedId);
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    it('should error if session is abandoned', async () => {
+      const originalError = console.error;
+      console.error = jest.fn();
+
+      try {
+        const abandonedId = db.insertSession({
+          startTime: new Date(Date.now() - 3600000),
+          endTime: new Date(Date.now() - 1800000),
+          description: 'Abandoned task',
+          state: 'abandoned',
+        });
+
+        await resumeCommand(String(abandonedId), { yes: true });
 
         expect(mockExit).toHaveBeenCalledWith(1);
         expect(console.error).toHaveBeenCalledWith(
