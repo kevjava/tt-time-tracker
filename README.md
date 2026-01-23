@@ -25,9 +25,10 @@ A Unix-philosophy CLI time tracker with low-friction retroactive logging and com
   - [`tt log`](#tt-log-file)
   - [`tt start`](#tt-start-description)
   - [`tt next`](#tt-next-description)
+  - [`tt switch`](#tt-switch-description)
   - [`tt stop`](#tt-stop)
   - [`tt interrupt`](#tt-interrupt-description)
-  - [`tt resume`](#tt-resume)
+  - [`tt resume`](#tt-resume-id)
   - [`tt pause`](#tt-pause)
   - [`tt abandon`](#tt-abandon)
   - [`tt schedule`](#tt-schedule)
@@ -490,6 +491,80 @@ tt start "new task" @project +tag
 tt next "new task" @project +tag
 ```
 
+### `tt switch [description]`
+
+Pause the current task (if any) and immediately start tracking a new task. Unlike `next` which completes the current task, `switch` keeps it in a paused state so you can resume it later with `tt resume <id>`. Supports plain descriptions, log notation syntax, session ID templates, schedule ID shortcuts, and interactive selection from scheduled tasks.
+
+**Arguments:**
+
+- `[description]` - Task description, log notation, session ID, or schedule ID (optional - shows interactive selection if omitted)
+- `[session-id]` - Use an existing session as a template (e.g., `tt switch 42`)
+- `[schedule-id]` - Use a scheduled task directly (e.g., `tt switch a`)
+
+**Interactive Selection:**
+
+When called without arguments, displays an interactive menu of scheduled tasks. Select a task to use as a template - it will be removed from the schedule, the current task will be paused, and the new task will start.
+
+**Schedule ID Shortcuts:**
+
+Provide a schedule ID (letters like `a`, `b`, `aa`) to switch to a scheduled task directly without the interactive menu.
+
+**Options:**
+
+- `-p, --project <project>` - Project name (overrides log notation)
+- `-t, --tags <tags>` - Comma-separated tags (overrides log notation)
+- `-e, --estimate <duration>` - Estimated duration (overrides log notation, e.g., 2h, 30m)
+- `--at <time>` - Time for the task switch (e.g., `15:51`, `2025-12-29 15:51`, `-30m`)
+
+**Log Notation Support:**
+
+Like other commands, `switch` supports log notation syntax directly:
+
+```bash
+# With timestamp (pauses previous task and starts new one at specified time)
+tt switch 10:30 code review @myApp +review ~30m
+
+# Without timestamp (pauses now and starts new task immediately)
+tt switch implement feature @myApp +code +urgent ~1h30m
+```
+
+**Behavior:**
+
+- If a task is currently active, it will be **paused** (not completed) with the current time or `--at` time
+- The paused task can be resumed later with `tt resume <id>`
+- If no task is active, it simply starts the new task (no error)
+- The new task starts immediately after the previous task is paused
+
+**Comparison to `next`:**
+
+| Command | Current Task | Can Resume Later? |
+|---------|-------------|-------------------|
+| `tt next` | Completed | No (start fresh) |
+| `tt switch` | Paused | Yes (`tt resume <id>`) |
+
+**Examples:**
+
+```bash
+# Simple task switch (pauses current task)
+tt switch "code review" -p myApp -t review
+
+# Using log notation
+tt switch 14:30 standup meeting @team +meeting ~15m
+
+# Schedule ID - switch to a scheduled task directly
+tt switch a
+
+# Retroactive task switch - happened 20 minutes ago
+tt switch "Bug fix" --at "-20m" -t urgent -p backend
+
+# When no task is active (behaves like tt start)
+tt switch "First task of the day" -p myApp -t planning
+
+# Later, resume the paused task
+tt list --state paused  # Find the paused task ID
+tt resume 42            # Resume it
+```
+
 ### `tt stop`
 
 Stop current active task.
@@ -577,16 +652,26 @@ tt interrupt "Quick bug fix" --at "-15m" -t urgent
 tt interrupt "Customer call" --at "10:30" -p support
 ```
 
-### `tt resume`
+### `tt resume [id]`
 
-Complete the current interruption and resume the parent task.
+Resume work on a task. This command has two modes:
+
+1. **Without ID**: Complete the current interruption and resume the parent task
+2. **With ID**: Resume a paused or completed task by creating a continuation session
+
+**Arguments:**
+
+- `[id]` - Session ID of a paused or completed task to resume (optional)
 
 **Options:**
 
-- `-r, --remark <remark>` - Add remark to the interruption being completed
+- `-r, --remark <remark>` - Add remark to the interruption being completed (Mode 1) or new session (Mode 2)
 - `--at <time>` - Resume time for retroactive tracking (e.g., `15:51`, `2025-12-29 15:51`, `-30m`)
+- `-y, --yes` - Skip confirmation prompt when resuming completed sessions
 
-**Examples:**
+**Mode 1: Resume from Interruption (no ID)**
+
+When called without an ID while in an interruption, completes the interruption and resumes the parent task:
 
 ```bash
 # Resume now with a remark
@@ -597,6 +682,52 @@ tt resume --at "-5m"
 
 # Resume at specific time
 tt resume --at "10:51" -r "Back to main task"
+```
+
+**Mode 2: Resume Paused/Completed Task (with ID)**
+
+When called with a session ID, creates a new session that continues from the specified task. This is useful for resuming work on tasks that were paused with `tt switch` or `tt pause`:
+
+```bash
+# Resume a paused task
+tt resume 42
+
+# Resume with a remark
+tt resume 42 -r "Continuing after lunch"
+
+# Resume at a specific time
+tt resume 42 --at "-15m"
+
+# Resume a completed task (will prompt for confirmation)
+tt resume 42
+
+# Skip confirmation for completed tasks
+tt resume 42 --yes
+```
+
+**Behavior:**
+
+- **Active session handling**: If another task is currently active, it will be automatically stopped (completed) before resuming the paused task. This matches the behavior of `next` and `switch` commands.
+- **Continuation chains**: The new session is linked to the original task via `continues_session_id`, allowing time to be aggregated across multiple work sessions on the same task.
+- **Completed sessions**: When resuming a completed session, you'll be prompted to confirm. Use `--yes` to skip the prompt.
+- **Paused sessions**: Paused sessions can be resumed without confirmation.
+
+**Examples:**
+
+```bash
+# Find paused tasks
+tt list --state paused
+
+# Resume a specific paused task
+tt resume 42
+
+# If you're already working on something, it will be stopped automatically
+tt start "Task A"
+# ... later ...
+tt resume 42  # Stops "Task A" and resumes session 42
+
+# Resume with retroactive timing
+tt resume 42 --at "-30m" -r "Started earlier, forgot to track"
 ```
 
 ### `tt pause`
@@ -624,7 +755,7 @@ tt pause --at "-20m" --reason "End of day"
 tt pause --at "12:00" --reason "Lunch break"
 ```
 
-**Note:** To resume work on a paused task, use `tt start` with a new or similar description.
+**Note:** To resume work on a paused task, use `tt resume <id>` where `<id>` is the session ID of the paused task. This creates a continuation that links the sessions together for accurate time tracking.
 
 ### `tt abandon`
 
