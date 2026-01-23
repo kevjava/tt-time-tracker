@@ -2,7 +2,9 @@ import chalk from 'chalk';
 import { createInterface } from 'readline';
 import { TimeTrackerDB } from '../../db/database';
 import { ensureDataDir, getDatabasePath } from '../../utils/config';
-import { validateResumeTime, validateStartTime } from '../../utils/session-validator';
+import { validateResumeTime, validateStartTime, validateStopTime } from '../../utils/session-validator';
+import { checkNotInInterruption } from './interruption-guard';
+import { logger } from '../../utils/logger';
 
 interface ResumeOptions {
   remark?: string;
@@ -108,16 +110,16 @@ async function resumePausedTask(db: TimeTrackerDB, idArg: string, options: Resum
     return;
   }
 
-  // Check for active session (can't resume if already working on something)
+  // Stop any active session first (like next/switch commands)
   const activeSession = db.getActiveSession();
   if (activeSession) {
-    console.error(
-      chalk.red(
-        `Error: Already tracking "${activeSession.description}". Stop it first with: tt stop`
-      )
-    );
-    process.exit(1);
-    return;
+    checkNotInInterruption(activeSession, 'resume');
+    const endTime = validateStopTime(options.at, activeSession);
+    db.updateSession(activeSession.id!, {
+      endTime,
+      state: 'completed',
+    });
+    logger.debug(`Stopped previous task: ${activeSession.description}`);
   }
 
   // Determine start time

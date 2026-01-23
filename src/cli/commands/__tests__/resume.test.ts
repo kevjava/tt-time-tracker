@@ -734,9 +734,9 @@ describe('resume command', () => {
       }
     });
 
-    it('should error if already tracking another task', () => {
-      const originalError = console.error;
-      console.error = jest.fn();
+    it('should stop active session and resume paused task', () => {
+      const originalLog = console.log;
+      console.log = jest.fn();
 
       try {
         // Create paused task
@@ -747,7 +747,7 @@ describe('resume command', () => {
         });
 
         // Create active task
-        db.insertSession({
+        const activeId = db.insertSession({
           startTime: new Date(Date.now() - 1800000),
           description: 'Current task',
           state: 'working',
@@ -755,12 +755,23 @@ describe('resume command', () => {
 
         resumeCommand(String(pausedId), {});
 
-        expect(mockExit).toHaveBeenCalledWith(1);
-        expect(console.error).toHaveBeenCalledWith(
-          expect.stringContaining('Already tracking')
+        // Active task should be completed
+        const stoppedSession = db.getSessionById(activeId);
+        expect(stoppedSession?.state).toBe('completed');
+        expect(stoppedSession?.endTime).toBeDefined();
+
+        // There should be a new working session continuing from the paused task
+        const activeSession = db.getActiveSession();
+        expect(activeSession).toBeDefined();
+        expect(activeSession?.description).toBe('Paused task');
+        expect(activeSession?.state).toBe('working');
+
+        // Confirmation message should be shown
+        expect(console.log).toHaveBeenCalledWith(
+          expect.stringContaining('Resumed: Paused task')
         );
       } finally {
-        console.error = originalError;
+        console.log = originalLog;
       }
     });
 
