@@ -102,11 +102,13 @@ _tt_report() {
         '--project[Filter by project]:project:_tt_recent_projects' \
         '--tag[Filter by tags]:tags:_tt_recent_tags' \
         '--format[Output format]:format:(terminal json csv)' \
+        '--compare[Compare with previous period]' \
         '--help[Show help]'
 }
 
 _tt_list() {
     _arguments \
+        '1:session ID (for detailed view):' \
         '--week[Week to list]:week spec:_tt_week_specs' \
         '--from[Start date]:date:_tt_fuzzy_dates' \
         '--to[End date]:date:_tt_fuzzy_dates' \
@@ -179,9 +181,12 @@ _tt_interrupt() {
 
 _tt_resume() {
     _arguments \
+        '1:session ID (for paused tasks):' \
         '-r[Add remark]:remark:' \
         '--remark[Add remark]:remark:' \
         '--at[Resume time]:time:_tt_relative_times' \
+        '-y[Skip confirmation when resuming completed sessions]' \
+        '--yes[Skip confirmation when resuming completed sessions]' \
         '--help[Show help]'
 }
 
@@ -233,6 +238,7 @@ _tt_edit() {
         '--start-time[Update start time]:time:' \
         '--end-time[Update end time]:time:' \
         '--state[Update state]:state:_tt_states' \
+        '--continues[Set continuation session ID]:session ID:' \
         '--help[Show help]'
 }
 
@@ -240,6 +246,7 @@ _tt_log() {
     _arguments \
         '1:log file:_files' \
         '--overwrite[Allow overwriting overlapping sessions]' \
+        '--dry-run[Parse and validate without importing to database]' \
         '--help[Show help]'
 }
 
@@ -248,8 +255,11 @@ _tt_schedule() {
     subcommands=(
         'add:Add a new scheduled task'
         'list:List all scheduled tasks'
+        'ls:List all scheduled tasks (alias)'
         'edit:Edit a scheduled task'
         'remove:Remove a scheduled task'
+        'rm:Remove a scheduled task (alias)'
+        'import:Import log file entries as scheduled tasks'
     )
 
     if (( CURRENT == 2 )); then
@@ -266,7 +276,8 @@ _tt_schedule() {
                     '-e[Estimated duration]:duration:_tt_durations' \
                     '--estimate[Estimated duration]:duration:_tt_durations' \
                     '--priority[Priority level (1-9)]:priority:_tt_priorities' \
-                    '--scheduled[Scheduled date/time]:datetime:' \
+                    '--start-time[Scheduled date/time]:datetime:' \
+                    '--scheduled[Scheduled date/time (deprecated)]:datetime:' \
                     '--help[Show help]'
                 ;;
             edit)
@@ -281,16 +292,24 @@ _tt_schedule() {
                     '-e[Update estimate]:duration:_tt_durations' \
                     '--estimate[Update estimate]:duration:_tt_durations' \
                     '--priority[Update priority]:priority:_tt_priorities' \
-                    '--scheduled[Update scheduled date/time]:datetime:' \
+                    '--start-time[Update scheduled date/time]:datetime:' \
+                    '--scheduled[Update scheduled date/time (deprecated)]:datetime:' \
                     '--help[Show help]'
                 ;;
-            remove)
+            remove|rm)
                 _arguments \
                     '1:task ID:' \
+                    '-y[Skip confirmation prompt]' \
+                    '--yes[Skip confirmation prompt]' \
                     '--help[Show help]'
                 ;;
-            list)
+            list|ls)
                 _arguments \
+                    '--help[Show help]'
+                ;;
+            import)
+                _arguments \
+                    '1:log file:_files' \
                     '--help[Show help]'
                 ;;
         esac
@@ -347,6 +366,14 @@ _tt_status() {
         '--help[Show help]'
 }
 
+_tt_incomplete() {
+    _arguments \
+        '--from[Start date]:date:_tt_fuzzy_dates' \
+        '--to[End date]:date:_tt_fuzzy_dates' \
+        '--all[Show all paused sessions (default: last 30 days)]' \
+        '--help[Show help]'
+}
+
 _tt() {
     local -a commands
     commands=(
@@ -354,19 +381,24 @@ _tt() {
         'log:Parse and insert time entries from file'
         'report:Generate time report for a date range'
         'list:List sessions in columnar format'
+        'ls:List sessions (alias for list)'
         'start:Start tracking a task'
         'next:Stop current task and start a new one'
         'switch:Pause current task and start a new one'
         'stop:Stop current active task'
         'interrupt:Interrupt current task with a new task'
-        'resume:Complete interruption and resume parent'
+        'resume:Complete interruption and resume parent, or resume paused task by ID'
         'pause:Pause current active task'
         'abandon:Abandon current active task'
+        'incomplete:Review and triage paused sessions'
         'schedule:Manage scheduled tasks'
         'delete:Delete one or more sessions'
+        'rm:Delete sessions (alias for delete)'
+        'remove:Delete sessions (alias for delete)'
         'edit:Edit a session by ID'
         'config:Manage configuration'
         'find:Search sessions by description'
+        'search:Search sessions (alias for find)'
         'help:Show help information'
     )
 
@@ -384,7 +416,7 @@ _tt() {
         args)
             case "$words[1]" in
                 report) _tt_report ;;
-                list) _tt_list ;;
+                list|ls) _tt_list ;;
                 start) _tt_start ;;
                 next) _tt_next ;;
                 switch) _tt_switch ;;
@@ -393,11 +425,12 @@ _tt() {
                 resume) _tt_resume ;;
                 pause) _tt_pause ;;
                 abandon) _tt_abandon ;;
+                incomplete) _tt_incomplete ;;
                 schedule) _tt_schedule ;;
-                delete) _tt_delete ;;
+                delete|rm|remove) _tt_delete ;;
                 edit) _tt_edit ;;
                 config) _tt_config ;;
-                find) _tt_find ;;
+                find|search) _tt_find ;;
                 log) _tt_log ;;
                 status) _tt_status ;;
             esac

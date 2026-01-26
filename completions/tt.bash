@@ -6,8 +6,8 @@ _tt_completion() {
     local cur prev words cword
     _init_completion || return
 
-    # All available commands
-    local commands="status log report list start next switch stop interrupt resume pause abandon delete edit schedule config find help"
+    # All available commands (including aliases)
+    local commands="status log report list ls start next switch stop interrupt resume pause abandon incomplete delete rm remove edit schedule config find search help"
 
     # Common flags
     local common_flags="-v --verbose --version --help"
@@ -32,12 +32,12 @@ _tt_completion() {
     case "$cmd" in
         log)
             case "$prev" in
-                --overwrite)
+                --overwrite|--dry-run)
                     return
                     ;;
                 *)
                     # Complete file names and flags
-                    COMPREPLY=($(compgen -W "--overwrite --help" -f -- "$cur"))
+                    COMPREPLY=($(compgen -W "--overwrite --dry-run --help" -f -- "$cur"))
                     ;;
             esac
             ;;
@@ -73,12 +73,12 @@ _tt_completion() {
                     COMPREPLY=($(compgen -W "terminal json csv" -- "$cur"))
                     ;;
                 *)
-                    COMPREPLY=($(compgen -W "--week --from --to --project --tag --format --help" -- "$cur"))
+                    COMPREPLY=($(compgen -W "--week --from --to --project --tag --format --compare --help" -- "$cur"))
                     ;;
             esac
             ;;
 
-        list)
+        list|ls)
             case "$prev" in
                 --week)
                     COMPREPLY=($(compgen -W "current last" -- "$cur"))
@@ -134,7 +134,7 @@ _tt_completion() {
             esac
             ;;
 
-        stop|resume)
+        stop)
             case "$prev" in
                 -r|--remark)
                     # No completion for free text
@@ -145,6 +145,21 @@ _tt_completion() {
                     ;;
                 *)
                     COMPREPLY=($(compgen -W "-r --remark --at --help" -- "$cur"))
+                    ;;
+            esac
+            ;;
+
+        resume)
+            case "$prev" in
+                -r|--remark)
+                    # No completion for free text
+                    return
+                    ;;
+                --at)
+                    COMPREPLY=($(compgen -W "-15m -30m -1h" -- "$cur"))
+                    ;;
+                *)
+                    COMPREPLY=($(compgen -W "-r --remark --at -y --yes --help" -- "$cur"))
                     ;;
             esac
             ;;
@@ -163,7 +178,18 @@ _tt_completion() {
             esac
             ;;
 
-        delete)
+        incomplete)
+            case "$prev" in
+                --from|--to)
+                    COMPREPLY=($(compgen -W "yesterday today monday tuesday wednesday thursday friday saturday sunday" -- "$cur"))
+                    ;;
+                *)
+                    COMPREPLY=($(compgen -W "--from --to --all --help" -- "$cur"))
+                    ;;
+            esac
+            ;;
+
+        delete|rm|remove)
             case "$prev" in
                 --from|--to)
                     COMPREPLY=($(compgen -W "yesterday today monday tuesday wednesday thursday friday saturday sunday" -- "$cur"))
@@ -208,11 +234,11 @@ _tt_completion() {
                 --state)
                     COMPREPLY=($(compgen -W "working paused completed abandoned" -- "$cur"))
                     ;;
-                --start-time|--end-time)
+                --start-time|--end-time|--continues)
                     return
                     ;;
                 *)
-                    COMPREPLY=($(compgen -W "-d --description -p --project -t --tags -e --estimate -r --remark --start-time --end-time --state --help" -- "$cur"))
+                    COMPREPLY=($(compgen -W "-d --description -p --project -t --tags -e --estimate -r --remark --start-time --end-time --state --continues --help" -- "$cur"))
                     ;;
             esac
             ;;
@@ -229,7 +255,7 @@ _tt_completion() {
 
             if [[ -z $subcmd ]]; then
                 # No subcommand yet, offer subcommands
-                COMPREPLY=($(compgen -W "add list edit remove --help" -- "$cur"))
+                COMPREPLY=($(compgen -W "add list ls edit remove rm import --help" -- "$cur"))
             else
                 case "$subcmd" in
                     add)
@@ -250,11 +276,11 @@ _tt_completion() {
                             --priority)
                                 COMPREPLY=($(compgen -W "1 2 3 4 5 6 7 8 9" -- "$cur"))
                                 ;;
-                            --scheduled)
+                            --start-time|--scheduled)
                                 return
                                 ;;
                             *)
-                                COMPREPLY=($(compgen -W "-p --project -t --tags -e --estimate --priority --scheduled --help" -- "$cur"))
+                                COMPREPLY=($(compgen -W "-p --project -t --tags -e --estimate --priority --start-time --scheduled --help" -- "$cur"))
                                 ;;
                         esac
                         ;;
@@ -279,16 +305,23 @@ _tt_completion() {
                             --priority)
                                 COMPREPLY=($(compgen -W "1 2 3 4 5 6 7 8 9" -- "$cur"))
                                 ;;
-                            --scheduled)
+                            --start-time|--scheduled)
                                 return
                                 ;;
                             *)
-                                COMPREPLY=($(compgen -W "--description -p --project -t --tags -e --estimate --priority --scheduled --help" -- "$cur"))
+                                COMPREPLY=($(compgen -W "--description -p --project -t --tags -e --estimate --priority --start-time --scheduled --help" -- "$cur"))
                                 ;;
                         esac
                         ;;
-                    list|remove)
+                    list|ls)
                         COMPREPLY=($(compgen -W "--help" -- "$cur"))
+                        ;;
+                    remove|rm)
+                        COMPREPLY=($(compgen -W "-y --yes --help" -- "$cur"))
+                        ;;
+                    import)
+                        # Complete file names and flags
+                        COMPREPLY=($(compgen -W "--help" -f -- "$cur"))
                         ;;
                 esac
             fi
@@ -318,7 +351,7 @@ _tt_completion() {
             fi
             ;;
 
-        find)
+        find|search)
             case "$prev" in
                 --from|--to)
                     COMPREPLY=($(compgen -W "yesterday today monday tuesday wednesday thursday friday saturday sunday" -- "$cur"))
