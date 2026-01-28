@@ -356,8 +356,9 @@ describe('schedule add command', () => {
 
         const tasks = db.getAllScheduledTasks();
         expect(tasks).toHaveLength(3);
-        expect(tasks[0].description).toBe('Task 1');
-        expect(tasks[1].description).toBe('Task 2');
+        // Tasks are sorted by priority ASC (Task 2 has priority 2, Task 1 has default 5, Task 3 has priority 8)
+        expect(tasks[0].description).toBe('Task 2');
+        expect(tasks[1].description).toBe('Task 1');
         expect(tasks[2].description).toBe('Task 3');
       } finally {
         console.log = originalLog;

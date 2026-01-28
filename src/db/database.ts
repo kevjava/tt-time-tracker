@@ -918,7 +918,10 @@ export class TimeTrackerDB {
     try {
       const stmt = this.db.prepare(`
         SELECT * FROM scheduled_tasks
-        ORDER BY created_at ASC
+        ORDER BY
+          scheduled_date_time IS NULL,
+          scheduled_date_time ASC,
+          priority ASC
       `);
 
       const rows = stmt.all() as any[];
