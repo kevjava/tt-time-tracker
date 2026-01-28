@@ -25,6 +25,13 @@ describe('parseDuration', () => {
       expect(parseDuration(' 2h ')).toBe(120);
       expect(parseDuration(' 1h30m ')).toBe(90);
     });
+
+    it('should normalize minutes >= 60', () => {
+      expect(parseDuration('60m')).toBe(60);
+      expect(parseDuration('90m')).toBe(90);
+      expect(parseDuration('1h60m')).toBe(120);
+      expect(parseDuration('1h90m')).toBe(150);
+    });
   });
 
   describe('invalid formats', () => {
@@ -53,12 +60,6 @@ describe('parseDuration', () => {
       expect(() => parseDuration('-30m')).toThrow(ParseError);
     });
 
-    it('should reject minutes >= 60', () => {
-      expect(() => parseDuration('60m')).toThrow(ParseError);
-      expect(() => parseDuration('1h60m')).toThrow(ParseError);
-      expect(() => parseDuration('90m')).toThrow(ParseError);
-    });
-
     it('should reject wrong order', () => {
       expect(() => parseDuration('30m2h')).toThrow(ParseError);
     });
@@ -72,7 +73,6 @@ describe('parseDuration', () => {
   describe('error messages', () => {
     it('should provide helpful error messages', () => {
       expect(() => parseDuration('invalid')).toThrow('Invalid duration format');
-      expect(() => parseDuration('90m')).toThrow('Minutes must be less than 60');
       expect(() => parseDuration('0h')).toThrow('Duration must specify hours and/or minutes');
     });
   });

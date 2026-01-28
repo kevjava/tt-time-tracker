@@ -41,10 +41,7 @@ export function parseDuration(duration: string): number {
     throw new ParseError(`Duration cannot be negative: "${duration}"`);
   }
 
-  if (minutes >= 60) {
-    throw new ParseError(`Minutes must be less than 60: "${duration}"`);
-  }
-
+  // Normalize minutes >= 60 (e.g., "90m" becomes 90 minutes, "1h60m" becomes 120 minutes)
   const totalMinutes = hours * 60 + minutes;
 
   if (totalMinutes === 0) {
