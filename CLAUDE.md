@@ -223,3 +223,23 @@ Chalk v5 is ESM-only but the project uses CommonJS. The imports work because of 
 - `TT_DATA_DIR`: Override data directory (default: `~/.local/share/tt`)
 - `EDITOR` or `VISUAL`: Editor for fixing parse errors (default: `vi`)
 - For testing, always use `TT_DATA_DIR=/tmp/tt-test` to avoid polluting your real data
+
+## Commit Convention
+
+This project uses [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
+
+Format: `<type>[optional scope]: <description>`
+
+Types:
+- `feat`: New feature (correlates with MINOR in semver)
+- `fix`: Bug fix (correlates with PATCH in semver)
+- `docs`: Documentation only
+- `style`: Code style (formatting, semicolons, etc.)
+- `refactor`: Code change that neither fixes a bug nor adds a feature
+- `perf`: Performance improvement
+- `test`: Adding or correcting tests
+- `chore`: Maintenance tasks
+- `build`: Build system or external dependencies
+- `ci`: CI configuration
+
+Breaking changes: Add `!` before the colon (e.g., `feat!: remove deprecated API`) or include `BREAKING CHANGE:` in the footer.
