@@ -1,47 +1,21 @@
 /**
- * Session state values
+ * Re-export core types from tt-core
  */
-export type SessionState = 'working' | 'paused' | 'completed' | 'abandoned';
+export {
+  Session,
+  SessionWithTags,
+  SessionState,
+  SessionTag,
+  TTScheduledTask,
+  TTScheduledTaskWithTags,
+} from '@kevjava/tt-core';
 
 /**
- * Represents a time tracking session
+ * Alias for backward compatibility - ScheduledTask is TTScheduledTask from tt-core
  */
-export interface Session {
-  id?: number;
-  startTime: Date;
-  endTime?: Date;
-  description: string;
-  project?: string;
-  estimateMinutes?: number;
-  explicitDurationMinutes?: number;
-  remark?: string;
-  state: SessionState;
-  parentSessionId?: number;
-  continuesSessionId?: number;
-  createdAt?: Date;
-  updatedAt?: Date;
-}
-
-/**
- * Represents a tag associated with a session
- */
-export interface SessionTag {
-  sessionId: number;
-  tag: string;
-}
-
-/**
- * Represents a scheduled task that can be used as a template
- */
-export interface ScheduledTask {
-  id?: number;
-  description: string;
-  project?: string;
-  estimateMinutes?: number;
-  priority: number; // 1-9, default 5
-  scheduledDateTime?: Date;
-  createdAt?: Date;
-}
+import { TTScheduledTask, TTScheduledTaskWithTags, SessionState } from '@kevjava/tt-core';
+export type ScheduledTask = TTScheduledTask;
+export type ScheduledTaskWithTags = TTScheduledTaskWithTags;
 
 /**
  * Parsed log entry before DB insertion
