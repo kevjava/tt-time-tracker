@@ -1,16 +1,12 @@
 /**
- * Base error class for TT time tracker
+ * Re-export error classes from tt-core
  */
-export class TTError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = this.constructor.name;
-    Error.captureStackTrace(this, this.constructor);
-  }
-}
+export { TTError, DatabaseError, ValidationError } from '@kevjava/tt-core';
+
+import { TTError } from '@kevjava/tt-core';
 
 /**
- * Error thrown when parsing fails
+ * Error thrown when parsing fails (tt-time-tracker specific)
  */
 export class ParseError extends TTError {
   constructor(
@@ -22,13 +18,3 @@ export class ParseError extends TTError {
     super(`${message}${location}`);
   }
 }
-
-/**
- * Error thrown when database operations fail
- */
-export class DatabaseError extends TTError {}
-
-/**
- * Error thrown when validation fails
- */
-export class ValidationError extends TTError {}
