@@ -64,10 +64,22 @@ export function ensureConfigDir(): void {
 }
 
 /**
+ * Loaded config with required base fields and optional churn
+ */
+export type LoadedConfig = {
+  weekStartDay: 'monday' | 'sunday';
+  reportFormat: 'terminal' | 'json' | 'csv';
+  listFormat: 'table' | 'log';
+  timeFormat: '24h' | '12h';
+  editor: string;
+  churn?: UserConfig['churn'];
+};
+
+/**
  * Load user configuration
  * Returns default config if file doesn't exist or is invalid
  */
-export function loadConfig(): Required<UserConfig> {
+export function loadConfig(): LoadedConfig {
   const configPath = getConfigPath();
 
   if (!existsSync(configPath)) {
@@ -79,12 +91,13 @@ export function loadConfig(): Required<UserConfig> {
     const parsed = JSON.parse(contents) as Partial<UserConfig>;
 
     // Merge with defaults
-    const config: Required<UserConfig> = {
+    const config: LoadedConfig = {
       weekStartDay: parsed.weekStartDay || DEFAULT_CONFIG.weekStartDay,
       reportFormat: parsed.reportFormat || DEFAULT_CONFIG.reportFormat,
       listFormat: parsed.listFormat || DEFAULT_CONFIG.listFormat,
       timeFormat: parsed.timeFormat || DEFAULT_CONFIG.timeFormat,
       editor: parsed.editor || DEFAULT_CONFIG.editor,
+      churn: parsed.churn,
     };
 
     return config;
@@ -120,6 +133,9 @@ export function saveConfig(config: UserConfig): void {
   if (config.editor && config.editor !== DEFAULT_CONFIG.editor) {
     toSave.editor = config.editor;
   }
+  if (config.churn && (config.churn.enabled !== undefined || config.churn.db_path !== undefined)) {
+    toSave.churn = config.churn;
+  }
 
   writeFileSync(configPath, JSON.stringify(toSave, null, 2) + '\n', 'utf-8');
 }
@@ -146,9 +162,51 @@ export function isValidConfigValue(key: ConfigKey, value: string): boolean {
       return value === '24h' || value === '12h';
     case 'editor':
       return typeof value === 'string' && value.length > 0;
+    case 'churn.enabled':
+      return value === 'true' || value === 'false';
+    case 'churn.db_path':
+      return typeof value === 'string' && value.length > 0;
     default:
       return false;
   }
+}
+
+/**
+ * Get a nested config value by dot-notation key
+ */
+export function getNestedConfigValue(config: UserConfig, key: string): string | boolean | undefined {
+  if (key.startsWith('churn.')) {
+    const subKey = key.substring(6) as keyof NonNullable<UserConfig['churn']>;
+    return config.churn?.[subKey];
+  }
+  return config[key as keyof UserConfig] as string | undefined;
+}
+
+/**
+ * Set a nested config value by dot-notation key
+ */
+export function setNestedConfigValue(config: UserConfig, key: string, value: string): UserConfig {
+  if (key.startsWith('churn.')) {
+    const subKey = key.substring(6) as keyof NonNullable<UserConfig['churn']>;
+    const churn = config.churn ?? {};
+    if (subKey === 'enabled') {
+      churn.enabled = value === 'true';
+    } else if (subKey === 'db_path') {
+      churn.db_path = value;
+    }
+    return { ...config, churn };
+  }
+  return { ...config, [key]: value };
+}
+
+/**
+ * Expand path with home directory (~) replacement
+ */
+export function expandPath(path: string): string {
+  if (path.startsWith('~')) {
+    return path.replace('~', homedir());
+  }
+  return path;
 }
 
 /**

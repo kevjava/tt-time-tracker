@@ -50,8 +50,25 @@ jest.mock('../../../utils/config', () => {
         fs.mkdirSync(testDataDir, { recursive: true });
       }
     }),
+    loadConfig: jest.fn(() => ({
+      weekStartDay: 'monday',
+      reportFormat: 'terminal',
+      listFormat: 'table',
+      timeFormat: '24h',
+      editor: '',
+      churn: undefined,
+    })),
   };
 });
+
+// Mock scheduler
+jest.mock('../../../utils/scheduler', () => ({
+  getScheduler: jest.fn(async (_config: unknown, db: unknown) => {
+    const { TTScheduler } = require('@kevjava/tt-core');
+    return new TTScheduler(db);
+  }),
+  isChurnEnabled: jest.fn(() => false),
+}));
 
 import { stopCommand } from '../stop';
 import { TimeTrackerDB } from '../../../db/database';
@@ -89,7 +106,7 @@ describe('stop command', () => {
   });
 
   describe('basic functionality', () => {
-    it('should stop active session', () => {
+    it('should stop active session', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
@@ -101,7 +118,7 @@ describe('stop command', () => {
           state: 'working',
         });
 
-        stopCommand({});
+        await stopCommand({});
         reopenDb();
 
         const session = db.getSessionById(sessionId);
@@ -112,7 +129,7 @@ describe('stop command', () => {
       }
     });
 
-    it('should stop with remark', () => {
+    it('should stop with remark', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
@@ -124,7 +141,7 @@ describe('stop command', () => {
           state: 'working',
         });
 
-        stopCommand({ remark: 'Completed successfully' });
+        await stopCommand({ remark: 'Completed successfully' });
         reopenDb();
 
         const session = db.getSessionById(sessionId);
@@ -136,7 +153,7 @@ describe('stop command', () => {
       }
     });
 
-    it('should calculate duration correctly', () => {
+    it('should calculate duration correctly', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
@@ -148,7 +165,7 @@ describe('stop command', () => {
           state: 'working',
         });
 
-        stopCommand({});
+        await stopCommand({});
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
@@ -164,7 +181,7 @@ describe('stop command', () => {
       }
     });
 
-    it('should handle multiple start/stop cycles', () => {
+    it('should handle multiple start/stop cycles', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
@@ -176,7 +193,7 @@ describe('stop command', () => {
           state: 'working',
         });
 
-        stopCommand({});
+        await stopCommand({});
         reopenDb();
 
         let session1 = db.getSessionById(session1Id);
@@ -189,7 +206,7 @@ describe('stop command', () => {
           state: 'working',
         });
 
-        stopCommand({});
+        await stopCommand({});
         reopenDb();
 
         session1 = db.getSessionById(session1Id);
@@ -206,7 +223,7 @@ describe('stop command', () => {
   });
 
   describe('--at flag (retroactive tracking)', () => {
-    it('should stop at specified relative time', () => {
+    it('should stop at specified relative time', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
@@ -218,7 +235,7 @@ describe('stop command', () => {
           state: 'working',
         });
 
-        stopCommand({ at: '-30m' });
+        await stopCommand({ at: '-30m' });
         reopenDb();
 
         const session = db.getSessionById(sessionId);
@@ -235,7 +252,7 @@ describe('stop command', () => {
       }
     });
 
-    it('should stop at specific time', () => {
+    it('should stop at specific time', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
@@ -252,7 +269,7 @@ describe('stop command', () => {
 
         // Format as full datetime to be explicit
         const stopTimeStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')} 10:30`;
-        stopCommand({ at: stopTimeStr });
+        await stopCommand({ at: stopTimeStr });
         reopenDb();
 
         const session = db.getSessionById(sessionId);
@@ -266,7 +283,7 @@ describe('stop command', () => {
       }
     });
 
-    it('should support combining --at with remark', () => {
+    it('should support combining --at with remark', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
@@ -277,7 +294,7 @@ describe('stop command', () => {
           state: 'working',
         });
 
-        stopCommand({ at: '-15m', remark: 'Finished early' });
+        await stopCommand({ at: '-15m', remark: 'Finished early' });
         reopenDb();
 
         const session = db.getSessionById(sessionId);
@@ -295,12 +312,12 @@ describe('stop command', () => {
   });
 
   describe('error handling', () => {
-    it('should error if no active session', () => {
+    it('should error if no active session', async () => {
       const originalError = console.error;
       console.error = jest.fn();
 
       try {
-        stopCommand({});
+        await stopCommand({});
 
         expect(mockExit).toHaveBeenCalledWith(1);
         expect(console.error).toHaveBeenCalledWith(
@@ -311,7 +328,7 @@ describe('stop command', () => {
       }
     });
 
-    it('should error if stop time is before session start', () => {
+    it('should error if stop time is before session start', async () => {
       const originalError = console.error;
       console.error = jest.fn();
 
@@ -324,7 +341,7 @@ describe('stop command', () => {
         });
 
         // Try to stop 1 hour ago (before start)
-        stopCommand({ at: '-1h' });
+        await stopCommand({ at: '-1h' });
 
         expect(mockExit).toHaveBeenCalledWith(1);
         expect(console.error).toHaveBeenCalledWith(
@@ -337,7 +354,7 @@ describe('stop command', () => {
   });
 
   describe('console output', () => {
-    it('should display stop confirmation', () => {
+    it('should display stop confirmation', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
@@ -348,7 +365,7 @@ describe('stop command', () => {
           state: 'working',
         });
 
-        stopCommand({});
+        await stopCommand({});
 
         expect(console.log).toHaveBeenCalledWith(
           expect.stringContaining('✓')
@@ -364,7 +381,7 @@ describe('stop command', () => {
       }
     });
 
-    it('should display stop time when using --at', () => {
+    it('should display stop time when using --at', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
@@ -375,7 +392,7 @@ describe('stop command', () => {
           state: 'working',
         });
 
-        stopCommand({ at: '-30m' });
+        await stopCommand({ at: '-30m' });
 
         expect(console.log).toHaveBeenCalledWith(
           expect.stringContaining('Stop time:')
@@ -385,7 +402,7 @@ describe('stop command', () => {
       }
     });
 
-    it('should display remark when provided', () => {
+    it('should display remark when provided', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
@@ -396,7 +413,7 @@ describe('stop command', () => {
           state: 'working',
         });
 
-        stopCommand({ remark: 'All done!' });
+        await stopCommand({ remark: 'All done!' });
 
         expect(console.log).toHaveBeenCalledWith(
           expect.stringContaining('Remark: # All done!')
@@ -408,7 +425,7 @@ describe('stop command', () => {
   });
 
   describe('edge cases', () => {
-    it('should stop session with project and tags', () => {
+    it('should stop session with project and tags', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
@@ -422,7 +439,7 @@ describe('stop command', () => {
 
         db.insertSessionTags(sessionId, ['feature', 'code']);
 
-        stopCommand({ remark: 'Feature complete' });
+        await stopCommand({ remark: 'Feature complete' });
         reopenDb();
 
         const session = db.getSessionById(sessionId);
@@ -437,7 +454,7 @@ describe('stop command', () => {
       }
     });
 
-    it('should preserve estimate when stopping', () => {
+    it('should preserve estimate when stopping', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
@@ -449,7 +466,7 @@ describe('stop command', () => {
           state: 'working',
         });
 
-        stopCommand({});
+        await stopCommand({});
         reopenDb();
 
         const session = db.getSessionById(sessionId);

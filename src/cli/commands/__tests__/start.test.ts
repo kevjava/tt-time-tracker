@@ -50,8 +50,25 @@ jest.mock('../../../utils/config', () => {
         fs.mkdirSync(testDataDir, { recursive: true });
       }
     }),
+    loadConfig: jest.fn(() => ({
+      weekStartDay: 'monday',
+      reportFormat: 'terminal',
+      listFormat: 'table',
+      timeFormat: '24h',
+      editor: '',
+      churn: undefined,
+    })),
   };
 });
+
+// Mock scheduler to return TTScheduler
+jest.mock('../../../utils/scheduler', () => ({
+  getScheduler: jest.fn(async (_config: unknown, db: unknown) => {
+    const { TTScheduler } = require('@kevjava/tt-core');
+    return new TTScheduler(db);
+  }),
+  isChurnEnabled: jest.fn(() => false),
+}));
 
 import { startCommand } from '../start';
 import { TimeTrackerDB } from '../../../db/database';

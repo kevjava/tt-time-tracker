@@ -45,6 +45,8 @@
     "CHANGELOG.md"
   ],
   "dependencies": {
+    "@kevjava/churn-core": "file:../churn-core",
+    "@kevjava/task-parser": "file:../task-parser",
     "@kevjava/tt-core": "file:../tt-core",
     "better-sqlite3": "^9.2.2",
     "chalk": "^5.3.0",

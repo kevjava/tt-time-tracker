@@ -50,8 +50,25 @@ jest.mock('../../../utils/config', () => {
         fs.mkdirSync(testDataDir, { recursive: true });
       }
     }),
+    loadConfig: jest.fn(() => ({
+      weekStartDay: 'monday',
+      reportFormat: 'terminal',
+      listFormat: 'table',
+      timeFormat: '24h',
+      editor: '',
+      churn: undefined,
+    })),
   };
 });
+
+// Mock scheduler to return TTScheduler
+jest.mock('../../../utils/scheduler', () => ({
+  getScheduler: jest.fn(async (_config: unknown, db: unknown) => {
+    const { TTScheduler } = require('@kevjava/tt-core');
+    return new TTScheduler(db);
+  }),
+  isChurnEnabled: jest.fn(() => false),
+}));
 
 import { scheduleAddCommand } from '../schedule-add';
 import { TimeTrackerDB } from '../../../db/database';
@@ -89,12 +106,12 @@ describe('schedule add command', () => {
   });
 
   describe('basic functionality', () => {
-    it('should add scheduled task with plain description', () => {
+    it('should add scheduled task with plain description', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        scheduleAddCommand(['Review pull requests'], {});
+        await scheduleAddCommand(['Review pull requests'], {});
         reopenDb();
 
         const tasks = db.getAllScheduledTasks();
@@ -108,12 +125,12 @@ describe('schedule add command', () => {
       }
     });
 
-    it('should add scheduled task with project and tags', () => {
+    it('should add scheduled task with project and tags', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        scheduleAddCommand(['Deploy to production'], {
+        await scheduleAddCommand(['Deploy to production'], {
           project: 'backend',
           tags: 'deploy,ops',
         });
@@ -129,12 +146,12 @@ describe('schedule add command', () => {
       }
     });
 
-    it('should add scheduled task with estimate', () => {
+    it('should add scheduled task with estimate', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        scheduleAddCommand(['Write documentation'], {
+        await scheduleAddCommand(['Write documentation'], {
           estimate: '2h',
         });
         reopenDb();
@@ -147,12 +164,12 @@ describe('schedule add command', () => {
       }
     });
 
-    it('should add scheduled task with priority', () => {
+    it('should add scheduled task with priority', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        scheduleAddCommand(['Fix critical bug'], {
+        await scheduleAddCommand(['Fix critical bug'], {
           priority: '1',
         });
         reopenDb();
@@ -165,12 +182,12 @@ describe('schedule add command', () => {
       }
     });
 
-    it('should add scheduled task with scheduled date', () => {
+    it('should add scheduled task with scheduled date', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        scheduleAddCommand(['Team meeting'], {
+        await scheduleAddCommand(['Team meeting'], {
           scheduled: '2026-01-10 14:00',
         });
         reopenDb();
@@ -186,12 +203,12 @@ describe('schedule add command', () => {
   });
 
   describe('log notation parsing', () => {
-    it('should parse log notation with project and tags', () => {
+    it('should parse log notation with project and tags', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        scheduleAddCommand(['Code review @myApp +review ~30m'], {});
+        await scheduleAddCommand(['Code review @myApp +review ~30m'], {});
         reopenDb();
 
         const tasks = db.getAllScheduledTasks();
@@ -205,12 +222,12 @@ describe('schedule add command', () => {
       }
     });
 
-    it('should parse log notation with priority', () => {
+    it('should parse log notation with priority', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        scheduleAddCommand(['Fix auth bug @backend +urgent ~1h ^2'], {});
+        await scheduleAddCommand(['Fix auth bug @backend +urgent ~1h ^2'], {});
         reopenDb();
 
         const tasks = db.getAllScheduledTasks();
@@ -225,12 +242,12 @@ describe('schedule add command', () => {
       }
     });
 
-    it('should parse log notation with scheduled date', () => {
+    it('should parse log notation with scheduled date', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        scheduleAddCommand(['2026-01-10 14:00 Team standup @team +meeting'], {});
+        await scheduleAddCommand(['2026-01-10 14:00 Team standup @team +meeting'], {});
         reopenDb();
 
         const tasks = db.getAllScheduledTasks();
@@ -244,12 +261,12 @@ describe('schedule add command', () => {
       }
     });
 
-    it('should allow command-line flags to override log notation', () => {
+    it('should allow command-line flags to override log notation', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        scheduleAddCommand(['Task @oldProject +oldTag ^5'], {
+        await scheduleAddCommand(['Task @oldProject +oldTag ^5'], {
           project: 'newProject',
           tags: 'newTag',
           priority: '1',
@@ -268,12 +285,12 @@ describe('schedule add command', () => {
   });
 
   describe('validation', () => {
-    it('should reject empty description', () => {
+    it('should reject empty description', async () => {
       const originalError = console.error;
       console.error = jest.fn();
 
       try {
-        scheduleAddCommand([], {});
+        await scheduleAddCommand([], {});
 
         expect(mockExit).toHaveBeenCalledWith(1);
         expect(console.error).toHaveBeenCalledWith(
@@ -284,12 +301,12 @@ describe('schedule add command', () => {
       }
     });
 
-    it('should reject invalid priority', () => {
+    it('should reject invalid priority', async () => {
       const originalError = console.error;
       console.error = jest.fn();
 
       try {
-        scheduleAddCommand(['Task'], {
+        await scheduleAddCommand(['Task'], {
           priority: '10',
         });
 
@@ -302,12 +319,12 @@ describe('schedule add command', () => {
       }
     });
 
-    it('should reject invalid estimate format', () => {
+    it('should reject invalid estimate format', async () => {
       const originalError = console.error;
       console.error = jest.fn();
 
       try {
-        scheduleAddCommand(['Task'], {
+        await scheduleAddCommand(['Task'], {
           estimate: 'invalid',
         });
 
@@ -320,12 +337,12 @@ describe('schedule add command', () => {
       }
     });
 
-    it('should reject invalid scheduled date', () => {
+    it('should reject invalid scheduled date', async () => {
       const originalError = console.error;
       console.error = jest.fn();
 
       try {
-        scheduleAddCommand(['Task'], {
+        await scheduleAddCommand(['Task'], {
           scheduled: 'not-a-date',
         });
 
@@ -340,18 +357,18 @@ describe('schedule add command', () => {
   });
 
   describe('multiple tasks', () => {
-    it('should add multiple scheduled tasks', () => {
+    it('should add multiple scheduled tasks', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        scheduleAddCommand(['Task 1'], {});
+        await scheduleAddCommand(['Task 1'], {});
         reopenDb();
 
-        scheduleAddCommand(['Task 2'], { priority: '2' });
+        await scheduleAddCommand(['Task 2'], { priority: '2' });
         reopenDb();
 
-        scheduleAddCommand(['Task 3'], { priority: '8' });
+        await scheduleAddCommand(['Task 3'], { priority: '8' });
         reopenDb();
 
         const tasks = db.getAllScheduledTasks();

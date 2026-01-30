@@ -7,8 +7,10 @@ import {
   getEditor,
   isValidConfigKey,
   isValidConfigValue,
+  getNestedConfigValue,
+  setNestedConfigValue,
 } from '../../utils/config';
-import { UserConfig, DEFAULT_CONFIG, ConfigKey } from '../../types/config';
+import { DEFAULT_CONFIG, ConfigKey } from '../../types/config';
 
 /**
  * tt config command implementation
@@ -77,6 +79,10 @@ function showConfig(): void {
   console.log(`${chalk.cyan('timeFormat:')}      ${config.timeFormat}${config.timeFormat === DEFAULT_CONFIG.timeFormat ? chalk.gray(' (default)') : ''}`);
   console.log(`${chalk.cyan('editor:')}          ${config.editor || chalk.gray('(uses $EDITOR, $VISUAL, or vi)')}`);
 
+  // Churn integration settings
+  console.log(`${chalk.cyan('churn.enabled:')}   ${config.churn?.enabled ?? chalk.gray('false (default)')}`);
+  console.log(`${chalk.cyan('churn.db_path:')}   ${config.churn?.db_path || chalk.gray('~/.config/churn/churn.db (default)')}`);
+
   console.log(chalk.gray('\nCommands:'));
   console.log(chalk.gray('  tt config get <key>        Get a config value'));
   console.log(chalk.gray('  tt config set <key> <value> Set a config value'));
@@ -91,15 +97,15 @@ function getConfigValue(key: string): void {
   if (!isValidConfigKey(key)) {
     console.error(chalk.red(`Error: Invalid config key '${key}'`));
     console.error(
-      chalk.gray(`Valid keys: weekStartDay, reportFormat, listFormat, timeFormat, editor`)
+      chalk.gray(`Valid keys: weekStartDay, reportFormat, listFormat, timeFormat, editor, churn.enabled, churn.db_path`)
     );
     process.exit(1);
   }
 
   const config = loadConfig();
-  const value = config[key];
+  const value = getNestedConfigValue(config, key);
 
-  console.log(value || '');
+  console.log(value ?? '');
 }
 
 /**
@@ -109,7 +115,7 @@ function setConfigValue(key: string, value: string): void {
   if (!isValidConfigKey(key)) {
     console.error(chalk.red(`Error: Invalid config key '${key}'`));
     console.error(
-      chalk.gray(`Valid keys: weekStartDay, reportFormat, listFormat, timeFormat, editor`)
+      chalk.gray(`Valid keys: weekStartDay, reportFormat, listFormat, timeFormat, editor, churn.enabled, churn.db_path`)
     );
     process.exit(1);
   }
@@ -121,10 +127,7 @@ function setConfigValue(key: string, value: string): void {
   }
 
   const config = loadConfig();
-  const updates: Partial<UserConfig> = {
-    ...config,
-    [key]: value,
-  };
+  const updates = setNestedConfigValue(config, key, value);
 
   saveConfig(updates);
 
@@ -180,6 +183,10 @@ function getValidValuesHint(key: ConfigKey): string {
       return 'Valid values: 24h, 12h';
     case 'editor':
       return 'Valid value: any editor command (e.g., vim, nano, "code --wait")';
+    case 'churn.enabled':
+      return 'Valid values: true, false';
+    case 'churn.db_path':
+      return 'Valid value: path to churn database (e.g., ~/.config/churn/churn.db)';
     default:
       return '';
   }

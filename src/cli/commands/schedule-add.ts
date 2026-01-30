@@ -1,12 +1,13 @@
 import chalk from 'chalk';
 import { TimeTrackerDB } from '../../db/database';
-import { ensureDataDir, getDatabasePath } from '../../utils/config';
+import { ensureDataDir, getDatabasePath, loadConfig } from '../../utils/config';
 import { LogParser } from '../../parser/grammar';
 import { parseDuration } from '../../parser/duration';
 import { logger } from '../../utils/logger';
 import * as theme from '../../utils/theme';
 import { parseScheduledTime } from '../../utils/time-parser';
 import { numToLetter } from '../../utils/schedule-id';
+import { getScheduler, isChurnEnabled } from '../../utils/scheduler';
 
 interface ScheduleAddOptions {
   project?: string;
@@ -17,10 +18,13 @@ interface ScheduleAddOptions {
   scheduled?: string;
 }
 
-export function scheduleAddCommand(descriptionArgs: string[], options: ScheduleAddOptions): void {
+export async function scheduleAddCommand(descriptionArgs: string[], options: ScheduleAddOptions): Promise<void> {
   try {
     ensureDataDir();
     const db = new TimeTrackerDB(getDatabasePath());
+    const config = loadConfig();
+    const scheduler = await getScheduler(config, db);
+    const usingChurn = isChurnEnabled(config);
 
     try {
       if (!descriptionArgs || descriptionArgs.length === 0) {
@@ -132,22 +136,23 @@ export function scheduleAddCommand(descriptionArgs: string[], options: ScheduleA
         }
       }
 
-      // Insert task
-      const taskId = db.insertScheduledTask({
-        description,
+      // Insert task via scheduler
+      const task = await scheduler.addTask({
+        title: description,
         project,
+        tags,
         estimateMinutes,
         priority,
         scheduledDateTime,
+        deadline: scheduledDateTime, // Use scheduled time as deadline for churn
       });
-
-      if (tags.length > 0) {
-        db.insertScheduledTaskTags(taskId, tags);
-      }
 
       // Display confirmation
       console.log(chalk.green.bold('✓') + chalk.green(' Scheduled task added'));
-      console.log(chalk.gray(`  Task ID: ${numToLetter(taskId)}`));
+      console.log(chalk.gray(`  Task ID: ${numToLetter(task.id)}`));
+      if (usingChurn) {
+        console.log(chalk.gray(`  Scheduler: churn`));
+      }
       console.log(chalk.gray(`  Description: ${description}`));
 
       if (project) {

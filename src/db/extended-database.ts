@@ -2,6 +2,17 @@ import { TTDatabase, SessionWithTags, TTScheduledTaskWithTags, SessionState, Dat
 import Database from 'better-sqlite3';
 
 /**
+ * Mapping between TT sessions and Churn tasks.
+ * Used to track when a TT session was started from a Churn task,
+ * so we can complete the Churn task with actual time when the session stops.
+ */
+export interface ChurnTaskMapping {
+  sessionId: number;
+  churnTaskId: number;
+  createdAt: Date;
+}
+
+/**
  * Extended database class for tt-time-tracker that adds methods not in tt-core.
  * These methods are specific to tt-time-tracker features like:
  * - Overlap detection for session validation
@@ -534,5 +545,76 @@ export class ExtendedTTDatabase extends TTDatabase {
       createdAt: new Date(row.created_at as string),
       tags,
     };
+  }
+
+  // ==================== Churn Task Mapping ====================
+
+  /**
+   * Ensure the churn_task_mappings table exists
+   */
+  ensureChurnMappingTable(): void {
+    try {
+      const db = this.getDb();
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS churn_task_mappings (
+          session_id INTEGER PRIMARY KEY,
+          churn_task_id INTEGER NOT NULL,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+        )
+      `);
+    } catch (error) {
+      throw new DatabaseError(`Failed to create churn_task_mappings table: ${error}`);
+    }
+  }
+
+  /**
+   * Store a mapping between a TT session and a Churn task
+   */
+  setChurnTaskMapping(sessionId: number, churnTaskId: number): void {
+    try {
+      this.ensureChurnMappingTable();
+      const db = this.getDb();
+      const stmt = db.prepare(`
+        INSERT OR REPLACE INTO churn_task_mappings (session_id, churn_task_id)
+        VALUES (?, ?)
+      `);
+      stmt.run(sessionId, churnTaskId);
+    } catch (error) {
+      throw new DatabaseError(`Failed to set churn task mapping: ${error}`);
+    }
+  }
+
+  /**
+   * Get the Churn task ID associated with a TT session
+   */
+  getChurnTaskId(sessionId: number): number | null {
+    try {
+      this.ensureChurnMappingTable();
+      const db = this.getDb();
+      const stmt = db.prepare(`
+        SELECT churn_task_id FROM churn_task_mappings WHERE session_id = ?
+      `);
+      const row = stmt.get(sessionId) as { churn_task_id: number } | undefined;
+      return row?.churn_task_id ?? null;
+    } catch (error) {
+      throw new DatabaseError(`Failed to get churn task ID: ${error}`);
+    }
+  }
+
+  /**
+   * Remove the Churn task mapping for a session
+   */
+  removeChurnTaskMapping(sessionId: number): void {
+    try {
+      this.ensureChurnMappingTable();
+      const db = this.getDb();
+      const stmt = db.prepare(`
+        DELETE FROM churn_task_mappings WHERE session_id = ?
+      `);
+      stmt.run(sessionId);
+    } catch (error) {
+      throw new DatabaseError(`Failed to remove churn task mapping: ${error}`);
+    }
   }
 }

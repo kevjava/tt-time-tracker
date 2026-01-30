@@ -1,9 +1,10 @@
 import chalk from 'chalk';
 import { TimeTrackerDB } from '../../db/database';
-import { ensureDataDir, getDatabasePath } from '../../utils/config';
+import { ensureDataDir, getDatabasePath, loadConfig } from '../../utils/config';
 import { differenceInMinutes } from 'date-fns';
 import { validateStopTime } from '../../utils/session-validator';
 import * as theme from '../../utils/theme';
+import { getScheduler, isChurnEnabled } from '../../utils/scheduler';
 
 interface StopOptions {
   remark?: string;
@@ -13,10 +14,11 @@ interface StopOptions {
 /**
  * tt stop command implementation
  */
-export function stopCommand(options: StopOptions): void {
+export async function stopCommand(options: StopOptions): Promise<void> {
   try {
     ensureDataDir();
     const db = new TimeTrackerDB(getDatabasePath());
+    const config = loadConfig();
 
     try {
       const activeSession = db.getActiveSession();
@@ -39,6 +41,22 @@ export function stopCommand(options: StopOptions): void {
       // Calculate duration
       const durationMinutes = differenceInMinutes(endTime, activeSession.startTime);
 
+      // Check if this session was started from a Churn task
+      const churnTaskId = db.getChurnTaskId(activeSession.id!);
+      if (churnTaskId && isChurnEnabled(config)) {
+        // Complete the Churn task with actual time
+        const scheduler = await getScheduler(config, db);
+        await scheduler.completeTask({
+          taskId: churnTaskId,
+          completedAt: endTime,
+          actualMinutes: durationMinutes,
+          scheduledMinutes: activeSession.estimateMinutes,
+        });
+
+        // Remove the mapping
+        db.removeChurnTaskMapping(activeSession.id!);
+      }
+
       // Display summary
       console.log(chalk.bold(chalk.green('✓')) + chalk.green(' Stopped tracking'));
       console.log(chalk.gray(`  Task: ${chalk.bold(activeSession.description)}`));
@@ -50,6 +68,10 @@ export function stopCommand(options: StopOptions): void {
 
       if (options.remark) {
         console.log(chalk.gray(`  Remark: ${theme.formatRemark(options.remark)}`));
+      }
+
+      if (churnTaskId && isChurnEnabled(config)) {
+        console.log(chalk.gray(`  Churn task #${churnTaskId} completed`));
       }
     } finally {
       db.close();

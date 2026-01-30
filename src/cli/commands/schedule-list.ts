@@ -1,9 +1,10 @@
 import chalk from 'chalk';
 import { format } from 'date-fns';
 import { TimeTrackerDB } from '../../db/database';
-import { ensureDataDir, getDatabasePath } from '../../utils/config';
+import { ensureDataDir, getDatabasePath, loadConfig } from '../../utils/config';
 import * as theme from '../../utils/theme';
 import { numToLetter } from '../../utils/schedule-id';
+import { getScheduler } from '../../utils/scheduler';
 
 /**
  * Pad string to specified width
@@ -71,13 +72,16 @@ function truncate(str: string, width: number): string {
 /**
  * tt schedule list command implementation
  */
-export function scheduleListCommand(): void {
+export async function scheduleListCommand(): Promise<void> {
   try {
     ensureDataDir();
     const db = new TimeTrackerDB(getDatabasePath());
+    const config = loadConfig();
+    const scheduler = await getScheduler(config, db);
 
     try {
-      const tasks = db.getAllScheduledTasks();
+      const plan = await scheduler.getDailyPlan(new Date());
+      const tasks = plan.tasks;
 
       if (tasks.length === 0) {
         console.log(chalk.yellow('No scheduled tasks. Add one with: tt schedule add'));
@@ -110,11 +114,13 @@ export function scheduleListCommand(): void {
       // Rows
       for (const task of tasks) {
         const id = task.id ? numToLetter(task.id) : '';
-        const priority = task.priority === 5 ? '' : chalk.yellow(`^${task.priority}`);
+        const priority = task.priority === 5 || task.priority === undefined ? '' : chalk.yellow(`^${task.priority}`);
         const scheduled = task.scheduledDateTime
           ? format(task.scheduledDateTime, 'yyyy-MM-dd HH:mm')
-          : '';
-        const description = truncate(task.description, descWidth);
+          : task.deadline
+            ? format(task.deadline, 'yyyy-MM-dd HH:mm')
+            : '';
+        const description = truncate(task.title, descWidth);
         const project = task.project ? truncate(theme.formatProject(task.project), projectWidth) : '';
         const tags = task.tags.length > 0 ? truncate(theme.formatTags(task.tags), tagsWidth) : '';
         const estimate = task.estimateMinutes ? theme.formatEstimate(task.estimateMinutes) : '';
