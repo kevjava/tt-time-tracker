@@ -50,8 +50,25 @@ jest.mock('../../../utils/config', () => {
         fs.mkdirSync(testDataDir, { recursive: true });
       }
     }),
+    loadConfig: jest.fn(() => ({
+      weekStartDay: 'monday',
+      reportFormat: 'terminal',
+      listFormat: 'table',
+      timeFormat: '24h',
+      editor: '',
+      churn: undefined, // Churn disabled in tests
+    })),
   };
 });
+
+// Mock scheduler to return TTScheduler
+jest.mock('../../../utils/scheduler', () => ({
+  getScheduler: jest.fn(async (_config: unknown, db: unknown) => {
+    const { TTScheduler } = require('@kevjava/tt-core');
+    return new TTScheduler(db);
+  }),
+  isChurnEnabled: jest.fn(() => false),
+}));
 
 import { scheduleListCommand } from '../schedule-list';
 import { TimeTrackerDB } from '../../../db/database';
@@ -83,13 +100,13 @@ describe('schedule list command', () => {
   });
 
   describe('empty list', () => {
-    it('should show friendly message when no scheduled tasks exist', () => {
+    it('should show friendly message when no scheduled tasks exist', async () => {
       const originalLog = console.log;
       const logs: string[] = [];
       console.log = jest.fn((msg) => logs.push(msg));
 
       try {
-        scheduleListCommand();
+        await scheduleListCommand();
 
         expect(logs.some((log) => log.includes('No scheduled tasks'))).toBe(true);
         expect(logs.some((log) => log.includes('tt schedule add'))).toBe(true);
@@ -100,7 +117,7 @@ describe('schedule list command', () => {
   });
 
   describe('single task display', () => {
-    it('should display task with minimal data', () => {
+    it('should display task with minimal data', async () => {
       const originalLog = console.log;
       const logs: string[] = [];
       console.log = jest.fn((msg) => logs.push(msg));
@@ -112,7 +129,7 @@ describe('schedule list command', () => {
           priority: 5,
         });
 
-        scheduleListCommand();
+        await scheduleListCommand();
 
         // Should show header
         expect(logs.some((log) => log.includes('Scheduled Tasks'))).toBe(true);
@@ -126,7 +143,7 @@ describe('schedule list command', () => {
       }
     });
 
-    it('should display task with all fields', () => {
+    it('should display task with all fields', async () => {
       const originalLog = console.log;
       const logs: string[] = [];
       console.log = jest.fn((msg) => logs.push(msg));
@@ -141,7 +158,7 @@ describe('schedule list command', () => {
         });
         db.insertScheduledTaskTags(taskId, ['urgent', 'important']);
 
-        scheduleListCommand();
+        await scheduleListCommand();
 
         // Should show all fields
         expect(logs.some((log) => log.includes('Complete task'))).toBe(true);
@@ -153,7 +170,7 @@ describe('schedule list command', () => {
       }
     });
 
-    it('should not show priority when it equals 5 (default)', () => {
+    it('should not show priority when it equals 5 (default)', async () => {
       const originalLog = console.log;
       const logs: string[] = [];
       console.log = jest.fn((msg) => logs.push(msg));
@@ -164,7 +181,7 @@ describe('schedule list command', () => {
           priority: 5,
         });
 
-        scheduleListCommand();
+        await scheduleListCommand();
 
         // Should show task but no priority marker
         expect(logs.some((log) => log && log.includes('Normal priority task'))).toBe(true);
@@ -174,7 +191,7 @@ describe('schedule list command', () => {
       }
     });
 
-    it('should show priority when it is not 5', () => {
+    it('should show priority when it is not 5', async () => {
       const originalLog = console.log;
       const logs: string[] = [];
       console.log = jest.fn((msg) => logs.push(msg));
@@ -185,7 +202,7 @@ describe('schedule list command', () => {
           priority: 1,
         });
 
-        scheduleListCommand();
+        await scheduleListCommand();
 
         expect(logs.some((log) => log.includes('High priority task'))).toBe(true);
         expect(logs.some((log) => log.includes('^1'))).toBe(true);
@@ -196,7 +213,7 @@ describe('schedule list command', () => {
   });
 
   describe('multiple tasks', () => {
-    it('should display multiple tasks in order', () => {
+    it('should display multiple tasks in order', async () => {
       const originalLog = console.log;
       const logs: string[] = [];
       console.log = jest.fn((msg) => logs.push(msg));
@@ -221,7 +238,7 @@ describe('schedule list command', () => {
           priority: 8,
         });
 
-        scheduleListCommand();
+        await scheduleListCommand();
 
         // All tasks should appear
         expect(logs.some((log) => log.includes('First task'))).toBe(true);
@@ -242,7 +259,7 @@ describe('schedule list command', () => {
   });
 
   describe('formatting and truncation', () => {
-    it('should truncate long descriptions', () => {
+    it('should truncate long descriptions', async () => {
       const originalLog = console.log;
       const logs: string[] = [];
       console.log = jest.fn((msg) => logs.push(msg));
@@ -256,7 +273,7 @@ describe('schedule list command', () => {
           priority: 5,
         });
 
-        scheduleListCommand();
+        await scheduleListCommand();
 
         // Should show truncated version with ellipsis
         const taskLine = logs.find((log) => log.includes('This is a very long task'));
@@ -268,7 +285,7 @@ describe('schedule list command', () => {
       }
     });
 
-    it('should format scheduled date correctly', () => {
+    it('should format scheduled date correctly', async () => {
       const originalLog = console.log;
       const logs: string[] = [];
       console.log = jest.fn((msg) => logs.push(msg));
@@ -280,7 +297,7 @@ describe('schedule list command', () => {
           priority: 5,
         });
 
-        scheduleListCommand();
+        await scheduleListCommand();
 
         // Should format as YYYY-MM-DD HH:MM
         expect(logs.some((log) => log.includes('2026-01-15 14:30'))).toBe(true);
@@ -289,7 +306,7 @@ describe('schedule list command', () => {
       }
     });
 
-    it('should handle tasks with no scheduled date', () => {
+    it('should handle tasks with no scheduled date', async () => {
       const originalLog = console.log;
       const logs: string[] = [];
       console.log = jest.fn((msg) => logs.push(msg));
@@ -300,7 +317,7 @@ describe('schedule list command', () => {
           priority: 5,
         });
 
-        scheduleListCommand();
+        await scheduleListCommand();
 
         expect(logs.some((log) => log && log.includes('Unscheduled task'))).toBe(true);
         // Should not crash or show 'undefined'
@@ -312,7 +329,7 @@ describe('schedule list command', () => {
   });
 
   describe('error handling', () => {
-    it('should handle database errors gracefully', () => {
+    it('should handle database errors gracefully', async () => {
       const originalError = console.error;
       console.error = jest.fn();
 
@@ -332,7 +349,7 @@ describe('schedule list command', () => {
         // Create a directory where the database file should be
         fs.mkdirSync(testDbPath, { recursive: true });
 
-        scheduleListCommand();
+        await scheduleListCommand();
 
         expect(mockExit).toHaveBeenCalledWith(1);
         expect(console.error).toHaveBeenCalled();

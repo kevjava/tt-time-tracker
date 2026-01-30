@@ -1,14 +1,16 @@
 import chalk from 'chalk';
 import { TimeTrackerDB } from '../../db/database';
-import { ensureDataDir, getDatabasePath } from '../../utils/config';
+import { ensureDataDir, getDatabasePath, loadConfig } from '../../utils/config';
 import { parseDuration } from '../../parser/duration';
 import { LogParser } from '../../parser/grammar';
 import { logger } from '../../utils/logger';
 import { validateStartTime } from '../../utils/session-validator';
 import * as theme from '../../utils/theme';
-import { promptScheduledTaskSelection } from './schedule-select';
+import { promptTaskSelection } from './schedule-select';
 import { ScheduledTask, Session } from '../../types/session';
 import { letterToNum } from '../../utils/schedule-id';
+import { getScheduler, isChurnEnabled } from '../../utils/scheduler';
+import { ScheduledTask as SchedulerTask } from '@kevjava/task-parser';
 
 interface StartOptions {
   project?: string;
@@ -24,6 +26,8 @@ export async function startCommand(descriptionArgs: string | string[] | undefine
   try {
     ensureDataDir();
     const db = new TimeTrackerDB(getDatabasePath());
+    const config = loadConfig();
+    const usingChurn = isChurnEnabled(config);
 
     try {
       // Check if first argument is a session ID
@@ -50,11 +54,23 @@ export async function startCommand(descriptionArgs: string | string[] | undefine
         // Check if first argument is a schedule ID (letters only, exists in DB)
         if (/^[a-zA-Z]+$/.test(firstArg) && isSingleArg) {
           const scheduleId = letterToNum(firstArg);
-          const task = db.getScheduledTaskById(scheduleId);
-          if (task) {
-            startFromScheduledTask(db, task, options);
-            db.deleteScheduledTask(task.id!);
-            return;
+
+          if (usingChurn) {
+            // Use scheduler to get and remove the task
+            const scheduler = await getScheduler(config, db);
+            const task = await scheduler.getTask(scheduleId);
+            if (task) {
+              await startFromChurnTask(db, task, options);
+              await scheduler.removeTask(scheduleId);
+              return;
+            }
+          } else {
+            const task = db.getScheduledTaskById(scheduleId);
+            if (task) {
+              startFromScheduledTask(db, task, options);
+              db.deleteScheduledTask(task.id!);
+              return;
+            }
           }
           // Not a valid schedule ID, fall through to description handling
         }
@@ -138,6 +154,86 @@ function startFromSessionTemplate(db: TimeTrackerDB, sessionId: number, options:
   console.log(chalk.bold(chalk.green('✓')) + chalk.green(` Started tracking: ${chalk.bold(description)}`));
   console.log(chalk.gray(`  Task ID: ${newSessionId}`));
   console.log(chalk.gray(`  Template: Session ${sessionId}`));
+
+  if (project) {
+    console.log(chalk.gray(`  Project: ${theme.formatProject(project)}`));
+  }
+
+  if (tags.length > 0) {
+    console.log(chalk.gray(`  Tags: ${theme.formatTags(tags)}`));
+  }
+
+  if (estimateMinutes) {
+    console.log(chalk.gray(`  Estimate: ${theme.formatEstimate(estimateMinutes)}`));
+  }
+
+  if (options.at) {
+    console.log(chalk.gray(`  Start time: ${actualStartTime.toLocaleString()}`));
+  }
+}
+
+/**
+ * Start a new session based on a Churn task (when churn integration is enabled)
+ */
+async function startFromChurnTask(db: TimeTrackerDB, task: SchedulerTask, options: StartOptions): Promise<void> {
+  // Use churn task metadata, but allow options to override
+  const description = task.title;
+  const project = options.project || task.project;
+  const tags = options.tags
+    ? options.tags.split(',').map((t) => t.trim())
+    : task.tags;
+
+  let estimateMinutes: number | undefined;
+  if (options.estimate) {
+    try {
+      estimateMinutes = parseDuration(options.estimate);
+    } catch (error) {
+      console.error(chalk.red(`Error: Invalid estimate format: ${options.estimate}`));
+      process.exit(1);
+    }
+  } else {
+    estimateMinutes = task.estimateMinutes;
+  }
+
+  // Validate and get start time
+  let actualStartTime: Date;
+  if (options.at) {
+    actualStartTime = validateStartTime(options.at, db);
+  } else {
+    // Check if already tracking something
+    const activeSession = db.getActiveSession();
+    if (activeSession) {
+      console.error(
+        chalk.red(
+          `Error: Already tracking "${activeSession.description}". Stop it first with: tt stop`
+        )
+      );
+      process.exit(1);
+    }
+    actualStartTime = new Date();
+  }
+
+  // Create the new session
+  const newSessionId = db.insertSession({
+    startTime: actualStartTime,
+    description,
+    project,
+    estimateMinutes,
+    state: 'working',
+  });
+
+  // Add tags
+  if (tags.length > 0) {
+    db.insertSessionTags(newSessionId, tags);
+  }
+
+  // Store the churn task ID mapping
+  db.setChurnTaskMapping(newSessionId, task.id);
+
+  // Display confirmation
+  console.log(chalk.bold(chalk.green('✓')) + chalk.green(` Started tracking: ${chalk.bold(description)}`));
+  console.log(chalk.gray(`  Task ID: ${newSessionId}`));
+  console.log(chalk.gray(`  From Churn task #${task.id}`));
 
   if (project) {
     console.log(chalk.gray(`  Project: ${theme.formatProject(project)}`));
@@ -332,7 +428,7 @@ async function startWithDescription(db: TimeTrackerDB, descriptionArgs: string |
 
   if (noArgs) {
     // Try interactive selection from scheduled tasks
-    const selectedTask = await promptScheduledTaskSelection(db);
+    const selectedTask = await promptTaskSelection(db);
 
     if (!selectedTask) {
       // User cancelled or no tasks available - exit gracefully
@@ -340,18 +436,21 @@ async function startWithDescription(db: TimeTrackerDB, descriptionArgs: string |
       return;
     }
 
-    // Check if this is a Session (incomplete) or ScheduledTask
-    if ('startTime' in selectedTask) {
-      // This is an incomplete session - resume it
-      const session = selectedTask as Session & { tags: string[]; totalMinutes?: number; chainSessionCount?: number };
-      resumeIncompleteSession(db, session, options);
-    } else {
-      // This is a scheduled task - use as template
-      const scheduledTask = selectedTask as ScheduledTask & { tags: string[] };
-      startFromScheduledTask(db, scheduledTask, options);
-
+    // Handle selection based on type
+    if (selectedTask.type === 'churn' && selectedTask.churnTask) {
+      // This is a churn task
+      const config = loadConfig();
+      const scheduler = await getScheduler(config, db);
+      await startFromChurnTask(db, selectedTask.churnTask, options);
+      await scheduler.removeTask(selectedTask.churnTask.id);
+    } else if (selectedTask.type === 'tt-session' && selectedTask.ttSession) {
+      // This is an incomplete TT session - resume it
+      resumeIncompleteSession(db, selectedTask.ttSession, options);
+    } else if (selectedTask.type === 'tt-scheduled' && selectedTask.ttTask) {
+      // This is a TT scheduled task - use as template
+      startFromScheduledTask(db, selectedTask.ttTask, options);
       // Remove task from schedule only after successful session creation
-      db.deleteScheduledTask(scheduledTask.id!);
+      db.deleteScheduledTask(selectedTask.ttTask.id!);
     }
     return;
   }
