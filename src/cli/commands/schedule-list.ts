@@ -21,7 +21,14 @@ function pad(str: string, width: number): string {
  */
 function truncate(str: string, width: number): string {
   // Strip ANSI codes for length calculation
-  const cleanStr = str.replace(/\x1b\[[0-9;]*m/g, '');
+  const ansiRegex = /\x1b\[[0-9;]*m/g;
+  const cleanStr = str.replace(ansiRegex, '');
+  const hasAnsiCodes = ansiRegex.test(str);
+  // Reset regex state after test
+  ansiRegex.lastIndex = 0;
+
+  // ANSI reset code to ensure colors don't bleed out
+  const reset = hasAnsiCodes ? '\x1b[0m' : '';
 
   // If it fits, return as-is
   if (cleanStr.length <= width) {
@@ -29,7 +36,6 @@ function truncate(str: string, width: number): string {
   }
 
   // Need to truncate - extract ANSI codes and content separately
-  const ansiRegex = /\x1b\[[0-9;]*m/g;
   let result = '';
   let visibleLength = 0;
   let lastIndex = 0;
@@ -47,7 +53,7 @@ function truncate(str: string, width: number): string {
     } else {
       result += content.slice(0, spaceLeft);
       visibleLength += spaceLeft;
-      result += '...';
+      result += '...' + reset;
       return result;
     }
 
@@ -61,9 +67,9 @@ function truncate(str: string, width: number): string {
   const spaceLeft = width - 3 - visibleLength;
 
   if (remaining.length <= spaceLeft) {
-    result += remaining + '...';
+    result += remaining + '...' + reset;
   } else {
-    result += remaining.slice(0, spaceLeft) + '...';
+    result += remaining.slice(0, spaceLeft) + '...' + reset;
   }
 
   return result;
