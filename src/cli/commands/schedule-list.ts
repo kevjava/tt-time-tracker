@@ -1,10 +1,11 @@
 import chalk from 'chalk';
 import { format } from 'date-fns';
+import { ScheduledTask } from '@kevjava/task-parser';
 import { TimeTrackerDB } from '../../db/database';
 import { ensureDataDir, getDatabasePath, loadConfig } from '../../utils/config';
 import * as theme from '../../utils/theme';
 import { numToLetter } from '../../utils/schedule-id';
-import { getScheduler } from '../../utils/scheduler';
+import { getScheduler, isChurnEnabled } from '../../utils/scheduler';
 
 /**
  * Pad string to specified width
@@ -83,11 +84,29 @@ export async function scheduleListCommand(): Promise<void> {
     ensureDataDir();
     const db = new TimeTrackerDB(getDatabasePath());
     const config = loadConfig();
-    const scheduler = await getScheduler(config, db);
 
     try {
-      const plan = await scheduler.getDailyPlan(new Date());
-      const tasks = plan.tasks;
+      let tasks: ScheduledTask[];
+
+      if (isChurnEnabled(config)) {
+        // Use ChurnScheduler for churn-managed tasks
+        const scheduler = await getScheduler(config, db);
+        const plan = await scheduler.getDailyPlan(new Date());
+        tasks = plan.tasks;
+      } else {
+        // Query scheduled_tasks directly (avoids mixing in sessions from TTScheduler)
+        const scheduledTasks = db.getAllScheduledTasks();
+        tasks = scheduledTasks.map(t => ({
+          id: t.id!,
+          title: t.description,
+          project: t.project,
+          tags: t.tags,
+          estimateMinutes: t.estimateMinutes,
+          priority: t.priority,
+          scheduledDateTime: t.scheduledDateTime,
+          deadline: t.scheduledDateTime,
+        }));
+      }
 
       if (tasks.length === 0) {
         console.log(chalk.yellow('No scheduled tasks. Add one with: tt schedule add'));
