@@ -164,7 +164,7 @@ describe('schedule list command', () => {
         expect(logs.some((log) => log.includes('Complete task'))).toBe(true);
         expect(logs.some((log) => log.includes('myApp'))).toBe(true);
         expect(logs.some((log) => log.includes('urgent'))).toBe(true);
-        expect(logs.some((log) => log.includes('2026-01-10'))).toBe(true);
+        expect(logs.some((log) => log.includes('Jan 10, 2026'))).toBe(true);
       } finally {
         console.log = originalLog;
       }
@@ -251,7 +251,7 @@ describe('schedule list command', () => {
 
         // Other fields
         expect(logs.some((log) => log.includes('backend'))).toBe(true);
-        expect(logs.some((log) => log.includes('2026-01-10'))).toBe(true);
+        expect(logs.some((log) => log.includes('Jan 10, 2026'))).toBe(true);
       } finally {
         console.log = originalLog;
       }
@@ -299,8 +299,8 @@ describe('schedule list command', () => {
 
         await scheduleListCommand();
 
-        // Should format as YYYY-MM-DD HH:MM
-        expect(logs.some((log) => log.includes('2026-01-15 14:30'))).toBe(true);
+        // Should format as configured date format + time
+        expect(logs.some((log) => log.includes('Jan 15, 2026 14:30'))).toBe(true);
       } finally {
         console.log = originalLog;
       }

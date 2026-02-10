@@ -1,12 +1,12 @@
 import chalk from 'chalk';
 import * as readline from 'readline';
-import { format } from 'date-fns';
 import { TimeTrackerDB } from '../../db/database';
 import { ScheduledTask, Session } from '../../types/session';
 import * as theme from '../../utils/theme';
 import { TaskScheduler, ScheduledTask as SchedulerTask } from '@kevjava/task-parser';
 import { loadConfig } from '../../utils/config';
 import { getScheduler, isChurnEnabled } from '../../utils/scheduler';
+import { formatDateShortTime } from '../../utils/format-date';
 
 interface SelectionItem {
   globalNumber: number;
@@ -337,7 +337,7 @@ function displayTask(
     }
 
     if (scheduledTask.scheduledDateTime) {
-      line += ` ${chalk.dim(`[${format(scheduledTask.scheduledDateTime, 'MMM d, HH:mm')}]`)}`;
+      line += ` ${chalk.dim(`[${formatDateShortTime(scheduledTask.scheduledDateTime)}]`)}`;
     }
   }
 
@@ -367,7 +367,7 @@ function displayChurnTask(number: number, task: SchedulerTask): void {
   }
 
   if (task.deadline) {
-    line += ` ${chalk.dim(`[${format(task.deadline, 'MMM d, HH:mm')}]`)}`;
+    line += ` ${chalk.dim(`[${formatDateShortTime(task.deadline)}]`)}`;
   }
 
   console.log(line);

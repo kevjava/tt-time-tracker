@@ -1,5 +1,4 @@
 import chalk from 'chalk';
-import { format } from 'date-fns';
 import { TimeTrackerDB } from '../../db/database';
 import { ensureDataDir, getDatabasePath } from '../../utils/config';
 import { parseFuzzyDate } from '../../utils/date';
@@ -7,6 +6,7 @@ import { Session, SessionState } from '../../types/session';
 import { logger } from '../../utils/logger';
 import { getSessionDuration } from '../../utils/duration';
 import * as theme from '../../utils/theme';
+import { formatDayDate, formatTime, formatDateShort } from '../../utils/format-date';
 
 interface FindOptions {
   from?: string;
@@ -207,10 +207,10 @@ function printSession(
   const estimateWidth = 12;
 
   const id = session.id?.toString() || '';
-  const date = format(session.startTime, 'EEE, MMM d');
+  const date = formatDayDate(session.startTime);
   const timeRange = session.endTime
-    ? `${format(session.startTime, 'HH:mm')}-${format(session.endTime, 'HH:mm')}`
-    : `${format(session.startTime, 'HH:mm')}-     `;
+    ? `${formatTime(session.startTime)}-${formatTime(session.endTime)}`
+    : `${formatTime(session.startTime)}-     `;
 
   // Highlight search terms in description, then truncate
   const highlightedDescription = highlightSearchTerms(session.description, searchTerms);
@@ -345,11 +345,11 @@ export function findCommand(queryArg: string, options: FindOptions): void {
       }
       if (startDate || endDate) {
         if (startDate && endDate) {
-          criteria.push(`${format(startDate, 'MMM d')} - ${format(endDate, 'MMM d')}`);
+          criteria.push(`${formatDateShort(startDate)} - ${formatDateShort(endDate)}`);
         } else if (startDate) {
-          criteria.push(`from ${format(startDate, 'MMM d')}`);
+          criteria.push(`from ${formatDateShort(startDate)}`);
         } else if (endDate) {
-          criteria.push(`until ${format(endDate, 'MMM d')}`);
+          criteria.push(`until ${formatDateShort(endDate)}`);
         }
       }
 

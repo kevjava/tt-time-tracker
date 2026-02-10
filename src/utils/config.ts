@@ -71,6 +71,9 @@ export type LoadedConfig = {
   reportFormat: 'terminal' | 'json' | 'csv';
   listFormat: 'table' | 'log';
   timeFormat: '24h' | '12h';
+  dateFormat: string;
+  dateFormatShort: string;
+  locale: string;
   editor: string;
   churn?: UserConfig['churn'];
 };
@@ -96,6 +99,9 @@ export function loadConfig(): LoadedConfig {
       reportFormat: parsed.reportFormat || DEFAULT_CONFIG.reportFormat,
       listFormat: parsed.listFormat || DEFAULT_CONFIG.listFormat,
       timeFormat: parsed.timeFormat || DEFAULT_CONFIG.timeFormat,
+      dateFormat: parsed.dateFormat ?? DEFAULT_CONFIG.dateFormat,
+      dateFormatShort: parsed.dateFormatShort ?? DEFAULT_CONFIG.dateFormatShort,
+      locale: parsed.locale ?? DEFAULT_CONFIG.locale,
       editor: parsed.editor || DEFAULT_CONFIG.editor,
       churn: parsed.churn,
     };
@@ -130,6 +136,15 @@ export function saveConfig(config: UserConfig): void {
   if (config.timeFormat && config.timeFormat !== DEFAULT_CONFIG.timeFormat) {
     toSave.timeFormat = config.timeFormat;
   }
+  if (config.dateFormat !== undefined && config.dateFormat !== DEFAULT_CONFIG.dateFormat) {
+    toSave.dateFormat = config.dateFormat;
+  }
+  if (config.dateFormatShort !== undefined && config.dateFormatShort !== DEFAULT_CONFIG.dateFormatShort) {
+    toSave.dateFormatShort = config.dateFormatShort;
+  }
+  if (config.locale !== undefined && config.locale !== DEFAULT_CONFIG.locale) {
+    toSave.locale = config.locale;
+  }
   if (config.editor && config.editor !== DEFAULT_CONFIG.editor) {
     toSave.editor = config.editor;
   }
@@ -160,6 +175,11 @@ export function isValidConfigValue(key: ConfigKey, value: string): boolean {
       return value === 'table' || value === 'log';
     case 'timeFormat':
       return value === '24h' || value === '12h';
+    case 'dateFormat':
+    case 'dateFormatShort':
+      return typeof value === 'string' && value.length > 0;
+    case 'locale':
+      return typeof value === 'string'; // empty string is valid (auto-detect)
     case 'editor':
       return typeof value === 'string' && value.length > 0;
     case 'churn.enabled':

@@ -1,5 +1,6 @@
 import { startOfISOWeek, endOfISOWeek, format, getISOWeek, getYear } from 'date-fns';
 import * as chrono from 'chrono-node';
+import { formatDate as fmtDate, formatDateRange as fmtDateRange } from './format-date';
 
 /**
  * Get the start and end of a week
@@ -15,7 +16,7 @@ export function getWeekBounds(weekSpec: string, referenceDate: Date = new Date()
     end = endOfISOWeek(referenceDate);
     const weekNum = getISOWeek(start);
     const year = getYear(start);
-    label = `Week of ${format(start, 'MMM d, yyyy')} (${year}-W${weekNum})`;
+    label = `Week of ${fmtDate(start)} (${year}-W${weekNum})`;
   } else if (weekSpec === 'last') {
     const lastWeek = new Date(referenceDate);
     lastWeek.setDate(lastWeek.getDate() - 7);
@@ -23,7 +24,7 @@ export function getWeekBounds(weekSpec: string, referenceDate: Date = new Date()
     end = endOfISOWeek(lastWeek);
     const weekNum = getISOWeek(start);
     const year = getYear(start);
-    label = `Week of ${format(start, 'MMM d, yyyy')} (${year}-W${weekNum})`;
+    label = `Week of ${fmtDate(start)} (${year}-W${weekNum})`;
   } else if (weekSpec.match(/^\d{4}-W\d{1,2}$/)) {
     // ISO week format: 2024-W51
     const [year, week] = weekSpec.split('-W');
@@ -38,7 +39,7 @@ export function getWeekBounds(weekSpec: string, referenceDate: Date = new Date()
     start = new Date(firstMonday);
     start.setDate(start.getDate() + (weekNum - 1) * 7);
     end = endOfISOWeek(start);
-    label = `Week of ${format(start, 'MMM d, yyyy')} (${weekSpec})`;
+    label = `Week of ${fmtDate(start)} (${weekSpec})`;
   } else {
     throw new Error(`Invalid week specification: ${weekSpec}. Use "current", "last", or ISO week format (e.g., "2024-W51")`);
   }
@@ -50,7 +51,7 @@ export function getWeekBounds(weekSpec: string, referenceDate: Date = new Date()
  * Format a date range for display
  */
 export function formatDateRange(start: Date, end: Date): string {
-  return `${format(start, 'MMM d')} - ${format(end, 'MMM d, yyyy')}`;
+  return fmtDateRange(start, end);
 }
 
 /**

@@ -3,13 +3,13 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { createInterface } from 'readline';
 import chalk from 'chalk';
-import { format } from 'date-fns';
 import { LogParser } from '../../parser/grammar';
 import { TimeTrackerDB } from '../../db/database';
 import { ensureDataDir, getDatabasePath } from '../../utils/config';
 import { openInEditor } from '../editor';
 import { LogEntry, Session, SessionState } from '../../types/session';
 import { logger } from '../../utils/logger';
+import { formatDateShortTime, formatTime } from '../../utils/format-date';
 
 /**
  * Log entry with calculated end time and state
@@ -524,7 +524,7 @@ export async function logCommand(file?: string, options: LogCommandOptions = {})
             overlappingSessions.push({ ...session, descendants });
 
             console.log(
-              `  ${chalk.yellow(`#${id}`)} ${session.description} - ${format(session.startTime, 'MMM d, HH:mm')}${session.endTime ? `-${format(session.endTime, 'HH:mm')}` : ''}`
+              `  ${chalk.yellow(`#${id}`)} ${session.description} - ${formatDateShortTime(session.startTime)}${session.endTime ? `-${formatTime(session.endTime)}` : ''}`
             );
             if (descendants.length > 0) {
               console.log(chalk.gray(`      (includes ${descendants.length} interruption(s))`));
