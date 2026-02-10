@@ -31,7 +31,7 @@ function calculateSummary(sessions: SessionWithTags[]): TimeSummary {
       }
     } else {
       // Top-level session: contributes gross time to total, net time to project/tags
-      const grossDuration = getSessionDuration(session);
+      const grossDuration = Math.max(0, getSessionDuration(session));
       totalMinutes += grossDuration;
 
       if (session.project) {
