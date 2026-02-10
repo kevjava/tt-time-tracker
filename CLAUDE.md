@@ -148,6 +148,7 @@ Time-range queries are performance-critical for reports (see schema.sql for inde
 - **session-validator.ts**: Validates times for each command type, auto-adjusts small overlaps (< 60s)
 - **config.ts**: Configuration management
 - **date.ts**: Date utilities
+- **format-date.ts**: Centralized date/time formatting with config and locale support
 
 ### Reports Module (`src/reports/`)
 

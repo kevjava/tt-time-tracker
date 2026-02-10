@@ -2,11 +2,11 @@ import chalk from 'chalk';
 import { createInterface } from 'readline';
 import { TimeTrackerDB } from '../../db/database';
 import { ensureDataDir, getDatabasePath } from '../../utils/config';
-import { format } from 'date-fns';
 import { parseFuzzyDate } from '../../utils/date';
 import { Session } from '../../types/session';
 import * as theme from '../../utils/theme';
 import { scheduleRemoveCommand } from './schedule-remove';
+import { formatTime, formatDayDate } from '../../utils/format-date';
 
 interface DeleteOptions {
   yes?: boolean;
@@ -271,10 +271,10 @@ export async function deleteCommand(
       // Show each session
       for (const session of sessionsToDelete) {
         const timeStr = session.endTime
-          ? `${format(session.startTime, 'HH:mm')}-${format(session.endTime, 'HH:mm')}`
-          : `${format(session.startTime, 'HH:mm')}`;
+          ? `${formatTime(session.startTime)}-${formatTime(session.endTime)}`
+          : `${formatTime(session.startTime)}`;
 
-        let sessionLine = `  #${session.id}  ${format(session.startTime, 'EEE MMM d')}  ${timeStr}  ${session.description}`;
+        let sessionLine = `  #${session.id}  ${formatDayDate(session.startTime)}  ${timeStr}  ${session.description}`;
 
         if (session.project) {
           sessionLine += ` ${theme.formatProject(session.project)}`;

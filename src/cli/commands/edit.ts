@@ -7,6 +7,7 @@ import { SessionState } from '../../types/session';
 import { LogParser } from '../../parser/grammar';
 import { logger } from '../../utils/logger';
 import { scheduleEditCommand } from './schedule-edit';
+import { formatDayDateFull, formatTimeSeconds, formatDateTimeSeconds } from '../../utils/format-date';
 
 interface EditOptions {
   description?: string;
@@ -168,10 +169,10 @@ export function editCommand(
       console.log(chalk.bold('\nCurrent session:'));
       console.log(chalk.gray('─'.repeat(80)));
       console.log(`  ID: ${session.id}`);
-      console.log(`  Date: ${format(session.startTime, 'EEE, MMM d, yyyy')}`);
-      console.log(`  Start time: ${format(session.startTime, 'HH:mm:ss')}`);
+      console.log(`  Date: ${formatDayDateFull(session.startTime)}`);
+      console.log(`  Start time: ${formatTimeSeconds(session.startTime)}`);
       if (session.endTime) {
-        console.log(`  End time: ${format(session.endTime, 'HH:mm:ss')}`);
+        console.log(`  End time: ${formatTimeSeconds(session.endTime)}`);
       }
       console.log(`  Description: ${session.description}`);
       console.log(`  Project: ${session.project || '(none)'}`);
@@ -413,13 +414,13 @@ export function editCommand(
 
       if (updates.startTime !== undefined) {
         console.log(
-          `  Start time: ${chalk.gray(format(session.startTime, 'yyyy-MM-dd HH:mm:ss'))} → ${chalk.green(format(updates.startTime, 'yyyy-MM-dd HH:mm:ss'))}`
+          `  Start time: ${chalk.gray(formatDateTimeSeconds(session.startTime))} → ${chalk.green(formatDateTimeSeconds(updates.startTime))}`
         );
       }
 
       if (updates.endTime !== undefined) {
-        const oldEnd = session.endTime ? format(session.endTime, 'yyyy-MM-dd HH:mm:ss') : '(none)';
-        const newEnd = updates.endTime ? format(updates.endTime, 'yyyy-MM-dd HH:mm:ss') : '(none)';
+        const oldEnd = session.endTime ? formatDateTimeSeconds(session.endTime) : '(none)';
+        const newEnd = updates.endTime ? formatDateTimeSeconds(updates.endTime) : '(none)';
         console.log(`  End time: ${chalk.gray(oldEnd)} → ${chalk.green(newEnd)}`);
       }
 

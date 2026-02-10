@@ -69,8 +69,8 @@ describe('formatDetailedSession', () => {
       expect(output).toContain('Session 1');
       expect(output).toContain('Test task');
       expect(output).toContain('✓ Completed');
-      expect(output).toContain('2025-01-15 09:00:00');
-      expect(output).toContain('2025-01-15 11:00:00');
+      expect(output).toContain('Jan 15, 2025 09:00:00');
+      expect(output).toContain('Jan 15, 2025 11:00:00');
       expect(output).toContain('testProject');
       expect(output).toContain('+code');
       expect(output).toContain('+feature');

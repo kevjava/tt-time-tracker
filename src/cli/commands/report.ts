@@ -1,5 +1,4 @@
 import chalk from 'chalk';
-import { format as formatDate } from 'date-fns';
 import { TimeTrackerDB } from '../../db/database';
 import { ensureDataDir, getDatabasePath, loadConfig } from '../../utils/config';
 import { getWeekBounds, parseFuzzyDate } from '../../utils/date';
@@ -8,6 +7,7 @@ import { formatTerminalReport } from '../../reports/formatters/terminal';
 import { formatJsonReport } from '../../reports/formatters/json';
 import { formatCsvReport } from '../../reports/formatters/csv';
 import { logger } from '../../utils/logger';
+import { formatDateRange as fmtDateRange } from '../../utils/format-date';
 
 interface ReportOptions {
   week?: string;
@@ -28,7 +28,7 @@ function getPreviousPeriod(start: Date, end: Date): { start: Date; end: Date; la
   const prevEnd = new Date(start.getTime() - 1); // 1ms before current period start
   const prevStart = new Date(prevEnd.getTime() - durationMs);
 
-  const label = `${formatDate(prevStart, 'MMM d')} - ${formatDate(prevEnd, 'MMM d, yyyy')}`;
+  const label = fmtDateRange(prevStart, prevEnd);
 
   return { start: prevStart, end: prevEnd, label };
 }
@@ -76,7 +76,7 @@ export function reportCommand(options: ReportOptions): void {
         }
 
         // Generate label for custom range
-        label = `${formatDate(start, 'MMM d')} - ${formatDate(end, 'MMM d, yyyy')}`;
+        label = fmtDateRange(start, end);
         logger.debug(`Using custom date range: ${label}`);
       } else {
         // Week-based range (existing logic)

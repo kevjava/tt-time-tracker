@@ -1,5 +1,4 @@
 import chalk from 'chalk';
-import { format } from 'date-fns';
 import { TimeTrackerDB } from '../../db/database';
 import { ensureDataDir, getDatabasePath, loadConfig } from '../../utils/config';
 import { getWeekBounds, parseFuzzyDate } from '../../utils/date';
@@ -9,6 +8,7 @@ import { formatSessionsAsLog } from '../formatters/log';
 import { formatDetailedSession } from '../formatters/detailed-session';
 import { getSessionDuration } from '../../utils/duration';
 import * as theme from '../../utils/theme';
+import { formatDate, formatDayDate, formatTime } from '../../utils/format-date';
 
 interface ListOptions {
   week?: string;
@@ -207,7 +207,7 @@ export function listCommand(sessionIdArg: string | undefined, options: ListOptio
           end = new Date();
         }
 
-        label = `${format(start, 'MMM d, yyyy')} - ${format(end, 'MMM d, yyyy')}`;
+        label = `${formatDate(start)} - ${formatDate(end)}`;
       } else {
         // Week-based range
         const weekSpec = options.week || 'current';
@@ -317,10 +317,10 @@ function printSession(session: Session & { tags: string[] }, indentLevel: number
   const estimateWidth = 12;
 
   const id = session.id?.toString() || '';
-  const date = format(session.startTime, 'EEE, MMM d');
+  const date = formatDayDate(session.startTime);
   const timeRange = session.endTime
-    ? `${format(session.startTime, 'HH:mm')}-${format(session.endTime, 'HH:mm')}`
-    : `${format(session.startTime, 'HH:mm')}-     `;
+    ? `${formatTime(session.startTime)}-${formatTime(session.endTime)}`
+    : `${formatTime(session.startTime)}-     `;
 
   // Truncate description to fit within column (accounting for indentation)
   const description = truncate(indent + session.description, descWidth).slice(indent.length);

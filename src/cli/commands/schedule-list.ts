@@ -1,10 +1,10 @@
 import chalk from 'chalk';
-import { format } from 'date-fns';
 import { TimeTrackerDB } from '../../db/database';
 import { ensureDataDir, getDatabasePath, loadConfig } from '../../utils/config';
 import * as theme from '../../utils/theme';
 import { numToLetter } from '../../utils/schedule-id';
 import { getScheduler } from '../../utils/scheduler';
+import { formatDateTime } from '../../utils/format-date';
 
 /**
  * Pad string to specified width
@@ -122,9 +122,9 @@ export async function scheduleListCommand(): Promise<void> {
         const id = task.id ? numToLetter(task.id) : '';
         const priority = task.priority === 5 || task.priority === undefined ? '' : chalk.yellow(`^${task.priority}`);
         const scheduled = task.scheduledDateTime
-          ? format(task.scheduledDateTime, 'yyyy-MM-dd HH:mm')
+          ? formatDateTime(task.scheduledDateTime)
           : task.deadline
-            ? format(task.deadline, 'yyyy-MM-dd HH:mm')
+            ? formatDateTime(task.deadline)
             : '';
         const description = truncate(task.title, descWidth);
         const project = task.project ? truncate(theme.formatProject(task.project), projectWidth) : '';

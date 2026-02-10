@@ -11,4 +11,4 @@
 
 ## Ready
 
-None - we're good!
+- Warn the user if logging sessions from more than a month ago or for the future to guard against date mistyping.

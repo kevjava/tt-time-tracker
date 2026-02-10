@@ -77,6 +77,9 @@ function showConfig(): void {
   console.log(`${chalk.cyan('reportFormat:')}    ${config.reportFormat}${config.reportFormat === DEFAULT_CONFIG.reportFormat ? chalk.gray(' (default)') : ''}`);
   console.log(`${chalk.cyan('listFormat:')}      ${config.listFormat}${config.listFormat === DEFAULT_CONFIG.listFormat ? chalk.gray(' (default)') : ''}`);
   console.log(`${chalk.cyan('timeFormat:')}      ${config.timeFormat}${config.timeFormat === DEFAULT_CONFIG.timeFormat ? chalk.gray(' (default)') : ''}`);
+  console.log(`${chalk.cyan('dateFormat:')}      ${config.dateFormat}${config.dateFormat === DEFAULT_CONFIG.dateFormat ? chalk.gray(' (default)') : ''}`);
+  console.log(`${chalk.cyan('dateFormatShort:')}  ${config.dateFormatShort}${config.dateFormatShort === DEFAULT_CONFIG.dateFormatShort ? chalk.gray(' (default)') : ''}`);
+  console.log(`${chalk.cyan('locale:')}          ${config.locale || chalk.gray('(auto-detect from system)')}`);
   console.log(`${chalk.cyan('editor:')}          ${config.editor || chalk.gray('(uses $EDITOR, $VISUAL, or vi)')}`);
 
   // Churn integration settings
@@ -97,7 +100,7 @@ function getConfigValue(key: string): void {
   if (!isValidConfigKey(key)) {
     console.error(chalk.red(`Error: Invalid config key '${key}'`));
     console.error(
-      chalk.gray(`Valid keys: weekStartDay, reportFormat, listFormat, timeFormat, editor, churn.enabled, churn.db_path`)
+      chalk.gray(`Valid keys: weekStartDay, reportFormat, listFormat, timeFormat, dateFormat, dateFormatShort, locale, editor, churn.enabled, churn.db_path`)
     );
     process.exit(1);
   }
@@ -115,7 +118,7 @@ function setConfigValue(key: string, value: string): void {
   if (!isValidConfigKey(key)) {
     console.error(chalk.red(`Error: Invalid config key '${key}'`));
     console.error(
-      chalk.gray(`Valid keys: weekStartDay, reportFormat, listFormat, timeFormat, editor, churn.enabled, churn.db_path`)
+      chalk.gray(`Valid keys: weekStartDay, reportFormat, listFormat, timeFormat, dateFormat, dateFormatShort, locale, editor, churn.enabled, churn.db_path`)
     );
     process.exit(1);
   }
@@ -181,6 +184,12 @@ function getValidValuesHint(key: ConfigKey): string {
       return 'Valid values: table, log';
     case 'timeFormat':
       return 'Valid values: 24h, 12h';
+    case 'dateFormat':
+      return 'Valid value: date-fns format string with year (e.g., "MMM d, yyyy", "yyyy-MM-dd", "d. MMMM yyyy")';
+    case 'dateFormatShort':
+      return 'Valid value: date-fns format string without year (e.g., "MMM d", "dd MMM", "d. MMM")';
+    case 'locale':
+      return 'Valid value: date-fns locale name (e.g., "de", "fr", "en-GB") or empty for auto-detect';
     case 'editor':
       return 'Valid value: any editor command (e.g., vim, nano, "code --wait")';
     case 'churn.enabled':

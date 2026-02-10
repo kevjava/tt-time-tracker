@@ -1,9 +1,10 @@
 import chalk from 'chalk';
-import { format, differenceInMinutes } from 'date-fns';
+import { differenceInMinutes } from 'date-fns';
 import { Session } from '../../types/session';
 import { TimeTrackerDB } from '../../db/database';
 import { getSessionDuration } from '../../utils/duration';
 import * as theme from '../../utils/theme';
+import { formatDateTimeSeconds, formatDateShortTime, formatTime } from '../../utils/format-date';
 
 
 /**
@@ -79,11 +80,11 @@ export function formatDetailedSession(
   lines.push(`${chalk.bold('State:')}        ${theme.formatState(session.state)}`);
 
   // Timestamps
-  const startTimeStr = format(session.startTime, 'yyyy-MM-dd HH:mm:ss');
+  const startTimeStr = formatDateTimeSeconds(session.startTime);
   lines.push(`${chalk.bold('Start time:')}   ${startTimeStr}`);
 
   if (session.endTime) {
-    const endTimeStr = format(session.endTime, 'yyyy-MM-dd HH:mm:ss');
+    const endTimeStr = formatDateTimeSeconds(session.endTime);
     lines.push(`${chalk.bold('End time:')}     ${endTimeStr}`);
   } else {
     const elapsed = differenceInMinutes(new Date(), session.startTime);
@@ -172,9 +173,9 @@ export function formatDetailedSession(
       );
       const sessionNetMinutes = Math.max(0, sessionDuration - sessionInterruptionMinutes);
 
-      const startTimeStr = format(chainSession.startTime, 'MMM d, HH:mm');
+      const startTimeStr = formatDateShortTime(chainSession.startTime);
       const endTimeStr = chainSession.endTime
-        ? format(chainSession.endTime, 'HH:mm')
+        ? formatTime(chainSession.endTime)
         : chalk.yellow('(active)');
 
       const stateIcon = theme.formatStateIcon(chainSession.state);
