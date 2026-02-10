@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Configurable Date Format**: Customize date/time display across all commands
+  - `dateFormat` config key for full date format (default: `MMM d, yyyy`)
+  - `dateFormatShort` config key for compact dates (default: `MMM d`)
+  - `locale` config key for localized month/day names (e.g. `de`, `fr`, `en-GB`)
+  - `timeFormat` now wired to actual display (`24h` → `HH:mm`, `12h` → `h:mm a`)
+  - New centralized formatting utility (`src/utils/format-date.ts`)
 - **Task Scheduling System** (`tt schedule`): Queue future tasks with priorities and suggested dates
   - `tt schedule add` - Add tasks with full log notation support including priority (`^N`)
   - `tt schedule list` - View all scheduled tasks in columnar format

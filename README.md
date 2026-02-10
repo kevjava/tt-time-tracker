@@ -137,10 +137,33 @@ tt config path
 | `weekStartDay` | `monday`, `sunday` | `monday` | Week start day for `--week current` |
 | `reportFormat` | `terminal`, `json`, `csv` | `terminal` | Default output format for `tt report` |
 | `listFormat` | `table`, `log` | `table` | Default output format for `tt list` |
-| `timeFormat` | `24h`, `12h` | `24h` | Time display format |
+| `timeFormat` | `24h`, `12h` | `24h` | Time display format (`24h` → `HH:mm`, `12h` → `h:mm a`) |
+| `dateFormat` | date-fns format string | `MMM d, yyyy` | Date display format (with year) |
+| `dateFormatShort` | date-fns format string | `MMM d` | Short date display format (without year) |
+| `locale` | date-fns locale name | *(auto-detect)* | Locale for date names (e.g. `de`, `fr`, `en-GB`) |
 | `editor` | Any editor command | Uses `$EDITOR` | Editor for `tt config edit` and fixing parse errors |
 
 **Note:** Command-line flags always override config settings.
+
+#### Date & Locale Customization
+
+Customize how dates and times appear across all commands:
+
+```bash
+# Use ISO date format
+tt config set dateFormat yyyy-MM-dd
+tt config set dateFormatShort MM-dd
+
+# Use European format with German locale
+tt config set dateFormat "d. MMM yyyy"
+tt config set dateFormatShort "d. MMM"
+tt config set locale de
+
+# Switch to 12-hour time
+tt config set timeFormat 12h
+```
+
+The `locale` setting controls month and day names. When unset, it auto-detects from your system locale. Date format strings use [date-fns format tokens](https://date-fns.org/docs/format).
 
 ## Quick Start
 

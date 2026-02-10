@@ -224,6 +224,7 @@ tt-time-tracker/
 │   └── utils/                # Utilities
 │       ├── config.ts         # Configuration management
 │       ├── date.ts           # Date utilities
+│       ├── format-date.ts    # Centralized date/time formatting
 │       ├── time-parser.ts    # --at flag time parsing
 │       ├── session-validator.ts  # Session time validation
 │       └── __tests__/        # Utility tests
@@ -308,6 +309,14 @@ tt-time-tracker/
 - Uses chrono-node for natural language parsing
 - Validates times are not in the future
 - Validates time ordering (end after start)
+
+**Date Formatter** (`src/utils/format-date.ts`)
+
+- Centralized date/time formatting with config and locale support
+- Reads `dateFormat`, `dateFormatShort`, `timeFormat`, and `locale` from config
+- Caches config and locale for process lifetime
+- Auto-detects system locale when unset
+- Exports helpers: `formatDate`, `formatDateShort`, `formatTime`, `formatDateTime`, etc.
 
 **Session Validator** (`src/utils/session-validator.ts`)
 
