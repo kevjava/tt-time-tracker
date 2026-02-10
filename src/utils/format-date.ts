@@ -1,19 +1,25 @@
-import { format } from 'date-fns';
-import { DEFAULT_CONFIG } from '../types/config';
+import { format } from "date-fns";
+import { DEFAULT_CONFIG } from "../types/config";
 
 // Cached config and locale for the process lifetime
-let cachedConfig: { dateFormat: string; dateFormatShort: string; timeFormat: string; locale: string } | null = null;
+let cachedConfig: {
+  dateFormat: string;
+  dateFormatShort: string;
+  timeFormat: string;
+  locale: string;
+} | null = null;
 let cachedLocale: any = undefined; // undefined = not loaded yet, null = no locale
 
 function getConfig() {
   if (!cachedConfig) {
     try {
       // Dynamic require to avoid issues when config module is mocked in tests
-      const { loadConfig } = require('./config');
+      const { loadConfig } = require("./config");
       const config = loadConfig();
       cachedConfig = {
         dateFormat: config.dateFormat ?? DEFAULT_CONFIG.dateFormat,
-        dateFormatShort: config.dateFormatShort ?? DEFAULT_CONFIG.dateFormatShort,
+        dateFormatShort:
+          config.dateFormatShort ?? DEFAULT_CONFIG.dateFormatShort,
         timeFormat: config.timeFormat ?? DEFAULT_CONFIG.timeFormat,
         locale: config.locale ?? DEFAULT_CONFIG.locale,
       };
@@ -51,7 +57,7 @@ function getLocale(): any {
     try {
       const systemLocale = Intl.DateTimeFormat().resolvedOptions().locale;
       // Only use non-English locales (English is the default for date-fns)
-      if (systemLocale && !systemLocale.startsWith('en')) {
+      if (systemLocale && !systemLocale.startsWith("en")) {
         localeName = systemLocale;
       }
     } catch {
@@ -71,7 +77,7 @@ function getLocale(): any {
     return cachedLocale;
   } catch {
     // Try base language (e.g. "de" from "de-AT")
-    const baseLang = localeName.split('-')[0];
+    const baseLang = localeName.split("-")[0];
     if (baseLang !== localeName) {
       try {
         const localeModule = require(`date-fns/locale/${baseLang}`);
@@ -80,6 +86,11 @@ function getLocale(): any {
       } catch {
         // Fall through
       }
+    }
+    if (localeName) {
+      console.warn(
+        `Could not load locale data for '${localeName}'. Falling back to default English formatting.`,
+      );
     }
     cachedLocale = null;
     return null;
@@ -92,11 +103,11 @@ function fmt(date: Date, formatStr: string): string {
 }
 
 function getTimeFormatStr(): string {
-  return getConfig().timeFormat === '12h' ? 'h:mm a' : 'HH:mm';
+  return getConfig().timeFormat === "12h" ? "h:mm a" : "HH:mm";
 }
 
 function getTimeSecondsFormatStr(): string {
-  return getConfig().timeFormat === '12h' ? 'h:mm:ss a' : 'HH:mm:ss';
+  return getConfig().timeFormat === "12h" ? "h:mm:ss a" : "HH:mm:ss";
 }
 
 /** Format a full date with year: "Jan 15, 2024" */
