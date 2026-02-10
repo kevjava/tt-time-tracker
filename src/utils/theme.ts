@@ -168,7 +168,11 @@ export function formatStateIcon(sessionState: SessionState): string {
  * Create a progress bar
  */
 export function progressBar(percent: number, width: number = 20): string {
-  const filled = Math.round((percent / 100) * width);
+  let filled = Math.round((percent / 100) * width);
+
+  // Ensure filled is not negative and not greater than width
+  filled = Math.max(0, Math.min(width, filled));
+
   const empty = width - filled;
   return ui.progressFilled('█'.repeat(filled)) + ui.progressEmpty('░'.repeat(empty));
 }
