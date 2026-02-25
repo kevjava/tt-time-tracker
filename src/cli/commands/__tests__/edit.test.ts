@@ -293,6 +293,62 @@ describe('edit command', () => {
             expect(session!.endTime!.getHours()).toBe(10);
             expect(session!.endTime!.getMinutes()).toBe(30);
         });
+
+        test('should clear explicit duration when --end-time is set', () => {
+            const sessionId = db.insertSession({
+                startTime: new Date('2024-01-15T07:21:00'),
+                endTime: new Date('2024-01-15T07:38:00'),
+                description: 'Dog walk',
+                state: 'completed',
+                explicitDurationMinutes: 17,
+            });
+
+            editCommand(sessionId.toString(), undefined, { endTime: '07:49' });
+
+            reopenDb();
+
+            const session = db.getSessionById(sessionId);
+            expect(session!.endTime!.getHours()).toBe(7);
+            expect(session!.endTime!.getMinutes()).toBe(49);
+            expect(session!.explicitDurationMinutes).toBeUndefined();
+        });
+
+        test('should clear explicit duration when --start-time is set', () => {
+            const sessionId = db.insertSession({
+                startTime: new Date('2024-01-15T07:21:00'),
+                endTime: new Date('2024-01-15T07:38:00'),
+                description: 'Dog walk',
+                state: 'completed',
+                explicitDurationMinutes: 17,
+            });
+
+            editCommand(sessionId.toString(), undefined, { startTime: '07:15' });
+
+            reopenDb();
+
+            const session = db.getSessionById(sessionId);
+            expect(session!.startTime.getHours()).toBe(7);
+            expect(session!.startTime.getMinutes()).toBe(15);
+            expect(session!.explicitDurationMinutes).toBeUndefined();
+        });
+
+        test('should not clear explicit duration when editing non-time fields', () => {
+            const sessionId = db.insertSession({
+                startTime: new Date('2024-01-15T07:21:00'),
+                endTime: new Date('2024-01-15T07:38:00'),
+                description: 'Dog walk',
+                state: 'completed',
+                explicitDurationMinutes: 17,
+            });
+
+            editCommand(sessionId.toString(), undefined, { description: 'Long dog walk' });
+
+            reopenDb();
+
+            const session = db.getSessionById(sessionId);
+            expect(session!.description).toBe('Long dog walk');
+            expect(session!.explicitDurationMinutes).toBe(17);
+        });
     });
 
     describe('flags override log notation', () => {
