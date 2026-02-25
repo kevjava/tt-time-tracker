@@ -371,6 +371,17 @@ export function editCommand(
         }
       }
 
+      // If start/end time is changing via flags, clear explicit_duration_minutes so duration is
+      // computed from the actual time range (unless user is also providing a new explicit duration
+      // via log notation)
+      if (
+        (options.endTime !== undefined || options.startTime !== undefined) &&
+        logNotationData.explicitDurationMinutes === undefined &&
+        session.explicitDurationMinutes !== undefined
+      ) {
+        updates.explicitDurationMinutes = null;
+      }
+
       // Apply updates
       if (Object.keys(updates).length > 0) {
         db.updateSession(id, updates);
@@ -422,6 +433,12 @@ export function editCommand(
         const oldEnd = session.endTime ? formatDateTimeSeconds(session.endTime) : '(none)';
         const newEnd = updates.endTime ? formatDateTimeSeconds(updates.endTime) : '(none)';
         console.log(`  End time: ${chalk.gray(oldEnd)} → ${chalk.green(newEnd)}`);
+      }
+
+      if (updates.explicitDurationMinutes === null && session.explicitDurationMinutes !== undefined) {
+        console.log(
+          `  Duration: ${chalk.gray(`${session.explicitDurationMinutes}m (explicit)`)} → ${chalk.green('(computed from time range)')}`
+        );
       }
 
       if (options.state !== undefined) {
