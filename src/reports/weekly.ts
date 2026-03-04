@@ -16,12 +16,20 @@ function calculateSummary(sessions: SessionWithTags[]): TimeSummary {
   const byProject = new Map<string, number>();
   const byTag = new Map<string, number>();
 
+  // Build set of IDs for orphan detection (parent filtered out by --project/--tag)
+  const sessionIds = new Set(sessions.map(s => s.id));
+
   for (const session of sessions) {
     // Calculate net duration for this session (handles nested interruptions)
     const netDuration = getNetSessionDuration(session, sessions);
 
     if (session.parentSessionId) {
-      // Interruption: contributes net time to its own project/tags
+      // Orphaned interruption: parent not in filtered results — treat like a top-level session
+      // so totalMinutes stays consistent with byProject/byTag sums.
+      if (!sessionIds.has(session.parentSessionId)) {
+        totalMinutes += Math.max(0, getSessionDuration(session));
+      }
+
       if (session.project) {
         byProject.set(session.project, (byProject.get(session.project) || 0) + netDuration);
       }
