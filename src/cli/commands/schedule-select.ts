@@ -114,11 +114,11 @@ async function promptChurnTaskSelection(
       // Check TT items first
       const ttItem = ttItems.find(i => i.globalNumber === selectedNumber);
       if (ttItem) {
-        if ('startTime' in ttItem.task) {
-          resolve({ type: 'tt-session', ttSession: ttItem.task as Session & { tags: string[]; totalMinutes?: number; chainSessionCount?: number } });
-        } else {
-          resolve({ type: 'tt-scheduled', ttTask: ttItem.task as ScheduledTask & { tags: string[] } });
-        }
+        // In churn selection mode, all `ttItems` are incomplete sessions.
+        resolve({
+          type: 'tt-session',
+          ttSession: ttItem.task as Session & { tags: string[]; totalMinutes?: number; chainSessionCount?: number },
+        });
         return;
       }
 
