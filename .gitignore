@@ -31,3 +31,6 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+
+.gemini/
+gha-creds-*.json

@@ -1,4 +1,7 @@
 import * as fs from 'fs';
+import { TimeTrackerDB } from '../../../db/database';
+import { formatDetailedSession } from '../detailed-session';
+import { DEFAULT_CONFIG } from '../../../types/config';
 
 // Mock chalk to avoid ESM import issues in Jest
 jest.mock('chalk', () => {
@@ -21,8 +24,17 @@ jest.mock('chalk', () => {
   };
 });
 
-import { TimeTrackerDB } from '../../../db/database';
-import { formatDetailedSession } from '../detailed-session';
+// Mock the config module to ensure consistent date formatting in tests
+jest.mock('../../../utils/config', () => ({
+  loadConfig: jest.fn(() => ({
+    ...DEFAULT_CONFIG,
+    dateFormat: 'MMM d, yyyy',
+    timeFormat: '24h', // Ensure consistent time format as well
+  })),
+  getEditor: jest.fn(() => 'vi'),
+  getDataDir: jest.fn(() => '/tmp/tt-test-detailed-session'),
+  getConfigPath: jest.fn(() => '/tmp/tt-test-detailed-session/config.json'),
+}));
 
 // Set up test database path
 const testDbPath = '/tmp/tt-test-detailed-session/test.db';
