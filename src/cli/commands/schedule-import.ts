@@ -1,4 +1,4 @@
-import { readFileSync, existsSync, writeFileSync } from 'fs';
+import { readFileSync, existsSync, writeFileSync, unlinkSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import chalk from 'chalk';
@@ -19,11 +19,12 @@ interface ScheduleImportOptions {
  * Import log file entries as scheduled tasks (flattening interruptions)
  */
 export async function scheduleImportCommand(file?: string, _options: ScheduleImportOptions = {}): Promise<void> {
+  let tempFilePath: string | undefined;
   try {
     ensureDataDir();
 
     let content: string;
-    let filePath: string;
+    let filePath: string | undefined;
     let sourceName: string;
 
     if (file) {
@@ -43,10 +44,8 @@ export async function scheduleImportCommand(file?: string, _options: ScheduleImp
         chunks.push(chunk);
       }
       content = Buffer.concat(chunks).toString('utf-8');
-      filePath = join(tmpdir(), `tt-schedule-import-${Date.now()}.log`);
-      writeFileSync(filePath, content, 'utf-8');
       sourceName = 'stdin';
-      logger.debug(`Saved stdin to temp file: ${filePath}`);
+      // Temp file is created lazily below only if a parse error requires an editor
     }
 
     // Parse the file
@@ -71,6 +70,13 @@ export async function scheduleImportCommand(file?: string, _options: ScheduleImp
         '',
         content,
       ].join('\n');
+
+      // For stdin input, create a temp file on first error so the editor has a path to open
+      if (!filePath) {
+        filePath = join(tmpdir(), `tt-schedule-import-${Date.now()}.log`);
+        tempFilePath = filePath;
+        logger.debug(`Creating temp file for editor: ${filePath}`);
+      }
       writeFileSync(filePath, errorComments, 'utf-8');
 
       const editorResult = openInEditor(filePath);
@@ -155,6 +161,11 @@ export async function scheduleImportCommand(file?: string, _options: ScheduleImp
   } catch (error) {
     console.error(chalk.red(`Error: ${error}`));
     process.exit(1);
+  } finally {
+    if (tempFilePath && existsSync(tempFilePath)) {
+      unlinkSync(tempFilePath);
+      logger.debug(`Cleaned up temp file: ${tempFilePath}`);
+    }
   }
 }
 
