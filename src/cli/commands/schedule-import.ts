@@ -1,4 +1,6 @@
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
 import chalk from 'chalk';
 import { TimeTrackerDB } from '../../db/database';
 import { ensureDataDir, getDatabasePath } from '../../utils/config';
@@ -7,6 +9,7 @@ import { LogEntry } from '../../types/session';
 import { logger } from '../../utils/logger';
 import * as theme from '../../utils/theme';
 import { numToLetter } from '../../utils/schedule-id';
+import { openInEditor } from '../editor';
 
 interface ScheduleImportOptions {
   // Future: could add filtering options like --date to shift timestamps
@@ -15,39 +18,69 @@ interface ScheduleImportOptions {
 /**
  * Import log file entries as scheduled tasks (flattening interruptions)
  */
-export function scheduleImportCommand(file: string, _options: ScheduleImportOptions = {}): void {
+export async function scheduleImportCommand(file?: string, _options: ScheduleImportOptions = {}): Promise<void> {
   try {
     ensureDataDir();
 
-    // Validate file exists
-    if (!file) {
-      console.error(chalk.red('Error: File path required'));
-      console.log(chalk.yellow('Usage: tt schedule import <file>'));
-      process.exit(1);
-    }
+    let content: string;
+    let filePath: string;
+    let sourceName: string;
 
-    if (!existsSync(file)) {
-      console.error(chalk.red(`Error: File not found: ${file}`));
-      process.exit(1);
-    }
+    if (file) {
+      if (!existsSync(file)) {
+        console.error(chalk.red(`Error: File not found: ${file}`));
+        process.exit(1);
+      }
 
-    logger.debug(`Reading log file: ${file}`);
-    const content = readFileSync(file, 'utf-8');
+      logger.debug(`Reading log file: ${file}`);
+      content = readFileSync(file, 'utf-8');
+      filePath = file;
+      sourceName = file;
+    } else {
+      logger.debug('Reading from stdin...');
+      const chunks: Buffer[] = [];
+      for await (const chunk of process.stdin) {
+        chunks.push(chunk);
+      }
+      content = Buffer.concat(chunks).toString('utf-8');
+      filePath = join(tmpdir(), `tt-schedule-import-${Date.now()}.log`);
+      writeFileSync(filePath, content, 'utf-8');
+      sourceName = 'stdin';
+      logger.debug(`Saved stdin to temp file: ${filePath}`);
+    }
 
     // Parse the file
     logger.debug('Parsing log file...');
-    const parseResult = LogParser.parse(content);
+    let parseResult = LogParser.parse(content);
 
-    // Handle parse errors - different approach than log command
-    // Since this is for scheduling, we show errors and exit (don't open editor)
-    if (parseResult.errors.length > 0) {
+    // Handle parse errors with editor loop (mirrors log.ts pattern)
+    while (parseResult.errors.length > 0) {
       console.error(chalk.red.bold(`\n✗ Found ${parseResult.errors.length} parsing error(s):\n`));
       for (const error of parseResult.errors) {
         console.error(chalk.red(`  ${error.message}`));
       }
-      console.error();
-      console.error(chalk.yellow('Fix errors in the file and try again.'));
-      process.exit(1);
+      console.log(chalk.yellow('Opening file in editor to fix errors...\n'));
+
+      const errorComments = [
+        '# PARSING ERRORS - Fix these issues and save the file',
+        '# Remove these comment lines when done',
+        '#',
+        ...parseResult.errors.map(err => `# ERROR: ${err.message}`),
+        '#',
+        '# ────────────────────────────────────────────────────────',
+        '',
+        content,
+      ].join('\n');
+      writeFileSync(filePath, errorComments, 'utf-8');
+
+      const editorResult = openInEditor(filePath);
+      if (!editorResult.modified) {
+        console.log(chalk.gray('No changes made. Aborting.'));
+        process.exit(1);
+      }
+
+      content = editorResult.content;
+      parseResult = LogParser.parse(content);
     }
 
     // Display warnings (but continue)
@@ -106,7 +139,7 @@ export function scheduleImportCommand(file: string, _options: ScheduleImportOpti
       }
 
       // Display summary
-      console.log(chalk.green.bold(`✓ Imported ${importedCount} scheduled task(s) from ${file}`));
+      console.log(chalk.green.bold(`✓ Imported ${importedCount} scheduled task(s) from ${sourceName}`));
 
       if (skippedCount > 0) {
         console.log(chalk.yellow(`  Skipped ${skippedCount} entry/entries with unresolved resume markers`));

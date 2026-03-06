@@ -35,7 +35,7 @@ export async function scheduleCommand(
       scheduleListCommand();
       break;
     case 'import':
-      scheduleImportCommand(args[0], options);
+      await scheduleImportCommand(args[0], options);
       break;
     default:
       console.error(chalk.red(`Error: Unknown subcommand: ${subcommand}`));
