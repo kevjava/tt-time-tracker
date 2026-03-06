@@ -55,8 +55,14 @@ jest.mock('../../../utils/config', () => {
   };
 });
 
+// Mock editor module before imports
+jest.mock('../../editor', () => ({
+  openInEditor: jest.fn(),
+}));
+
 import { scheduleImportCommand } from '../schedule-import';
 import { TimeTrackerDB } from '../../../db/database';
+import { openInEditor } from '../../editor';
 
 describe('schedule import command', () => {
   let db: TimeTrackerDB;
@@ -303,25 +309,20 @@ describe('schedule import command', () => {
       );
     });
 
-    it('should error when no file path provided', () => {
-      scheduleImportCommand('', {});
-
-      expect(mockExit).toHaveBeenCalledWith(1);
-      expect(consoleError).toHaveBeenCalledWith(
-        expect.stringContaining('File path required')
-      );
-    });
-
-    it('should display parse errors and exit without importing', () => {
+    it('should open editor on parse errors and abort if no changes made', async () => {
       const testFile = path.join(testDataDir, 'test-error.log');
       fs.writeFileSync(testFile, 'invalid log @@@ +++ ~~~ ^^^');
 
-      scheduleImportCommand(testFile, {});
+      const mockOpenInEditor = openInEditor as jest.MockedFunction<typeof openInEditor>;
+      mockOpenInEditor.mockReturnValueOnce({ modified: false, content: 'invalid log @@@ +++ ~~~ ^^^' });
+
+      await scheduleImportCommand(testFile, {});
       reopenDb();
 
       const tasks = db.getAllScheduledTasks();
       expect(tasks.length).toBe(0); // Nothing imported
 
+      expect(mockOpenInEditor).toHaveBeenCalled();
       expect(mockExit).toHaveBeenCalledWith(1);
       expect(consoleError).toHaveBeenCalledWith(
         expect.stringContaining('parsing error')
@@ -393,6 +394,68 @@ describe('schedule import command', () => {
       expect(tasks.length).toBe(1);
       expect(tasks[0].description).toBe('real task');
       expect(tasks.some(t => t.description === '__END__')).toBe(false);
+    });
+  });
+
+  describe('stdin support', () => {
+    let originalStdin: NodeJS.ReadableStream;
+
+    beforeEach(() => {
+      originalStdin = process.stdin;
+    });
+
+    afterEach(() => {
+      Object.defineProperty(process, 'stdin', { value: originalStdin, writable: true });
+    });
+
+    function mockStdin(content: string): void {
+      const { Readable } = require('stream');
+      const readable = new Readable({
+        read() {
+          this.push(Buffer.from(content, 'utf-8'));
+          this.push(null);
+        },
+      });
+      Object.defineProperty(process, 'stdin', { value: readable, writable: true });
+    }
+
+    it('should import tasks from stdin when no file argument given', async () => {
+      mockStdin('2026-01-10 09:00 stdin task @project +tag ~30m\n2026-01-10 10:00 another task');
+
+      await scheduleImportCommand(undefined, {});
+      reopenDb();
+
+      const tasks = db.getAllScheduledTasks();
+      expect(tasks.length).toBe(2);
+      expect(tasks.find(t => t.description === 'stdin task')).toBeDefined();
+      expect(tasks.find(t => t.description === 'another task')).toBeDefined();
+    });
+
+    it('should show "stdin" in success message when reading from stdin', async () => {
+      mockStdin('2026-01-10 09:00 stdin task');
+
+      await scheduleImportCommand(undefined, {});
+
+      expect(consoleLog).toHaveBeenCalledWith(
+        expect.stringContaining('from stdin')
+      );
+    });
+
+    it('should open editor on parse error from stdin, then abort if no changes made', async () => {
+      mockStdin('not a valid log entry ???');
+
+      const mockOpenInEditor = openInEditor as jest.MockedFunction<typeof openInEditor>;
+      mockOpenInEditor.mockReturnValueOnce({ modified: false, content: 'not a valid log entry ???' });
+
+      await scheduleImportCommand(undefined, {});
+
+      expect(mockOpenInEditor).toHaveBeenCalled();
+      expect(mockExit).toHaveBeenCalledWith(1);
+      expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('No changes made'));
+
+      reopenDb();
+      const tasks = db.getAllScheduledTasks();
+      expect(tasks.length).toBe(0);
     });
   });
 
