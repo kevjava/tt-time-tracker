@@ -260,22 +260,17 @@ describe('schedule import command', () => {
       expect(resolvedTask!.tags).toEqual([]);
     });
 
-    it('should resolve @N markers using in-file context', () => {
+    it('should skip @N markers since they are DB session ID references', () => {
       const fixturePath = path.join(fixturesDir, 'schedule-import-resume-markers.log');
       scheduleImportCommand(fixturePath, {});
       reopenDb();
 
       const tasks = db.getAllScheduledTasks();
 
-      // @1 should resolve to "task one" (first task in file)
-      // Note: resume markers only copy the description, not project/tags
-      const resolvedTask = tasks.find(t =>
-        t.scheduledDateTime?.getHours() === 12 && t.description === 'task one'
-      );
-      expect(resolvedTask).toBeDefined();
-      // Resume markers don't copy project/tags from original, only description
-      expect(resolvedTask!.project).toBeUndefined();
-      expect(resolvedTask!.tags).toEqual([]);
+      // @1 is now a DB session ID reference (deferred), not resolved in-file
+      // schedule-import cannot resolve DB IDs, so it skips the entry
+      const skippedTask = tasks.find(t => t.scheduledDateTime?.getHours() === 12);
+      expect(skippedTask).toBeUndefined();
     });
 
     it('should skip @resume markers with warning', () => {

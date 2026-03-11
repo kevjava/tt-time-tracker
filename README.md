@@ -281,7 +281,7 @@ TIMESTAMP DESCRIPTION [@PROJECT] [+TAG...] [~ESTIMATE] [^PRIORITY] [(DURATION)] 
 **Resume Markers:**
 
 - `@prev` - Resume most recent task
-- `@5` - Resume task number 5
+- `@5` - Resume session #5 from the database (by session ID)
 
 **State Markers:**
 
@@ -972,8 +972,8 @@ Import scheduled tasks from a .ttlog template file. This allows you to create re
 - Imports all entries (including interruptions) as separate scheduled tasks
 - Preserves exact timestamps, projects, tags, estimates, and priorities from the file
 - Uses estimated durations (`~15m`) rather than explicit durations (`(30m)`)
-- Resolves `@prev` and `@N` resume markers using in-file context
-- Skips `@resume` markers (which require database lookup)
+- Resolves `@prev` resume markers using in-file context
+- Skips `@resume` and `@N` markers (which require database lookup)
 - Displays parse errors without opening editor (fix errors in source file and retry)
 - Shows count of imported tasks and any entries that were skipped
 

@@ -344,15 +344,8 @@ export class LogParser {
       return prevEntry.description;
     }
 
-    // Marker is a number - find entry by index (1-based)
-    const index = parseInt(markerValue, 10);
-    const targetEntry = this.entries.filter((e) => e.indentLevel === 0)[index - 1];
-
-    if (!targetEntry) {
-      throw new ParseError(`Task @${markerValue} not found`, lineNumber);
-    }
-
-    return targetEntry.description;
+    // @N is a database session ID — resolved at insertion time in log.ts
+    return '';
   }
 
   /**

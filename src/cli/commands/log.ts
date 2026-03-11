@@ -218,16 +218,15 @@ function insertEntries(db: TimeTrackerDB, entries: LogEntry[]): { sessions: numb
           continuesSessionId = chainRoot?.id;
         }
       } else if (/^\d+$/.test(entry.resumeMarkerValue)) {
-        // @N - find Nth task from this file and check if it's paused
-        const targetIdx = parseInt(entry.resumeMarkerValue, 10) - 1;
-        const targetEntryDbId = sessionIds.get(targetIdx);
-        if (targetEntryDbId) {
-          const targetSession = db.getSessionById(targetEntryDbId);
-          if (targetSession?.state === 'paused') {
-            // Find the root of the chain and point to that
-            const chainRoot = db.getChainRoot(targetEntryDbId);
-            continuesSessionId = chainRoot?.id;
-          }
+        // @N - look up session by database ID
+        const sessionId = parseInt(entry.resumeMarkerValue, 10);
+        const targetSession = db.getSessionById(sessionId);
+        if (targetSession) {
+          const chainRoot = db.getChainRoot(sessionId);
+          continuesSessionId = chainRoot?.id;
+          inheritedDescription = targetSession.description;
+          inheritedProject = targetSession.project || undefined;
+          inheritedTags = targetSession.tags;
         }
       }
     }

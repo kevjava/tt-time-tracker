@@ -154,7 +154,7 @@ describe('LogParser', () => {
       expect(result.entries[2].description).toBe('coding');
     });
 
-    it('should resolve @N', () => {
+    it('should resolve @N as a DB session ID reference', () => {
       const content = `09:00 task one
 10:00 task two
 11:00 task three
@@ -162,7 +162,8 @@ describe('LogParser', () => {
       const result = LogParser.parse(content, new Date('2024-12-24'));
 
       expect(result.errors).toHaveLength(0);
-      expect(result.entries[3].description).toBe('task two');
+      expect(result.entries[3].resumeMarkerValue).toBe('2');
+      expect(result.entries[3].description).toBe('');
     });
 
     it('should error if @prev has no previous task', () => {
@@ -173,13 +174,13 @@ describe('LogParser', () => {
       expect(result.errors[0].message).toContain('No previous task');
     });
 
-    it('should error if @N not found', () => {
+    it('should not error at parse time when @N session ID is not in file', () => {
       const content = `09:00 task one
 10:00 @5`;
       const result = LogParser.parse(content, new Date('2024-12-24'));
 
-      expect(result.errors).toHaveLength(1);
-      expect(result.errors[0].message).toContain('not found');
+      expect(result.errors).toHaveLength(0);
+      expect(result.entries[1].resumeMarkerValue).toBe('5');
     });
 
     it('should allow resume marker with remark', () => {
@@ -479,14 +480,14 @@ invalid line
       expect(result.entries[1].description).toBe('coding');
     });
 
-    it('should still support @N', () => {
+    it('should still support @N as DB session ID reference', () => {
       const content = `09:00 task one
 10:00 task two
 11:00 @1`;
       const result = LogParser.parse(content);
       expect(result.entries).toHaveLength(3);
       expect(result.entries[2].resumeMarkerValue).toBe('1');
-      expect(result.entries[2].description).toBe('task one');
+      expect(result.entries[2].description).toBe('');
     });
   });
 });

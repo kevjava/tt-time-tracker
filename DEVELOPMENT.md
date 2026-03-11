@@ -257,7 +257,7 @@ tt-time-tracker/
 - `LogParser` class converts tokens to `LogEntry` objects
 - Maintains date context across entries
 - Handles time underflow (midnight crossing)
-- Resolves resume markers (`@prev`, `@N`)
+- Resolves `@prev` resume marker; `@N` is deferred to DB lookup at insertion time
 - Generates warnings for time gaps
 
 #### Database Module

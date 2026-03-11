@@ -92,9 +92,8 @@ Database → Query sessions → Calculate metrics → Format output
 
 **Resume Markers:**
 
-- `@prev` resumes the most recent task
-- `@N` resumes task number N (1-indexed from start of file)
-- These are resolved during parsing and converted to regular entries
+- `@prev` resumes the most recent task (resolved at parse time)
+- `@N` resumes database session with ID N (resolved at insertion time in log.ts, inherits description/project/tags from target session)
 
 ### Database Schema
 

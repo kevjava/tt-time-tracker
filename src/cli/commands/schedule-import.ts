@@ -171,12 +171,12 @@ export async function scheduleImportCommand(file?: string, _options: ScheduleImp
 
 /**
  * Check if entry has an unresolved resume marker
- * @resume markers can't be resolved without database, so they'll have empty description
+ * @resume and @N markers can't be resolved without database, so they'll have empty description
  */
 function isUnresolvedResumeMarker(entry: LogEntry): boolean {
   // If resumeMarkerValue is set and description is empty or looks like a marker
   if (entry.resumeMarkerValue) {
-    // @prev and @N get resolved by parser, @resume doesn't
+    // @prev gets resolved by parser; @resume and @N are deferred to DB lookup at insertion time
     // Check if description is still empty or is the marker itself
     if (!entry.description || entry.description === entry.resumeMarkerValue) {
       return true;
