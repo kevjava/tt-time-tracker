@@ -280,8 +280,15 @@ TIMESTAMP DESCRIPTION [@PROJECT] [+TAG...] [~ESTIMATE] [^PRIORITY] [(DURATION)] 
 
 **Resume Markers:**
 
-- `@prev` - Resume most recent task
-- `@5` - Resume task number 5
+- `@prev` - Resume most recent task from within the current log file
+- `@5` - Resume task number 5 from within the current log file
+- `@resume` - Resume a paused session from the **database** (cross-file/cross-session)
+  - `@resume` alone — finds the most recently paused session and inherits its description, project, and tags
+  - `@resume description @project +tag` — finds the most recent paused session matching all provided criteria (description, project, and/or tag); throws an error if no match is found
+  - Unlike `@prev`/`@N` which resolve within the current file, `@resume` queries existing paused sessions in the database
+  - Links the new entry to the original session chain via `continues_session_id` for accurate time aggregation
+  - Example: `09:00 @resume # picking up where I left off yesterday`
+  - Example: `09:00 @resume auth work @myApp +code # resuming specific paused task`
 
 **State Markers:**
 
