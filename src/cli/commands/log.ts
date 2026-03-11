@@ -220,14 +220,18 @@ function insertEntries(db: TimeTrackerDB, entries: LogEntry[]): { sessions: numb
       } else if (/^\d+$/.test(entry.resumeMarkerValue)) {
         // @N - look up session by database ID
         const sessionId = parseInt(entry.resumeMarkerValue, 10);
-        const targetSession = db.getSessionById(sessionId);
-        if (targetSession) {
-          const chainRoot = db.getChainRoot(sessionId);
-          continuesSessionId = chainRoot?.id;
-          inheritedDescription = targetSession.description;
-          inheritedProject = targetSession.project || undefined;
-          inheritedTags = targetSession.tags;
+        if (sessionId <= 0) {
+          throw new Error(`@${entry.resumeMarkerValue}: session ID must be a positive integer`);
         }
+        const targetSession = db.getSessionById(sessionId);
+        if (!targetSession) {
+          throw new Error(`@${entry.resumeMarkerValue}: session ID ${sessionId} not found in database`);
+        }
+        const chainRoot = db.getChainRoot(sessionId);
+        continuesSessionId = chainRoot?.id;
+        inheritedDescription = targetSession.description;
+        inheritedProject = targetSession.project || undefined;
+        inheritedTags = targetSession.tags;
       }
     }
 
