@@ -12,7 +12,7 @@
       "Bash(tree:*)",
       "Bash(sqlite3:*)",
       "Bash(TT_DATA_DIR=/tmp/* node dist/index.js:*)",
-      "Bash(TT_DATA_DIR=/tmp/* node:*",
+      "Bash(TT_DATA_DIR=/tmp/* node:*)",
       "Bash(npm run test:coverage:*)",
       "Bash(git push)",
       "Bash(grep:*)",
