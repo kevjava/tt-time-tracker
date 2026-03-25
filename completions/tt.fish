@@ -180,14 +180,22 @@ complete -c tt -f -n '__fish_seen_subcommand_from config; and not __fish_seen_su
 complete -c tt -f -n '__fish_seen_subcommand_from config; and not __fish_seen_subcommand_from get set edit path' -a 'path' -d 'Show path to configuration file'
 
 # config get/set
-complete -c tt -f -n '__fish_seen_subcommand_from config; and __fish_seen_subcommand_from get set' -a 'weekStartDay reportFormat listFormat timeFormat editor' -d 'Configuration key'
+complete -c tt -f -n '__fish_seen_subcommand_from config; and __fish_seen_subcommand_from get set' -a 'weekStartDay' -d 'Week start day (monday/sunday)'
+complete -c tt -f -n '__fish_seen_subcommand_from config; and __fish_seen_subcommand_from get set' -a 'reportFormat' -d 'Default report format (terminal/json/csv)'
+complete -c tt -f -n '__fish_seen_subcommand_from config; and __fish_seen_subcommand_from get set' -a 'listFormat' -d 'Default list format (table/log)'
+complete -c tt -f -n '__fish_seen_subcommand_from config; and __fish_seen_subcommand_from get set' -a 'timeFormat' -d 'Time format (12h/24h)'
+complete -c tt -f -n '__fish_seen_subcommand_from config; and __fish_seen_subcommand_from get set' -a 'dateFormat' -d 'Long date format string (e.g. MMM d, yyyy)'
+complete -c tt -f -n '__fish_seen_subcommand_from config; and __fish_seen_subcommand_from get set' -a 'dateFormatShort' -d 'Short date format string (e.g. MMM d)'
+complete -c tt -f -n '__fish_seen_subcommand_from config; and __fish_seen_subcommand_from get set' -a 'locale' -d 'Locale for date formatting (e.g. en-GB, de, fr)'
+complete -c tt -f -n '__fish_seen_subcommand_from config; and __fish_seen_subcommand_from get set' -a 'editor' -d 'Preferred editor'
+complete -c tt -f -n '__fish_seen_subcommand_from config; and __fish_seen_subcommand_from get set' -a 'churn.enabled' -d 'Enable churn task scheduler (true/false)'
+complete -c tt -f -n '__fish_seen_subcommand_from config; and __fish_seen_subcommand_from get set' -a 'churn.db_path' -d 'Path to churn database file'
 
 # find command (and search alias)
+# query supports inline @project and +tag syntax
 complete -c tt -f -n '__fish_seen_subcommand_from find search' -l from -d 'Start date' -a 'yesterday today monday tuesday wednesday thursday friday saturday sunday'
 complete -c tt -f -n '__fish_seen_subcommand_from find search' -l to -d 'End date' -a 'yesterday today monday tuesday wednesday thursday friday saturday sunday'
-complete -c tt -f -n '__fish_seen_subcommand_from find search' -s p -l project -d 'Filter by project' -a '(__tt_recent_projects)'
-complete -c tt -f -n '__fish_seen_subcommand_from find search' -s t -l tag -d 'Filter by tag' -a '(__tt_recent_tags)'
-complete -c tt -f -n '__fish_seen_subcommand_from find search' -s s -l state -d 'Filter by state' -a 'working paused completed abandoned'
+complete -c tt -f -n '__fish_seen_subcommand_from find search' -l state -d 'Filter by state' -a 'working paused completed abandoned'
 complete -c tt -f -n '__fish_seen_subcommand_from find search' -l help -d 'Show help'
 
 # status command

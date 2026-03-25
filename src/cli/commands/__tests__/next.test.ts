@@ -106,7 +106,7 @@ describe('next command', () => {
         expect(firstSession?.endTime).toBeDefined();
 
         // Verify new task was started
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         expect(sessions).toHaveLength(2);
 
         const newSession = sessions.find(s => s.description === 'New task');
@@ -127,7 +127,7 @@ describe('next command', () => {
         nextCommand('First task', {});
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         expect(sessions).toHaveLength(1);
         expect(sessions[0].description).toBe('First task');
         expect(sessions[0].state).toBe('working');
@@ -144,7 +144,7 @@ describe('next command', () => {
         nextCommand(['Review', 'PR', '123', 'for', 'auth'], {});
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         expect(sessions).toHaveLength(1);
         expect(sessions[0].description).toBe('Review PR 123 for auth');
       } finally {
@@ -176,7 +176,7 @@ describe('next command', () => {
         nextCommand('Task 3', { project: 'ProjectC' });
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         expect(sessions).toHaveLength(3);
 
         // First two should be completed
@@ -239,7 +239,7 @@ describe('next command', () => {
         nextCommand('Implement feature', { project: 'myApp' });
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         expect(sessions).toHaveLength(1);
         expect(sessions[0].description).toBe('Implement feature');
         expect(sessions[0].project).toBe('myApp');
@@ -256,7 +256,7 @@ describe('next command', () => {
         nextCommand('Code review', { tags: 'review,urgent' });
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         expect(sessions).toHaveLength(1);
         expect(sessions[0].description).toBe('Code review');
 
@@ -275,7 +275,7 @@ describe('next command', () => {
         nextCommand('Write tests', { estimate: '1h30m' });
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         expect(sessions).toHaveLength(1);
         expect(sessions[0].description).toBe('Write tests');
         expect(sessions[0].estimateMinutes).toBe(90);
@@ -296,7 +296,7 @@ describe('next command', () => {
         });
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         expect(sessions).toHaveLength(1);
         expect(sessions[0].description).toBe('Implement feature');
         expect(sessions[0].project).toBe('myApp');
@@ -319,7 +319,7 @@ describe('next command', () => {
         nextCommand('Backend stubs for 3436 @elms', {});
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         expect(sessions).toHaveLength(1);
         expect(sessions[0].description).toBe('Backend stubs for 3436');
         expect(sessions[0].project).toBe('elms');
@@ -336,7 +336,7 @@ describe('next command', () => {
         nextCommand('Fix authentication bug +bug +urgent', {});
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         expect(sessions).toHaveLength(1);
         expect(sessions[0].description).toBe('Fix authentication bug');
 
@@ -355,7 +355,7 @@ describe('next command', () => {
         nextCommand('Backend stubs for 3436 @elms +code', {});
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         expect(sessions).toHaveLength(1);
         expect(sessions[0].description).toBe('Backend stubs for 3436');
         expect(sessions[0].project).toBe('elms');
@@ -375,7 +375,7 @@ describe('next command', () => {
         nextCommand('Implement new feature @myApp +code ~3h', {});
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         expect(sessions).toHaveLength(1);
         expect(sessions[0].description).toBe('Implement new feature');
         expect(sessions[0].project).toBe('myApp');
@@ -400,7 +400,7 @@ describe('next command', () => {
         nextCommand(`${timeStr} Implement auth @myApp +code +backend ~2h`, {});
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         expect(sessions).toHaveLength(1);
         expect(sessions[0].description).toBe('Implement auth');
         expect(sessions[0].project).toBe('myApp');
@@ -428,7 +428,7 @@ describe('next command', () => {
         });
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         expect(sessions).toHaveLength(1);
         expect(sessions[0].description).toBe('Task description');
         // Command-line options should override inline notation
@@ -470,7 +470,7 @@ describe('next command', () => {
         expect(diffHours).toBeCloseTo(1, 0);
 
         // Second task should start at -1h
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         const secondSession = sessions.find(s => s.description === 'Second task');
         expect(secondSession).toBeDefined();
 
@@ -490,7 +490,7 @@ describe('next command', () => {
         nextCommand('Task', { at: '-2h' });
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         expect(sessions).toHaveLength(1);
 
         const startTime = new Date(sessions[0].startTime);
@@ -515,7 +515,7 @@ describe('next command', () => {
         });
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         expect(sessions).toHaveLength(1);
         expect(sessions[0].project).toBe('myApp');
         expect(sessions[0].estimateMinutes).toBe(120);
@@ -544,7 +544,7 @@ describe('next command', () => {
         nextCommand(`${timeStr} Task @project`, { at: '-2h' });
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         expect(sessions).toHaveLength(1);
 
         const startTime = new Date(sessions[0].startTime);
@@ -609,7 +609,7 @@ describe('next command', () => {
         nextCommand('New task', {});
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         expect(sessions).toHaveLength(2);
 
         // Old task should still be completed
@@ -650,7 +650,7 @@ describe('next command', () => {
         expect(firstTags.sort()).toEqual(['tag1', 'tag2'].sort());
 
         // Second task should have new project and tags
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         const secondSession = sessions.find(s => s.description === 'Second task');
         expect(secondSession?.project).toBe('ProjectB');
 
@@ -678,7 +678,7 @@ describe('next command', () => {
         nextCommand('Task 2', {});
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         expect(sessions).toHaveLength(2);
 
         const task1 = sessions.find(s => s.description === 'Task 1');
@@ -708,7 +708,7 @@ describe('next command', () => {
         nextCommand('New task', {});
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         expect(sessions).toHaveLength(2);
 
         // Paused task should still be paused
@@ -740,7 +740,7 @@ describe('next command', () => {
         nextCommand('New task', {});
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         expect(sessions).toHaveLength(2);
 
         // Abandoned task should still be abandoned
@@ -993,7 +993,7 @@ describe('next command', () => {
         nextCommand([templateId.toString()], {});
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         expect(sessions).toHaveLength(2); // Template + new session
 
         const newSession = sessions.find(s => s.id !== templateId);
@@ -1044,7 +1044,7 @@ describe('next command', () => {
         expect(stoppedSession!.endTime).toBeDefined();
 
         // Check that new session was created from template
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         const newSession = sessions.find(s => s.id !== activeId && s.id !== templateId);
         expect(newSession).toBeDefined();
         expect(newSession!.description).toBe('Template task');
@@ -1080,7 +1080,7 @@ describe('next command', () => {
         });
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         const newSession = sessions.find(s => s.id !== templateId);
 
         expect(newSession!.description).toBe('Team meeting'); // From template
@@ -1122,7 +1122,7 @@ describe('next command', () => {
         nextCommand(['123', 'and', 'more', 'words'], {});
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         expect(sessions).toHaveLength(1);
         expect(sessions[0].description).toBe('123 and more words');
       } finally {

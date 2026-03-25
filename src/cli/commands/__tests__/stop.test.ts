@@ -168,7 +168,7 @@ describe('stop command', () => {
         await stopCommand({});
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         expect(sessions).toHaveLength(1);
         expect(sessions[0].state).toBe('completed');
 

@@ -342,7 +342,7 @@ _tt_completion() {
             else
                 case "$subcmd" in
                     get|set)
-                        COMPREPLY=($(compgen -W "weekStartDay reportFormat listFormat timeFormat editor" -- "$cur"))
+                        COMPREPLY=($(compgen -W "weekStartDay reportFormat listFormat timeFormat dateFormat dateFormatShort locale editor churn.enabled churn.db_path" -- "$cur"))
                         ;;
                     edit|path)
                         COMPREPLY=($(compgen -W "--help" -- "$cur"))
@@ -356,21 +356,12 @@ _tt_completion() {
                 --from|--to)
                     COMPREPLY=($(compgen -W "yesterday today monday tuesday wednesday thursday friday saturday sunday" -- "$cur"))
                     ;;
-                -p|--project)
-                    if command -v tt-completion-helper >/dev/null 2>&1; then
-                        COMPREPLY=($(compgen -W "$(tt-completion-helper projects 2>/dev/null)" -- "$cur"))
-                    fi
-                    ;;
-                -t|--tag)
-                    if command -v tt-completion-helper >/dev/null 2>&1; then
-                        COMPREPLY=($(compgen -W "$(tt-completion-helper tags 2>/dev/null)" -- "$cur"))
-                    fi
-                    ;;
-                -s|--state)
+                --state)
                     COMPREPLY=($(compgen -W "working paused completed abandoned" -- "$cur"))
                     ;;
                 *)
-                    COMPREPLY=($(compgen -W "--from --to -p --project -t --tag -s --state --help" -- "$cur"))
+                    # query supports inline @project and +tag syntax
+                    COMPREPLY=($(compgen -W "--from --to --state --help" -- "$cur"))
                     ;;
             esac
             ;;

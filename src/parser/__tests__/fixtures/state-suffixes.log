@@ -1,0 +1,5 @@
+2025-03-10 09:00 Task one @project +code ->completed
+10:00 Task two @project +code ->paused
+11:00 Task three @project +code ->abandoned
+12:00 Task four @project +code
+13:00 Cleanup task @project +admin

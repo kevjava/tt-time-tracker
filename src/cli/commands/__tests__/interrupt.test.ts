@@ -101,7 +101,7 @@ describe('interrupt command', () => {
         interruptCommand('Urgent customer call', {});
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         expect(sessions).toHaveLength(2);
 
         const interruption = sessions.find((s) => s.description === 'Urgent customer call');
@@ -124,7 +124,7 @@ describe('interrupt command', () => {
         interruptCommand(['Quick', 'bug', 'fix', 'needed'], {});
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         const interruption = sessions.find((s) => s.description === 'Quick bug fix needed');
         expect(interruption).toBeDefined();
       } finally {
@@ -144,7 +144,7 @@ describe('interrupt command', () => {
         });
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         const interruption = sessions.find((s) => s.description === 'Code review');
         expect(interruption).toBeDefined();
         expect(interruption!.project).toBe('teamWork');
@@ -167,7 +167,7 @@ describe('interrupt command', () => {
         interruptCommand('Production issue', { at: '-30m' });
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         const interruption = sessions.find((s) => s.description === 'Production issue');
         expect(interruption).toBeDefined();
 
@@ -189,7 +189,7 @@ describe('interrupt command', () => {
         interruptCommand('Quick fix', { project: 'hotfix' });
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         const interruption = sessions.find((s) => s.description === 'Quick fix');
         expect(interruption).toBeDefined();
         expect(interruption!.project).toBe('hotfix');
@@ -206,7 +206,7 @@ describe('interrupt command', () => {
         interruptCommand('Team meeting', { tags: 'meeting,standup' });
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         const interruption = sessions.find((s) => s.description === 'Team meeting');
         expect(interruption).toBeDefined();
 
@@ -225,7 +225,7 @@ describe('interrupt command', () => {
         interruptCommand('Client call', { estimate: '15m' });
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         const interruption = sessions.find((s) => s.description === 'Client call');
         expect(interruption).toBeDefined();
         expect(interruption!.estimateMinutes).toBe(15);
@@ -247,7 +247,7 @@ describe('interrupt command', () => {
         });
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         const interruption = sessions.find((s) => s.description === 'Bug fix');
         expect(interruption).toBeDefined();
         expect(interruption!.project).toBe('backend');
@@ -274,7 +274,7 @@ describe('interrupt command', () => {
         interruptCommand('2024-12-28 16:45 Emergency deploy @ops +critical', {});
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         const interruption = sessions.find((s) => s.description === 'Emergency deploy');
         expect(interruption).toBeDefined();
         expect(interruption!.project).toBe('ops');
@@ -299,7 +299,7 @@ describe('interrupt command', () => {
         interruptCommand('10:00 Production issue @ops', { at: '-30m' });
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         const interruption = sessions.find((s) => s.description === 'Production issue');
         expect(interruption).toBeDefined();
         expect(interruption!.project).toBe('ops');
@@ -329,7 +329,7 @@ describe('interrupt command', () => {
         interruptCommand('Quick question @meetings', {});
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         const interruption = sessions.find((s) => s.description === 'Quick question');
         expect(interruption).toBeDefined();
         expect(interruption!.project).toBe('meetings');
@@ -347,7 +347,7 @@ describe('interrupt command', () => {
         interruptCommand('Quick question +interruption +urgent', {});
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         const interruption = sessions.find((s) => s.description === 'Quick question');
         expect(interruption).toBeDefined();
 
@@ -366,7 +366,7 @@ describe('interrupt command', () => {
         interruptCommand('Quick question from colleague @meetings +interruption', {});
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         const interruption = sessions.find((s) => s.description === 'Quick question from colleague');
         expect(interruption).toBeDefined();
         expect(interruption!.project).toBe('meetings');
@@ -386,7 +386,7 @@ describe('interrupt command', () => {
         interruptCommand('Quick call @phone +call ~15m', {});
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         const interruption = sessions.find((s) => s.description === 'Quick call');
         expect(interruption).toBeDefined();
         expect(interruption!.project).toBe('phone');
@@ -410,7 +410,7 @@ describe('interrupt command', () => {
         });
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         const interruption = sessions.find((s) => s.description === 'Task');
         expect(interruption).toBeDefined();
         // Command-line options should override inline notation
@@ -432,7 +432,7 @@ describe('interrupt command', () => {
         interruptCommand('Quick task @project +tag', {});
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         const interruption = sessions.find((s) => s.description === 'Quick task');
         expect(interruption).toBeDefined();
 
@@ -461,7 +461,7 @@ describe('interrupt command', () => {
         interruptCommand('Fix', { at: '-20m', project: 'backend' });
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         const interruption = sessions.find((s) => s.description === 'Fix');
         expect(interruption).toBeDefined();
         expect(interruption!.project).toBe('backend');
@@ -478,7 +478,7 @@ describe('interrupt command', () => {
         interruptCommand('Review', { at: '-10m', tags: 'urgent' });
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         const interruption = sessions.find((s) => s.description === 'Review');
         expect(interruption).toBeDefined();
 
@@ -497,7 +497,7 @@ describe('interrupt command', () => {
         interruptCommand('Meeting', { at: '-5m', estimate: '30m' });
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         const interruption = sessions.find((s) => s.description === 'Meeting');
         expect(interruption).toBeDefined();
         expect(interruption!.estimateMinutes).toBe(30);
@@ -519,7 +519,7 @@ describe('interrupt command', () => {
         });
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         const interruption = sessions.find((s) => s.description === 'Task');
         expect(interruption).toBeDefined();
         expect(interruption!.project).toBe('frontend');
@@ -555,15 +555,15 @@ describe('interrupt command', () => {
       }
     });
 
-    it('should set parent session ID', () => {
+    it('should set parent session ID', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        interruptCommand('Quick task', {});
+        await interruptCommand('Quick task', {});
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         const interruption = sessions.find((s) => s.description === 'Quick task');
         expect(interruption).toBeDefined();
         expect(interruption!.parentSessionId).toBe(1);
@@ -580,7 +580,7 @@ describe('interrupt command', () => {
         interruptCommand('First interruption', {});
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
 
         const mainTask = sessions.find((s) => s.description === 'Main task');
         const interruption = sessions.find((s) => s.description === 'First interruption');
@@ -664,7 +664,7 @@ describe('interrupt command', () => {
         interruptCommand('99:99 Invalid time format', {});
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         const interruption = sessions.find((s) => s.description === '99:99 Invalid time format');
         expect(interruption).toBeDefined();
       } finally {
@@ -672,15 +672,15 @@ describe('interrupt command', () => {
       }
     });
 
-    it('should handle description that starts with numbers but is not a timestamp', () => {
+    it('should handle description that starts with numbers but is not a timestamp', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        interruptCommand('911 emergency call', {});
+        await interruptCommand('911 emergency call', {});
         reopenDb();
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date());
+        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
         const interruption = sessions.find((s) => s.description === '911 emergency call');
         expect(interruption).toBeDefined();
       } finally {
