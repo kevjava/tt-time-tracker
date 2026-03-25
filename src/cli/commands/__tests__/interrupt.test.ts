@@ -93,12 +93,12 @@ describe('interrupt command', () => {
   });
 
   describe('plain description', () => {
-    it('should create interruption with plain description', () => {
+    it('should create interruption with plain description', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        interruptCommand('Urgent customer call', {});
+        await interruptCommand('Urgent customer call', {});
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -116,12 +116,12 @@ describe('interrupt command', () => {
       }
     });
 
-    it('should handle variadic arguments', () => {
+    it('should handle variadic arguments', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        interruptCommand(['Quick', 'bug', 'fix', 'needed'], {});
+        await interruptCommand(['Quick', 'bug', 'fix', 'needed'], {});
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -132,12 +132,12 @@ describe('interrupt command', () => {
       }
     });
 
-    it('should apply command-line options', () => {
+    it('should apply command-line options', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        interruptCommand('Code review', {
+        await interruptCommand('Code review', {
           project: 'teamWork',
           tags: 'review,urgent',
           estimate: '30m'
@@ -159,12 +159,12 @@ describe('interrupt command', () => {
   });
 
   describe('log notation parsing', () => {
-    it('should support --at flag for retroactive interrupts', () => {
+    it('should support --at flag for retroactive interrupts', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        interruptCommand('Production issue', { at: '-30m' });
+        await interruptCommand('Production issue', { at: '-30m' });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -181,12 +181,12 @@ describe('interrupt command', () => {
       }
     });
 
-    it('should support project via command-line option', () => {
+    it('should support project via command-line option', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        interruptCommand('Quick fix', { project: 'hotfix' });
+        await interruptCommand('Quick fix', { project: 'hotfix' });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -198,12 +198,12 @@ describe('interrupt command', () => {
       }
     });
 
-    it('should support tags via command-line option', () => {
+    it('should support tags via command-line option', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        interruptCommand('Team meeting', { tags: 'meeting,standup' });
+        await interruptCommand('Team meeting', { tags: 'meeting,standup' });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -217,12 +217,12 @@ describe('interrupt command', () => {
       }
     });
 
-    it('should support estimate via command-line option', () => {
+    it('should support estimate via command-line option', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        interruptCommand('Client call', { estimate: '15m' });
+        await interruptCommand('Client call', { estimate: '15m' });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -234,12 +234,12 @@ describe('interrupt command', () => {
       }
     });
 
-    it('should combine command-line options with --at flag', () => {
+    it('should combine command-line options with --at flag', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        interruptCommand('Bug fix', {
+        await interruptCommand('Bug fix', {
           at: '-15m',
           project: 'backend',
           tags: 'urgent,bugfix',
@@ -266,12 +266,12 @@ describe('interrupt command', () => {
       }
     });
 
-    it('should parse log notation with full timestamp', () => {
+    it('should parse log notation with full timestamp', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        interruptCommand('2024-12-28 16:45 Emergency deploy @ops +critical', {});
+        await interruptCommand('2024-12-28 16:45 Emergency deploy @ops +critical', {});
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -290,13 +290,13 @@ describe('interrupt command', () => {
       }
     });
 
-    it('should override log notation timestamp with --at flag', () => {
+    it('should override log notation timestamp with --at flag', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
         // Log notation says 10:00, but --at says -30m (30 minutes ago)
-        interruptCommand('10:00 Production issue @ops', { at: '-30m' });
+        await interruptCommand('10:00 Production issue @ops', { at: '-30m' });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -321,12 +321,12 @@ describe('interrupt command', () => {
   });
 
   describe('inline notation without timestamp', () => {
-    it('should parse project from description without timestamp', () => {
+    it('should parse project from description without timestamp', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        interruptCommand('Quick question @meetings', {});
+        await interruptCommand('Quick question @meetings', {});
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -339,12 +339,12 @@ describe('interrupt command', () => {
       }
     });
 
-    it('should parse tags from description without timestamp', () => {
+    it('should parse tags from description without timestamp', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        interruptCommand('Quick question +interruption +urgent', {});
+        await interruptCommand('Quick question +interruption +urgent', {});
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -358,12 +358,12 @@ describe('interrupt command', () => {
       }
     });
 
-    it('should parse project and tags from description without timestamp', () => {
+    it('should parse project and tags from description without timestamp', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        interruptCommand('Quick question from colleague @meetings +interruption', {});
+        await interruptCommand('Quick question from colleague @meetings +interruption', {});
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -378,12 +378,12 @@ describe('interrupt command', () => {
       }
     });
 
-    it('should parse estimate from description without timestamp', () => {
+    it('should parse estimate from description without timestamp', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        interruptCommand('Quick call @phone +call ~15m', {});
+        await interruptCommand('Quick call @phone +call ~15m', {});
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -399,12 +399,12 @@ describe('interrupt command', () => {
       }
     });
 
-    it('should allow command-line options to override inline notation', () => {
+    it('should allow command-line options to override inline notation', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        interruptCommand('Task @inlineProject +inlineTag', {
+        await interruptCommand('Task @inlineProject +inlineTag', {
           project: 'commandProject',
           tags: 'commandTag'
         });
@@ -423,13 +423,13 @@ describe('interrupt command', () => {
       }
     });
 
-    it('should not use timestamp from dummy parsing', () => {
+    it('should not use timestamp from dummy parsing', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
         const beforeTime = new Date();
-        interruptCommand('Quick task @project +tag', {});
+        await interruptCommand('Quick task @project +tag', {});
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -453,12 +453,12 @@ describe('interrupt command', () => {
   });
 
   describe('combining multiple options', () => {
-    it('should support combining project with --at', () => {
+    it('should support combining project with --at', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        interruptCommand('Fix', { at: '-20m', project: 'backend' });
+        await interruptCommand('Fix', { at: '-20m', project: 'backend' });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -470,12 +470,12 @@ describe('interrupt command', () => {
       }
     });
 
-    it('should support combining tags with --at', () => {
+    it('should support combining tags with --at', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        interruptCommand('Review', { at: '-10m', tags: 'urgent' });
+        await interruptCommand('Review', { at: '-10m', tags: 'urgent' });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -489,12 +489,12 @@ describe('interrupt command', () => {
       }
     });
 
-    it('should support combining estimate with --at', () => {
+    it('should support combining estimate with --at', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        interruptCommand('Meeting', { at: '-5m', estimate: '30m' });
+        await interruptCommand('Meeting', { at: '-5m', estimate: '30m' });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -506,12 +506,12 @@ describe('interrupt command', () => {
       }
     });
 
-    it('should support combining project, tags, and estimate with --at', () => {
+    it('should support combining project, tags, and estimate with --at', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        interruptCommand('Task', {
+        await interruptCommand('Task', {
           at: '-45m',
           project: 'frontend',
           tags: 'ui,bugfix',
@@ -540,12 +540,12 @@ describe('interrupt command', () => {
   });
 
   describe('interruption behavior', () => {
-    it('should pause parent session', () => {
+    it('should pause parent session', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        interruptCommand('Quick task', {});
+        await interruptCommand('Quick task', {});
         reopenDb();
 
         const parent = db.getSessionById(1);
@@ -572,12 +572,12 @@ describe('interrupt command', () => {
       }
     });
 
-    it('should create nested parent-child relationships', () => {
+    it('should create nested parent-child relationships', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        interruptCommand('First interruption', {});
+        await interruptCommand('First interruption', {});
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -601,7 +601,7 @@ describe('interrupt command', () => {
   });
 
   describe('error handling', () => {
-    it('should error if no active session', () => {
+    it('should error if no active session', async () => {
       const originalError = console.error;
       console.error = jest.fn();
 
@@ -611,7 +611,7 @@ describe('interrupt command', () => {
       db.updateSession(1, { endTime, state: 'completed' });
 
       try {
-        interruptCommand('Cannot interrupt', {});
+        await interruptCommand('Cannot interrupt', {});
 
         expect(mockExit).toHaveBeenCalledWith(1);
         expect(console.error).toHaveBeenCalledWith(
@@ -622,12 +622,12 @@ describe('interrupt command', () => {
       }
     });
 
-    it('should error on empty description', () => {
+    it('should error on empty description', async () => {
       const originalError = console.error;
       console.error = jest.fn();
 
       try {
-        interruptCommand('', {});
+        await interruptCommand('', {});
 
         expect(mockExit).toHaveBeenCalledWith(1);
         expect(console.error).toHaveBeenCalledWith(
@@ -638,12 +638,12 @@ describe('interrupt command', () => {
       }
     });
 
-    it('should error on invalid estimate format', () => {
+    it('should error on invalid estimate format', async () => {
       const originalError = console.error;
       console.error = jest.fn();
 
       try {
-        interruptCommand('Task', { estimate: 'bad-format' });
+        await interruptCommand('Task', { estimate: 'bad-format' });
 
         expect(mockExit).toHaveBeenCalledWith(1);
         expect(console.error).toHaveBeenCalledWith(
@@ -656,12 +656,12 @@ describe('interrupt command', () => {
   });
 
   describe('fallback behavior', () => {
-    it('should treat malformed log notation as plain description', () => {
+    it('should treat malformed log notation as plain description', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        interruptCommand('99:99 Invalid time format', {});
+        await interruptCommand('99:99 Invalid time format', {});
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
