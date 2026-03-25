@@ -106,14 +106,14 @@ describe('start command', () => {
   });
 
   describe('plain description', () => {
-    it('should create session with plain description', () => {
+    it('should create session with plain description', async () => {
       const originalLog = console.log;
       const originalError = console.error;
       console.log = jest.fn();
       console.error = jest.fn();
 
       try {
-        startCommand('Fix authentication bug', {});
+        await startCommand('Fix authentication bug', {});
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -128,12 +128,12 @@ describe('start command', () => {
       }
     });
 
-    it('should handle variadic arguments', () => {
+    it('should handle variadic arguments', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        startCommand(['Review', 'PR', '123', 'for', 'auth'], {});
+        await startCommand(['Review', 'PR', '123', 'for', 'auth'], {});
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -144,12 +144,12 @@ describe('start command', () => {
       }
     });
 
-    it('should apply command-line options', () => {
+    it('should apply command-line options', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        startCommand('Implement feature', {
+        await startCommand('Implement feature', {
           project: 'myApp',
           tags: 'dev,urgent',
           estimate: '2h'
@@ -171,12 +171,12 @@ describe('start command', () => {
   });
 
   describe('log notation parsing', () => {
-    it('should support --at flag with time format', () => {
+    it('should support --at flag with time format', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        startCommand('Fix bug', { at: '-2h' });
+        await startCommand('Fix bug', { at: '-2h' });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -193,12 +193,12 @@ describe('start command', () => {
       }
     });
 
-    it('should support project via command-line option', () => {
+    it('should support project via command-line option', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        startCommand('Implement feature', { project: 'ProjectX' });
+        await startCommand('Implement feature', { project: 'ProjectX' });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -210,12 +210,12 @@ describe('start command', () => {
       }
     });
 
-    it('should support tags via command-line option', () => {
+    it('should support tags via command-line option', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        startCommand('Code review', { tags: 'review,urgent' });
+        await startCommand('Code review', { tags: 'review,urgent' });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -229,12 +229,12 @@ describe('start command', () => {
       }
     });
 
-    it('should support estimate via command-line option', () => {
+    it('should support estimate via command-line option', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        startCommand('Write tests', { estimate: '1h30m' });
+        await startCommand('Write tests', { estimate: '1h30m' });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -246,7 +246,7 @@ describe('start command', () => {
       }
     });
 
-    it('should parse log notation with all components', () => {
+    it('should parse log notation with all components', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
@@ -255,7 +255,7 @@ describe('start command', () => {
         const pastTime = new Date(Date.now() - 60 * 60 * 1000);
         const timeStr = `${String(pastTime.getHours()).padStart(2, '0')}:${String(pastTime.getMinutes()).padStart(2, '0')}`;
 
-        startCommand(`${timeStr} Implement auth @myApp +code +backend ~2h`, {});
+        await startCommand(`${timeStr} Implement auth @myApp +code +backend ~2h`, {});
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -275,12 +275,12 @@ describe('start command', () => {
       }
     });
 
-    it('should parse log notation with full timestamp', () => {
+    it('should parse log notation with full timestamp', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        startCommand('2024-12-25 14:30 Holiday coding @fun +personal', {});
+        await startCommand('2024-12-25 14:30 Holiday coding @fun +personal', {});
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -301,12 +301,12 @@ describe('start command', () => {
   });
 
   describe('inline notation without timestamp', () => {
-    it('should parse project from description without timestamp', () => {
+    it('should parse project from description without timestamp', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        startCommand('Backend stubs for 3436 @elms', {});
+        await startCommand('Backend stubs for 3436 @elms', {});
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -319,12 +319,12 @@ describe('start command', () => {
       }
     });
 
-    it('should parse tags from description without timestamp', () => {
+    it('should parse tags from description without timestamp', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        startCommand('Fix authentication bug +bug +urgent', {});
+        await startCommand('Fix authentication bug +bug +urgent', {});
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -338,12 +338,12 @@ describe('start command', () => {
       }
     });
 
-    it('should parse project and tags from description without timestamp', () => {
+    it('should parse project and tags from description without timestamp', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        startCommand('Backend stubs for 3436 @elms +code', {});
+        await startCommand('Backend stubs for 3436 @elms +code', {});
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -358,12 +358,12 @@ describe('start command', () => {
       }
     });
 
-    it('should parse estimate from description without timestamp', () => {
+    it('should parse estimate from description without timestamp', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        startCommand('Implement new feature @myApp +code ~3h', {});
+        await startCommand('Implement new feature @myApp +code ~3h', {});
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -379,12 +379,12 @@ describe('start command', () => {
       }
     });
 
-    it('should allow command-line options to override inline notation', () => {
+    it('should allow command-line options to override inline notation', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        startCommand('Task description @inlineProject +inlineTag', {
+        await startCommand('Task description @inlineProject +inlineTag', {
           project: 'commandProject',
           tags: 'commandTag'
         });
@@ -403,13 +403,13 @@ describe('start command', () => {
       }
     });
 
-    it('should not use timestamp from dummy parsing', () => {
+    it('should not use timestamp from dummy parsing', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
         const beforeTime = new Date();
-        startCommand('Work on feature @myApp +code', {});
+        await startCommand('Work on feature @myApp +code', {});
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -432,12 +432,12 @@ describe('start command', () => {
   });
 
   describe('combining multiple options', () => {
-    it('should support combining project with other options', () => {
+    it('should support combining project with other options', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        startCommand('Fix bug', { project: 'ProjectB', estimate: '1h' });
+        await startCommand('Fix bug', { project: 'ProjectB', estimate: '1h' });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -449,12 +449,12 @@ describe('start command', () => {
       }
     });
 
-    it('should support combining tags with other options', () => {
+    it('should support combining tags with other options', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        startCommand('Fix bug', { tags: 'urgent,critical', project: 'backend' });
+        await startCommand('Fix bug', { tags: 'urgent,critical', project: 'backend' });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -468,12 +468,12 @@ describe('start command', () => {
       }
     });
 
-    it('should support combining estimate with other options', () => {
+    it('should support combining estimate with other options', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        startCommand('Fix bug', { estimate: '30m', tags: 'bugfix' });
+        await startCommand('Fix bug', { estimate: '30m', tags: 'bugfix' });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -487,12 +487,12 @@ describe('start command', () => {
       }
     });
 
-    it('should support combining --at with other options', () => {
+    it('should support combining --at with other options', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        startCommand('Task', { at: '-3h', project: 'ProjectB', tags: 'test' });
+        await startCommand('Task', { at: '-3h', project: 'ProjectB', tags: 'test' });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -513,16 +513,16 @@ describe('start command', () => {
   });
 
   describe('error handling', () => {
-    it('should error if session already active', () => {
+    it('should error if session already active', async () => {
       const originalLog = console.log;
       const originalError = console.error;
       console.log = jest.fn();
       console.error = jest.fn();
 
       try {
-        startCommand('First task', {});
+        await startCommand('First task', {});
         reopenDb(); // First command succeeds
-        startCommand('Second task', {}); // Second command should fail
+        await startCommand('Second task', {}); // Second command should fail
 
         expect(mockExit).toHaveBeenCalledWith(1);
         expect(console.error).toHaveBeenCalledWith(
@@ -534,12 +534,12 @@ describe('start command', () => {
       }
     });
 
-    it('should error on empty description', () => {
+    it('should error on empty description', async () => {
       const originalError = console.error;
       console.error = jest.fn();
 
       try {
-        startCommand('', {});
+        await startCommand('', {});
 
         expect(mockExit).toHaveBeenCalledWith(1);
         expect(console.error).toHaveBeenCalledWith(
@@ -550,12 +550,12 @@ describe('start command', () => {
       }
     });
 
-    it('should error on invalid estimate format', () => {
+    it('should error on invalid estimate format', async () => {
       const originalError = console.error;
       console.error = jest.fn();
 
       try {
-        startCommand('Task', { estimate: 'invalid' });
+        await startCommand('Task', { estimate: 'invalid' });
 
         expect(mockExit).toHaveBeenCalledWith(1);
         expect(console.error).toHaveBeenCalledWith(
@@ -568,7 +568,7 @@ describe('start command', () => {
   });
 
   describe('fallback behavior', () => {
-    it('should treat malformed log notation as plain description', () => {
+    it('should treat malformed log notation as plain description', async () => {
       const originalLog = console.log;
       const originalError = console.error;
       console.log = jest.fn();
@@ -576,7 +576,7 @@ describe('start command', () => {
 
       try {
         // This looks like it might be log notation but isn't valid
-        startCommand('99:99 Invalid time', {});
+        await startCommand('99:99 Invalid time', {});
 
         // Check if process.exit was called
         if (mockExit.mock.calls.length > 0) {
@@ -595,12 +595,12 @@ describe('start command', () => {
       }
     });
 
-    it('should handle description that starts with numbers but is not a timestamp', () => {
+    it('should handle description that starts with numbers but is not a timestamp', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        startCommand('123 Main Street analysis', {});
+        await startCommand('123 Main Street analysis', {});
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -613,12 +613,12 @@ describe('start command', () => {
   });
 
   describe('--at flag (retroactive tracking)', () => {
-    it('should start session at specified time', () => {
+    it('should start session at specified time', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        startCommand('Task 1', { at: '09:00' });
+        await startCommand('Task 1', { at: '09:00' });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -656,13 +656,13 @@ describe('start command', () => {
       }
     });
 
-    it('should allow starting after previous session ended', () => {
+    it('should allow starting after previous session ended', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
         // Start and stop first session
-        startCommand('Task 1', { at: '09:00' });
+        await startCommand('Task 1', { at: '09:00' });
         reopenDb();
 
         const sessions1 = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -679,7 +679,7 @@ describe('start command', () => {
         reopenDb();
 
         // Start second session after first ends
-        startCommand('Task 2', { at: '10:00' });
+        await startCommand('Task 2', { at: '10:00' });
         reopenDb();
 
         const sessions2 = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -689,12 +689,12 @@ describe('start command', () => {
       }
     });
 
-    it('should combine --at with other options', () => {
+    it('should combine --at with other options', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        startCommand('Task', {
+        await startCommand('Task', {
           at: '09:00',
           project: 'myApp',
           tags: 'code,urgent',
@@ -717,13 +717,13 @@ describe('start command', () => {
       }
     });
 
-    it('should override log notation timestamp with --at flag', () => {
+    it('should override log notation timestamp with --at flag', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
         // Log notation says 10:00, but --at says 09:00
-        startCommand('10:00 Task @project', { at: '09:00' });
+        await startCommand('10:00 Task @project', { at: '09:00' });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -739,7 +739,7 @@ describe('start command', () => {
   });
 
   describe('session ID as template', () => {
-    it('should duplicate metadata from existing session', () => {
+    it('should duplicate metadata from existing session', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
@@ -758,7 +758,7 @@ describe('start command', () => {
         db.insertSessionTags(templateId, ['meeting', 'recurring']);
 
         // Start a new session using the template
-        startCommand([templateId.toString()], {});
+        await startCommand([templateId.toString()], {});
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -778,7 +778,7 @@ describe('start command', () => {
       }
     });
 
-    it('should allow overriding template metadata with options', () => {
+    it('should allow overriding template metadata with options', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
@@ -797,7 +797,7 @@ describe('start command', () => {
         db.insertSessionTags(templateId, ['meeting']);
 
         // Start a new session using the template but override some fields
-        startCommand([templateId.toString()], {
+        await startCommand([templateId.toString()], {
           project: 'newProject',
           tags: 'standup,quick',
           estimate: '15m',
@@ -818,14 +818,14 @@ describe('start command', () => {
       }
     });
 
-    it('should error on non-existent session ID', () => {
+    it('should error on non-existent session ID', async () => {
       const originalLog = console.log;
       const originalError = console.error;
       console.log = jest.fn();
       console.error = jest.fn();
 
       try {
-        startCommand(['9999'], {});
+        await startCommand(['9999'], {});
 
         expect(mockExit).toHaveBeenCalledWith(1);
         expect(console.error).toHaveBeenCalledWith(
@@ -843,7 +843,7 @@ describe('start command', () => {
 
       try {
         // This should be treated as a description, not a session ID
-        startCommand(['123', 'and', 'more', 'words'], {});
+        await startCommand(['123', 'and', 'more', 'words'], {});
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -854,7 +854,7 @@ describe('start command', () => {
       }
     });
 
-    it('should show template source in output', () => {
+    it('should show template source in output', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
@@ -869,7 +869,7 @@ describe('start command', () => {
           state: 'completed',
         });
 
-        startCommand([templateId.toString()], {});
+        await startCommand([templateId.toString()], {});
 
         expect(console.log).toHaveBeenCalledWith(
           expect.stringContaining(`Template: Session ${templateId}`)
