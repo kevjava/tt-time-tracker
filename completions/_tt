@@ -332,11 +332,16 @@ _tt_config() {
             get|set)
                 local -a config_keys
                 config_keys=(
-                    'weekStartDay:Week start day (0-6, 0=Sunday)'
-                    'reportFormat:Default report format'
-                    'listFormat:Default list format'
+                    'weekStartDay:Week start day (monday/sunday)'
+                    'reportFormat:Default report format (terminal/json/csv)'
+                    'listFormat:Default list format (table/log)'
                     'timeFormat:Time format (12h/24h)'
+                    'dateFormat:Long date format string (e.g. MMM d, yyyy)'
+                    'dateFormatShort:Short date format string (e.g. MMM d)'
+                    'locale:Locale for date formatting (e.g. en-GB, de, fr)'
                     'editor:Preferred editor'
+                    'churn.enabled:Enable churn task scheduler (true/false)'
+                    'churn.db_path:Path to churn database file'
                 )
                 _describe 'config key' config_keys
                 ;;
@@ -349,14 +354,9 @@ _tt_config() {
 
 _tt_find() {
     _arguments \
-        '*:search terms:' \
+        '*:search query (supports @project +tag syntax):' \
         '--from[Start date]:date:_tt_fuzzy_dates' \
         '--to[End date]:date:_tt_fuzzy_dates' \
-        '-p[Filter by project]:project:_tt_recent_projects' \
-        '--project[Filter by project]:project:_tt_recent_projects' \
-        '-t[Filter by tag]:tags:_tt_recent_tags' \
-        '--tag[Filter by tag]:tags:_tt_recent_tags' \
-        '-s[Filter by state]:state:_tt_states' \
         '--state[Filter by state]:state:_tt_states' \
         '--help[Show help]'
 }
