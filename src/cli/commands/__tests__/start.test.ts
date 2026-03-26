@@ -837,7 +837,7 @@ describe('start command', () => {
       }
     });
 
-    it('should treat multi-word arguments as description, not session ID', () => {
+    it('should treat multi-word arguments as description, not session ID', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 

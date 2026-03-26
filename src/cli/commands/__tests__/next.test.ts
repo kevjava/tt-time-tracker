@@ -13,9 +13,15 @@ jest.mock('chalk', () => {
   const mockFn = (s: string) => s;
   const mockChalk = {
     green: Object.assign(mockFn, { bold: mockFn }),
-    gray: mockFn,
+    gray: Object.assign(mockFn, { italic: mockFn }),
     red: mockFn,
     yellow: Object.assign(mockFn, { bold: mockFn }),
+    cyan: mockFn,
+    magenta: mockFn,
+    blue: mockFn,
+    bold: Object.assign(mockFn, { cyan: mockFn }),
+    italic: mockFn,
+    dim: mockFn,
   };
   return {
     default: mockChalk,
@@ -83,7 +89,7 @@ describe('next command', () => {
   });
 
   describe('basic functionality', () => {
-    it('should stop active task and start new task', () => {
+    it('should stop active task and start new task', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
@@ -97,7 +103,7 @@ describe('next command', () => {
         });
 
         // Use next to stop it and start a new one
-        nextCommand('New task', {});
+        await nextCommand('New task', {});
         reopenDb();
 
         // Verify previous task was stopped
@@ -118,13 +124,13 @@ describe('next command', () => {
       }
     });
 
-    it('should work when no active task exists', () => {
+    it('should work when no active task exists', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
         // No active task - should just start a new one
-        nextCommand('First task', {});
+        await nextCommand('First task', {});
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -136,12 +142,12 @@ describe('next command', () => {
       }
     });
 
-    it('should handle variadic arguments', () => {
+    it('should handle variadic arguments', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        nextCommand(['Review', 'PR', '123', 'for', 'auth'], {});
+        await nextCommand(['Review', 'PR', '123', 'for', 'auth'], {});
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -152,7 +158,7 @@ describe('next command', () => {
       }
     });
 
-    it('should handle multiple next calls in sequence', () => {
+    it('should handle multiple next calls in sequence', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
@@ -169,11 +175,11 @@ describe('next command', () => {
         reopenDb();
 
         // Use next to switch to Task 2
-        nextCommand('Task 2', { project: 'ProjectB' });
+        await nextCommand('Task 2', { project: 'ProjectB' });
         reopenDb();
 
         // Use next to switch to Task 3
-        nextCommand('Task 3', { project: 'ProjectC' });
+        await nextCommand('Task 3', { project: 'ProjectC' });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -198,7 +204,7 @@ describe('next command', () => {
       }
     });
 
-    it('should set correct end time on previous task', () => {
+    it('should set correct end time on previous task', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
@@ -213,7 +219,7 @@ describe('next command', () => {
         const beforeNext = new Date();
 
         // Next to second task
-        nextCommand('Second task', {});
+        await nextCommand('Second task', {});
         reopenDb();
 
         const afterNext = new Date();
@@ -231,12 +237,12 @@ describe('next command', () => {
   });
 
   describe('command-line options', () => {
-    it('should apply project option', () => {
+    it('should apply project option', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        nextCommand('Implement feature', { project: 'myApp' });
+        await nextCommand('Implement feature', { project: 'myApp' });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -248,12 +254,12 @@ describe('next command', () => {
       }
     });
 
-    it('should apply tags option', () => {
+    it('should apply tags option', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        nextCommand('Code review', { tags: 'review,urgent' });
+        await nextCommand('Code review', { tags: 'review,urgent' });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -267,12 +273,12 @@ describe('next command', () => {
       }
     });
 
-    it('should apply estimate option', () => {
+    it('should apply estimate option', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        nextCommand('Write tests', { estimate: '1h30m' });
+        await nextCommand('Write tests', { estimate: '1h30m' });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -284,12 +290,12 @@ describe('next command', () => {
       }
     });
 
-    it('should apply all options together', () => {
+    it('should apply all options together', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        nextCommand('Implement feature', {
+        await nextCommand('Implement feature', {
           project: 'myApp',
           tags: 'dev,urgent',
           estimate: '2h',
@@ -311,12 +317,12 @@ describe('next command', () => {
   });
 
   describe('log notation parsing', () => {
-    it('should parse project from inline notation', () => {
+    it('should parse project from inline notation', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        nextCommand('Backend stubs for 3436 @elms', {});
+        await nextCommand('Backend stubs for 3436 @elms', {});
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -328,12 +334,12 @@ describe('next command', () => {
       }
     });
 
-    it('should parse tags from inline notation', () => {
+    it('should parse tags from inline notation', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        nextCommand('Fix authentication bug +bug +urgent', {});
+        await nextCommand('Fix authentication bug +bug +urgent', {});
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -347,12 +353,12 @@ describe('next command', () => {
       }
     });
 
-    it('should parse project and tags from inline notation', () => {
+    it('should parse project and tags from inline notation', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        nextCommand('Backend stubs for 3436 @elms +code', {});
+        await nextCommand('Backend stubs for 3436 @elms +code', {});
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -367,12 +373,12 @@ describe('next command', () => {
       }
     });
 
-    it('should parse estimate from inline notation', () => {
+    it('should parse estimate from inline notation', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        nextCommand('Implement new feature @myApp +code ~3h', {});
+        await nextCommand('Implement new feature @myApp +code ~3h', {});
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -388,7 +394,7 @@ describe('next command', () => {
       }
     });
 
-    it('should parse log notation with timestamp', () => {
+    it('should parse log notation with timestamp', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
@@ -397,7 +403,7 @@ describe('next command', () => {
         const pastTime = new Date(Date.now() - 60 * 60 * 1000);
         const timeStr = `${String(pastTime.getHours()).padStart(2, '0')}:${String(pastTime.getMinutes()).padStart(2, '0')}`;
 
-        nextCommand(`${timeStr} Implement auth @myApp +code +backend ~2h`, {});
+        await nextCommand(`${timeStr} Implement auth @myApp +code +backend ~2h`, {});
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -417,12 +423,12 @@ describe('next command', () => {
       }
     });
 
-    it('should allow command-line options to override inline notation', () => {
+    it('should allow command-line options to override inline notation', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        nextCommand('Task description @inlineProject +inlineTag', {
+        await nextCommand('Task description @inlineProject +inlineTag', {
           project: 'commandProject',
           tags: 'commandTag',
         });
@@ -443,7 +449,7 @@ describe('next command', () => {
   });
 
   describe('--at flag (retroactive tracking)', () => {
-    it('should stop previous task and start new task at specified time', () => {
+    it('should stop previous task and start new task at specified time', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
@@ -456,7 +462,7 @@ describe('next command', () => {
         });
 
         // Next to new task 1 hour ago
-        nextCommand('Second task', { at: '-1h' });
+        await nextCommand('Second task', { at: '-1h' });
         reopenDb();
 
         // First task should be stopped at -1h
@@ -482,12 +488,12 @@ describe('next command', () => {
       }
     });
 
-    it('should work with --at when no active task exists', () => {
+    it('should work with --at when no active task exists', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        nextCommand('Task', { at: '-2h' });
+        await nextCommand('Task', { at: '-2h' });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -502,12 +508,12 @@ describe('next command', () => {
       }
     });
 
-    it('should combine --at with other options', () => {
+    it('should combine --at with other options', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        nextCommand('Task', {
+        await nextCommand('Task', {
           at: '-1h',
           project: 'myApp',
           tags: 'code,urgent',
@@ -532,7 +538,7 @@ describe('next command', () => {
       }
     });
 
-    it('should override log notation timestamp with --at flag', () => {
+    it('should override log notation timestamp with --at flag', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
@@ -541,7 +547,7 @@ describe('next command', () => {
         const pastTime = new Date(Date.now() - 60 * 60 * 1000);
         const timeStr = `${String(pastTime.getHours()).padStart(2, '0')}:${String(pastTime.getMinutes()).padStart(2, '0')}`;
 
-        nextCommand(`${timeStr} Task @project`, { at: '-2h' });
+        await nextCommand(`${timeStr} Task @project`, { at: '-2h' });
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -558,12 +564,12 @@ describe('next command', () => {
   });
 
   describe('error handling', () => {
-    it('should error on empty description', () => {
+    it('should error on empty description', async () => {
       const originalError = console.error;
       console.error = jest.fn();
 
       try {
-        nextCommand('', {});
+        await nextCommand('', {});
 
         expect(mockExit).toHaveBeenCalledWith(1);
         expect(console.error).toHaveBeenCalledWith(
@@ -574,12 +580,12 @@ describe('next command', () => {
       }
     });
 
-    it('should error on invalid estimate format', () => {
+    it('should error on invalid estimate format', async () => {
       const originalError = console.error;
       console.error = jest.fn();
 
       try {
-        nextCommand('Task', { estimate: 'invalid' });
+        await nextCommand('Task', { estimate: 'invalid' });
 
         expect(mockExit).toHaveBeenCalledWith(1);
         expect(console.error).toHaveBeenCalledWith(
@@ -592,7 +598,7 @@ describe('next command', () => {
   });
 
   describe('edge cases', () => {
-    it('should handle next after manually stopped task', () => {
+    it('should handle next after manually stopped task', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
@@ -606,7 +612,7 @@ describe('next command', () => {
         });
 
         // Next should just start a new task
-        nextCommand('New task', {});
+        await nextCommand('New task', {});
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -624,7 +630,7 @@ describe('next command', () => {
       }
     });
 
-    it('should preserve tags and project from previous task when using next', () => {
+    it('should preserve tags and project from previous task when using next', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
@@ -639,7 +645,7 @@ describe('next command', () => {
         db.insertSessionTags(firstSessionId, ['tag1', 'tag2']);
 
         // Next to second task with different project/tags
-        nextCommand('Second task @ProjectB +tag3', {});
+        await nextCommand('Second task @ProjectB +tag3', {});
         reopenDb();
 
         // First task should still have its original project and tags
@@ -661,7 +667,7 @@ describe('next command', () => {
       }
     });
 
-    it('should not error when next is called twice quickly', () => {
+    it('should not error when next is called twice quickly', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
@@ -675,7 +681,7 @@ describe('next command', () => {
         reopenDb();
 
         // Call next to switch to Task 2
-        nextCommand('Task 2', {});
+        await nextCommand('Task 2', {});
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -691,7 +697,7 @@ describe('next command', () => {
       }
     });
 
-    it('should handle paused task', () => {
+    it('should handle paused task', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
@@ -705,7 +711,7 @@ describe('next command', () => {
         });
 
         // Next should just start a new task (paused task is not "active")
-        nextCommand('New task', {});
+        await nextCommand('New task', {});
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -723,7 +729,7 @@ describe('next command', () => {
       }
     });
 
-    it('should handle abandoned task', () => {
+    it('should handle abandoned task', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
@@ -737,7 +743,7 @@ describe('next command', () => {
         });
 
         // Next should just start a new task
-        nextCommand('New task', {});
+        await nextCommand('New task', {});
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -757,12 +763,12 @@ describe('next command', () => {
   });
 
   describe('console output', () => {
-    it('should display start confirmation for new task', () => {
+    it('should display start confirmation for new task', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        nextCommand('Test task', {});
+        await nextCommand('Test task', {});
 
         expect(console.log).toHaveBeenCalledWith(
           expect.stringContaining('✓')
@@ -775,12 +781,12 @@ describe('next command', () => {
       }
     });
 
-    it('should display project when provided', () => {
+    it('should display project when provided', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        nextCommand('Task', { project: 'myApp' });
+        await nextCommand('Task', { project: 'myApp' });
 
         expect(console.log).toHaveBeenCalledWith(
           expect.stringContaining('Project: myApp')
@@ -790,12 +796,12 @@ describe('next command', () => {
       }
     });
 
-    it('should display tags when provided', () => {
+    it('should display tags when provided', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        nextCommand('Task', { tags: 'code,urgent' });
+        await nextCommand('Task', { tags: 'code,urgent' });
 
         expect(console.log).toHaveBeenCalledWith(
           expect.stringContaining('Tags: code, urgent')
@@ -805,12 +811,12 @@ describe('next command', () => {
       }
     });
 
-    it('should display estimate when provided', () => {
+    it('should display estimate when provided', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        nextCommand('Task', { estimate: '2h30m' });
+        await nextCommand('Task', { estimate: '2h30m' });
 
         expect(console.log).toHaveBeenCalledWith(
           expect.stringContaining('Estimate: 2h30m')
@@ -820,12 +826,12 @@ describe('next command', () => {
       }
     });
 
-    it('should display start time when using --at', () => {
+    it('should display start time when using --at', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
-        nextCommand('Task', { at: '-1h' });
+        await nextCommand('Task', { at: '-1h' });
 
         expect(console.log).toHaveBeenCalledWith(
           expect.stringContaining('Start time:')
@@ -837,7 +843,7 @@ describe('next command', () => {
   });
 
   describe('interruption handling', () => {
-    it('should error when called during an interruption', () => {
+    it('should error when called during an interruption', async () => {
       const originalError = console.error;
       console.error = jest.fn();
 
@@ -863,7 +869,7 @@ describe('next command', () => {
         });
 
         // Try to use next during the interruption
-        nextCommand('New task', {});
+        await nextCommand('New task', {});
 
         expect(mockExit).toHaveBeenCalledWith(1);
         expect(console.error).toHaveBeenCalledWith(
@@ -877,7 +883,7 @@ describe('next command', () => {
       }
     });
 
-    it('should show error message with correct command name', () => {
+    it('should show error message with correct command name', async () => {
       const originalError = console.error;
       console.error = jest.fn();
 
@@ -898,7 +904,7 @@ describe('next command', () => {
         });
 
         // Try to use next during the interruption
-        nextCommand('New task', {});
+        await nextCommand('New task', {});
 
         expect(mockExit).toHaveBeenCalledWith(1);
         // Should suggest running tt next after resume
@@ -910,7 +916,7 @@ describe('next command', () => {
       }
     });
 
-    it('should work normally when not in an interruption', () => {
+    it('should work normally when not in an interruption', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
@@ -923,7 +929,7 @@ describe('next command', () => {
         });
 
         // Use next - should work normally
-        nextCommand('New task', {});
+        await nextCommand('New task', {});
         reopenDb();
 
         // Verify previous task was stopped
@@ -940,7 +946,7 @@ describe('next command', () => {
       }
     });
 
-    it('should include interruption description in error message', () => {
+    it('should include interruption description in error message', async () => {
       const originalError = console.error;
       console.error = jest.fn();
 
@@ -959,7 +965,7 @@ describe('next command', () => {
           parentSessionId: parentId,
         });
 
-        nextCommand('Another task', {});
+        await nextCommand('Another task', {});
 
         expect(console.error).toHaveBeenCalledWith(
           expect.stringContaining('Quick email check')
@@ -971,7 +977,7 @@ describe('next command', () => {
   });
 
   describe('session ID as template', () => {
-    it('should duplicate metadata from existing session', () => {
+    it('should duplicate metadata from existing session', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
@@ -990,7 +996,7 @@ describe('next command', () => {
         db.insertSessionTags(templateId, ['meeting', 'recurring']);
 
         // Start a new session using the template
-        nextCommand([templateId.toString()], {});
+        await nextCommand([templateId.toString()], {});
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -1054,7 +1060,7 @@ describe('next command', () => {
       }
     });
 
-    it('should allow overriding template metadata with options', () => {
+    it('should allow overriding template metadata with options', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
@@ -1073,7 +1079,7 @@ describe('next command', () => {
         db.insertSessionTags(templateId, ['meeting']);
 
         // Start a new session using the template but override some fields
-        nextCommand([templateId.toString()], {
+        await nextCommand([templateId.toString()], {
           project: 'newProject',
           tags: 'standup,quick',
           estimate: '15m',
@@ -1094,14 +1100,14 @@ describe('next command', () => {
       }
     });
 
-    it('should error on non-existent session ID', () => {
+    it('should error on non-existent session ID', async () => {
       const originalLog = console.log;
       const originalError = console.error;
       console.log = jest.fn();
       console.error = jest.fn();
 
       try {
-        nextCommand(['9999'], {});
+        await nextCommand(['9999'], {});
 
         expect(mockExit).toHaveBeenCalledWith(1);
         expect(console.error).toHaveBeenCalledWith(
@@ -1113,13 +1119,13 @@ describe('next command', () => {
       }
     });
 
-    it('should treat multi-word arguments as description, not session ID', () => {
+    it('should treat multi-word arguments as description, not session ID', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
       try {
         // This should be treated as a description, not a session ID
-        nextCommand(['123', 'and', 'more', 'words'], {});
+        await nextCommand(['123', 'and', 'more', 'words'], {});
         reopenDb();
 
         const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 1000));
@@ -1130,7 +1136,7 @@ describe('next command', () => {
       }
     });
 
-    it('should show template source in output', () => {
+    it('should show template source in output', async () => {
       const originalLog = console.log;
       console.log = jest.fn();
 
@@ -1145,7 +1151,7 @@ describe('next command', () => {
           state: 'completed',
         });
 
-        nextCommand([templateId.toString()], {});
+        await nextCommand([templateId.toString()], {});
 
         expect(console.log).toHaveBeenCalledWith(
           expect.stringContaining(`Template: Session ${templateId}`)
