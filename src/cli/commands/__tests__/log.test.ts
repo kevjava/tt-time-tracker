@@ -418,12 +418,14 @@ describe('log command', () => {
       }
     });
 
-    it('should not create continuation link if no matching paused session', async () => {
+    it('should error when @resume with criteria finds no matching paused session', async () => {
       const originalLog = console.log;
+      const originalError = console.error;
       console.log = jest.fn();
+      console.error = jest.fn();
 
       try {
-        // Create a test file where @resume doesn't match anything
+        // Create a test file where @resume doesn't match any paused session
         const testFile = path.join(testDataDir, 'resume-no-match.log');
         fs.writeFileSync(testFile, `
 08:00 Task A @project +code ->completed
@@ -433,14 +435,78 @@ describe('log command', () => {
 
         await logCommand(testFile);
 
-        const sessions = db.getSessionsByTimeRange(new Date(0), new Date(Date.now() + 24 * 60 * 60 * 1000));
-
-        // Task B should exist but have no continuesSessionId
-        const taskB = sessions.find(s => s.description === 'Task B');
-        expect(taskB).toBeDefined();
-        expect(taskB?.continuesSessionId).toBeUndefined();
+        expect(mockExit).toHaveBeenCalledWith(1);
+        const errorOutput = (console.error as jest.Mock).mock.calls.join('\n');
+        expect(errorOutput).toContain('@resume found no matching paused session');
+        expect(errorOutput).toContain('Task B');
       } finally {
         console.log = originalLog;
+        console.error = originalError;
+      }
+    });
+
+    it('should include description, project, and tag in @resume error message', async () => {
+      const originalError = console.error;
+      console.error = jest.fn();
+
+      try {
+        const testFile = path.join(testDataDir, 'resume-no-match-criteria.log');
+        fs.writeFileSync(testFile, `
+08:00 Task A @proj +tag1 ->completed
+09:00 @resume My Task @myproject +mytag
+`.trim());
+
+        await logCommand(testFile);
+
+        expect(mockExit).toHaveBeenCalledWith(1);
+        const errorOutput = (console.error as jest.Mock).mock.calls.join('\n');
+        expect(errorOutput).toContain('My Task');
+        expect(errorOutput).toContain('@myproject');
+        expect(errorOutput).toContain('+mytag');
+      } finally {
+        console.error = originalError;
+      }
+    });
+
+    it('should include line number in @resume error message', async () => {
+      const originalError = console.error;
+      console.error = jest.fn();
+
+      try {
+        const testFile = path.join(testDataDir, 'resume-no-match-lineno.log');
+        fs.writeFileSync(testFile, `08:00 Task A ->completed
+09:00 @resume Task A @missing
+`.trim());
+
+        await logCommand(testFile);
+
+        expect(mockExit).toHaveBeenCalledWith(1);
+        const errorOutput = (console.error as jest.Mock).mock.calls.join('\n');
+        expect(errorOutput).toMatch(/Line \d+/);
+      } finally {
+        console.error = originalError;
+      }
+    });
+
+    it('should error when @resume with project only finds no matching paused session', async () => {
+      const originalError = console.error;
+      console.error = jest.fn();
+
+      try {
+        const testFile = path.join(testDataDir, 'resume-no-match-project.log');
+        fs.writeFileSync(testFile, `
+08:00 Task A @projectA ->completed
+09:00 @resume @projectB
+`.trim());
+
+        await logCommand(testFile);
+
+        expect(mockExit).toHaveBeenCalledWith(1);
+        const errorOutput = (console.error as jest.Mock).mock.calls.join('\n');
+        expect(errorOutput).toContain('@resume found no matching paused session');
+        expect(errorOutput).toContain('@projectB');
+      } finally {
+        console.error = originalError;
       }
     });
 

@@ -207,6 +207,13 @@ function insertEntries(db: TimeTrackerDB, entries: LogEntry[]): { sessions: numb
             // Find the root of the chain and point to that
             const chainRoot = db.getChainRoot(pausedSession.id!);
             continuesSessionId = chainRoot?.id;
+          } else {
+            const criteria = [
+              entry.description,
+              entry.project ? `@${entry.project}` : null,
+              primaryTag ? `+${primaryTag}` : null,
+            ].filter(Boolean).join(' ');
+            throw new Error(`Line ${entry.lineNumber}: @resume found no matching paused session for: ${criteria}`);
           }
         }
       } else if (entry.resumeMarkerValue === 'prev') {
